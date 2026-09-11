@@ -1,9 +1,4 @@
-/**
- * extractor.js
- * Turns raw job-description text into structured RADAR fields.
- * Every function here is pure: same input always returns the same output,
- * no DOM access, no globals mutated. That is what tests/run.js exercises.
- */
+// JD text -> RADAR fields. No DOM, no side effects — see tests/run.js and tests/jd-bank.js.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     const Countries = require("./countries.js");
@@ -15,7 +10,7 @@
 })(typeof self !== "undefined" ? self : this, function (Countries, Keywords) {
   "use strict";
 
-  const MAX_INPUT_LENGTH = 20000; // guardrail against pathological input
+  const MAX_INPUT_LENGTH = 20000;
 
   function dedupe(arr) {
     const seen = new Set();
@@ -87,10 +82,6 @@
     return m ? [m[0].trim()] : [];
   }
 
-  /**
-   * Analyzes free-text JD and returns suggested RADAR fields.
-   * Caller decides whether/how to merge these into existing state.
-   */
   function analyzeJD(rawText) {
     const text = String(rawText || "").slice(0, MAX_INPUT_LENGTH);
     if (!text.trim()) {

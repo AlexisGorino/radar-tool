@@ -1,15 +1,9 @@
-/**
- * app.js
- * Wires the DOM to the pure engine (extractor.js + generator.js).
- * Rendering rule followed throughout: user-provided text only ever goes
- * into the page through .textContent, never .innerHTML — this is the one
- * XSS-relevant rule for a static, no-backend tool like this one.
- */
+// UI layer. Talks to extractor.js / generator.js, never touches innerHTML with user input.
 (function () {
   "use strict";
 
   const FIELDS = ["rol", "atributos", "dominio", "alcance", "refinar"];
-  const MAX_FILE_BYTES = 500 * 1024; // 500 KB is generous for a plain-text JD
+  const MAX_FILE_BYTES = 500 * 1024;
 
   const state = { rol: [], atributos: [], dominio: [], alcance: [], refinar: [] };
   let selectedNetwork = "linkedin";
@@ -63,7 +57,7 @@
       chip.className = "chip";
 
       const span = document.createElement("span");
-      span.textContent = term; // safe: text node, never parsed as markup
+      span.textContent = term;
 
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
@@ -104,7 +98,7 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "synonym-pill";
-      btn.textContent = "+ " + syn; // static concatenation with user-independent data, still via textContent
+      btn.textContent = "+ " + syn;
       btn.addEventListener("click", () => {
         addTerm("rol", syn);
       });
@@ -115,7 +109,7 @@
   function addTerm(field, rawValue) {
     const value = rawValue.trim().replace(/,$/, "");
     if (!value) return;
-    if (state[field].some((t) => t.toLowerCase() === value.toLowerCase())) return; // no dupes
+    if (state[field].some((t) => t.toLowerCase() === value.toLowerCase())) return;
     state[field].push(value);
     renderChips(field);
     if (field === "rol") renderSynonyms();
@@ -170,7 +164,7 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "network-tab" + (id === selectedNetwork ? " active" : "");
-      btn.textContent = net.label; // static, trusted labels — fine as textContent regardless
+      btn.textContent = net.label;
       btn.addEventListener("click", () => selectNetwork(id));
       networkTabsEl.appendChild(btn);
     });
@@ -212,11 +206,11 @@
     if (!file) return;
     const isTxt = file.type === "text/plain" || /\.txt$/i.test(file.name);
     if (!isTxt) {
-      showError("Solo se aceptan archivos .txt por ahora. Copiá y pegá el texto si viene de Word o PDF.");
+      showError("Solo se aceptan archivos .txt por ahora. Copiá y pegá el texto si viene de Word o PDF.", "file");
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      showError("El archivo pesa más de 500 KB. Pegá el texto directamente en el cuadro.");
+      showError("El archivo pesa más de 500 KB. Pegá el texto directamente en el cuadro.", "file");
       return;
     }
     const reader = new FileReader();
@@ -224,7 +218,7 @@
       jdInput.value = String(reader.result || "").slice(0, 20000);
       runAnalysis();
     };
-    reader.onerror = () => showError("No se pudo leer el archivo.");
+    reader.onerror = () => showError("No se pudo leer el archivo.", "file");
     reader.readAsText(file);
   }
 
@@ -250,19 +244,24 @@
   // ---------------------------------------------------------------
   // Inline error messaging (no blocking alert())
   // ---------------------------------------------------------------
-  let errorEl = null;
-  function showError(msg) {
-    if (!errorEl) {
-      errorEl = document.createElement("div");
-      errorEl.style.color = "#F11423";
-      errorEl.style.fontSize = "12.5px";
-      errorEl.style.marginTop = "10px";
-      errorEl.style.fontWeight = "700";
-      document.getElementById("generateBtn").insertAdjacentElement("afterend", errorEl);
+  const errorSlots = {};
+  function errorAnchor(kind) {
+    return kind === "file" ? document.querySelector(".row-actions") : document.getElementById("generateBtn");
+  }
+  function showError(msg, kind) {
+    const key = kind === "file" ? "file" : "generate";
+    if (!errorSlots[key]) {
+      const el = document.createElement("div");
+      el.style.color = "#F11423";
+      el.style.fontSize = "12.5px";
+      el.style.marginTop = "10px";
+      el.style.fontWeight = "700";
+      errorAnchor(key).insertAdjacentElement("afterend", el);
+      errorSlots[key] = el;
     }
-    errorEl.textContent = msg;
+    errorSlots[key].textContent = msg;
     setTimeout(() => {
-      if (errorEl) errorEl.textContent = "";
+      if (errorSlots[key]) errorSlots[key].textContent = "";
     }, 4000);
   }
 
@@ -344,7 +343,7 @@
     minStarsInput.value = "";
     selectNetwork("linkedin");
     resultsEl.classList.remove("show");
-    if (errorEl) errorEl.textContent = "";
+    Object.values(errorSlots).forEach((el) => (el.textContent = ""));
   });
 
   // ---------------------------------------------------------------
@@ -364,7 +363,7 @@
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(0, MAX_HISTORY)));
     } catch (e) {
-      // localStorage unavailable (private mode / quota) — fail silently, history is a convenience
+      // private browsing / storage quota — history just won't persist this session
     }
   }
 

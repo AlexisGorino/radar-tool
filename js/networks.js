@@ -1,8 +1,4 @@
-/**
- * networks.js
- * Definitions for each searchable network: the domain used for X-Ray search,
- * a short label, and whether it has a native search mode instead of X-Ray.
- */
+// Searchable networks: X-Ray domain, display label, and search mode.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     module.exports = factory();

@@ -1,10 +1,6 @@
-/**
- * jd-bank.js
- * Large battery of realistic job postings across LATAM, Argentina, Spain,
- * Mexico and Europe, in different phrasings/formats, to stress-test
- * analyzeJD() precision on role, skills, domain, location and seniority.
- * Run with: node tests/jd-bank.js
- */
+// node tests/jd-bank.js
+// Regression bank of real-world postings (LATAM, Spain, Europe) against
+// analyzeJD() — catches drift in role/skill/domain/location precision.
 const path = require("path");
 const Extractor = require(path.join(__dirname, "..", "js", "extractor.js"));
 

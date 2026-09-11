@@ -1,10 +1,5 @@
-/**
- * countries.js
- * Location data used for country detection and the country filter.
- * Each country maps to a list of matching terms (name variants + main cities).
- * Terms are matched as whole words, case-insensitive, accent-sensitive is handled
- * by including both accented and unaccented variants explicitly.
- */
+// Country/city terms for location detection. Accented and unaccented
+// variants are listed explicitly since matching stays accent-sensitive.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     module.exports = factory();

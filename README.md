@@ -129,6 +129,12 @@ después (te lo ofrece la misma pantalla).
 Cualquiera de las tres sirve para lo mismo: una URL pública para
 compartir con el equipo. Netlify Drop es la que menos pasos tiene.
 
+## Más documentación
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — por qué está armado así, capas y límites de cada módulo.
+- [`SECURITY.md`](SECURITY.md) — modelo de amenaza y controles implementados.
+- [`TESTING.md`](TESTING.md) — cómo correr los tests automáticos y checklist de QA manual.
+
 ## Créditos
 
 © Mindata. Todos los derechos reservados.

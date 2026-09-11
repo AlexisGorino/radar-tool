@@ -1,8 +1,4 @@
-/**
- * generator.js
- * Builds boolean query strings and ready-to-open search URLs from RADAR state.
- * Pure functions only — no DOM, no network calls. See tests/run.js.
- */
+// RADAR state -> boolean strings and search URLs. Pure, no DOM/network.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     const Keywords = require("./keywords.js");
@@ -16,10 +12,10 @@
   const MAX_TERMS_PER_GROUP = 4; // keeps the boolean short and readable
 
   function quoteIfPhrase(term) {
-    return term.includes(" ") ? `"${term}"` : term;
+    const clean = term.replace(/"/g, "").trim();
+    return clean.includes(" ") ? `"${clean}"` : clean;
   }
 
-  /** Joins up to MAX_TERMS_PER_GROUP terms with OR, wrapped in parens if more than one. */
   function orGroup(terms) {
     const trimmed = (terms || []).filter(Boolean).slice(0, MAX_TERMS_PER_GROUP);
     const parts = trimmed.map(quoteIfPhrase);
@@ -32,11 +28,8 @@
     return [orGroup(state.rol), orGroup(state.atributos), orGroup(state.dominio), orGroup(state.alcance)].filter(Boolean);
   }
 
-  /**
-   * The universal boolean: AND/OR/NOT/quotes only, no site-specific syntax.
-   * Works as typed in LinkedIn Recruiter, most ATS search boxes, and as the
-   * base for the X-Ray variants below.
-   */
+  // AND/OR/NOT/quotes only, no site-specific syntax — works as typed in
+  // LinkedIn Recruiter and most ATS search boxes, and is the base for X-Ray.
   function buildUniversalBoolean(state) {
     const blocks = coreBlocks(state);
     if (!blocks.length) return "";

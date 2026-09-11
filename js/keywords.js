@@ -1,8 +1,4 @@
-/**
- * keywords.js
- * Domain vocabulary used by the extractor: technical skills, industries,
- * seniority markers and a small synonym table for common IT/business roles.
- */
+// Skills, industries, seniority markers and role synonyms used by extractor.js.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     module.exports = factory();

@@ -1,9 +1,4 @@
-/**
- * tests/run.js
- * Run with: node tests/run.js
- * No framework dependency on purpose — this has to run anywhere, including
- * inside a CI step on a free Vercel/Netlify build with zero setup.
- */
+// node tests/run.js — zero deps, runs anywhere including a bare CI box.
 const assert = require("assert");
 const path = require("path");
 
@@ -187,6 +182,15 @@ jdBank.forEach((c) => {
   });
 });
 
+test("input past MAX_INPUT_LENGTH is truncated before processing, does not hang or crash", () => {
+  const huge = "Buscamos Backend Developer Python. " + "relleno ".repeat(50000); // ~430KB
+  const start = Date.now();
+  const result = Extractor.analyzeJD(huge);
+  const elapsed = Date.now() - start;
+  assert.ok(elapsed < 2000, `analyzeJD took too long on oversized input: ${elapsed}ms`);
+  assert.ok(result.rol.length > 0, "still extracts a role from the truncated prefix");
+});
+
 test("HTML-like text in JD never gets executed or specially parsed — it is just a string", () => {
   const result = Extractor.analyzeJD("<img src=x onerror=alert(1)> Buscamos Analista para banca");
   // guessRol may or may not pick this up depending on line heuristics; the point is
@@ -223,6 +227,13 @@ test("universal boolean applies NOT for every refinar term", () => {
   const bool = Generator.buildUniversalBoolean(state);
   assert.ok(bool.includes("NOT junior"));
   assert.ok(bool.includes("NOT trainee"));
+});
+
+test("a term with an embedded double quote never produces a malformed boolean", () => {
+  const state = { rol: ['Java "Enterprise" Developer'], atributos: [], dominio: [], alcance: [], refinar: [] };
+  const bool = Generator.buildUniversalBoolean(state);
+  assert.strictEqual(bool, '"Java Enterprise Developer"');
+  assert.strictEqual((bool.match(/"/g) || []).length, 2, `expected exactly one quoted phrase, got: ${bool}`);
 });
 
 test("empty state produces empty boolean, not a crash", () => {
