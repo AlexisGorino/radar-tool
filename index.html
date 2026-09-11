@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none';">
+<meta name="description" content="RADAR: generador de booleanos de sourcing para reclutadores. Convertí una JD en un booleano preciso para LinkedIn, Google X-Ray, GitHub y más. Método Mindata.">
+<title>RADAR — Generador de booleanos · Mindata</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-left">
+      <img src="assets/mindata-logo.png" alt="Mindata" class="brand-logo">
+      <div class="brand-titles">
+        <span class="brand-kicker">MÉTODO</span>
+        <h1 class="brand-title">RADAR</h1>
+      </div>
+    </div>
+    <div class="brand-right">
+      <button class="btn btn-ghost btn-small" id="historyToggleBtn" type="button">Historial</button>
+      <button class="btn btn-ghost btn-small" id="helpBtn" type="button">¿Cómo se usa?</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="intro">Pegá una JD, arrastrá un archivo de texto, o completá los campos a mano. Vas a obtener un booleano corto y listo para usar en cualquier buscador, más variantes para LinkedIn, GitHub y otras redes.</p>
+
+  <section class="card">
+    <h2>1 · Job description</h2>
+    <p class="hint">Detector de palabras clave: no es magia, revisá las sugerencias antes de generar.</p>
+
+    <div id="dropzone" class="dropzone">
+      <textarea id="jdInput" maxlength="20000" placeholder="Pegá el texto de la JD acá, o soltá un archivo .txt en esta zona..."></textarea>
+      <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
+    </div>
+    <div class="row-actions">
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar JD</button>
+      <label class="file-label">
+        o subí un archivo .txt
+        <input type="file" id="fileInput" accept=".txt,text/plain">
+      </label>
+      <button class="btn btn-ghost" id="clearAllBtn" type="button">Borrar todo</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Campos RADAR</h2>
+    <p class="hint">Escribí un término y Enter para agregarlo. Click en la × para sacarlo. Sin límite de términos.</p>
+
+    <div class="radar-grid">
+      <div class="field">
+        <div class="field-letter">R</div>
+        <div class="field-label">Rol</div>
+        <div class="field-desc">Título del puesto</div>
+        <div class="chips" id="chips-rol"></div>
+        <input type="text" class="field-input" data-field="rol" placeholder="Escribí y Enter" maxlength="80">
+        <div class="synonyms-row hidden" id="synonymsRow">
+          <span class="synonyms-label">+ sinónimos:</span>
+          <div class="synonyms-list" id="synonymsList"></div>
+        </div>
+      </div>
+      <div class="field field-alt">
+        <div class="field-letter">A</div>
+        <div class="field-label">Atributos</div>
+        <div class="field-desc">Skills, herramientas</div>
+        <div class="chips" id="chips-atributos"></div>
+        <input type="text" class="field-input" data-field="atributos" placeholder="Escribí y Enter" maxlength="80">
+      </div>
+      <div class="field">
+        <div class="field-letter">D</div>
+        <div class="field-label">Dominio</div>
+        <div class="field-desc">Industria</div>
+        <div class="chips" id="chips-dominio"></div>
+        <input type="text" class="field-input" data-field="dominio" placeholder="Escribí y Enter" maxlength="80">
+      </div>
+      <div class="field field-alt">
+        <div class="field-letter">A</div>
+        <div class="field-label">Alcance</div>
+        <div class="field-desc">Ubicación, modalidad, seniority</div>
+        <div class="alcance-country-row">
+          <select id="countrySelect" aria-label="País">
+            <option value="">País...</option>
+          </select>
+        </div>
+        <div class="chips" id="chips-alcance"></div>
+        <input type="text" class="field-input" data-field="alcance" placeholder="Escribí y Enter" maxlength="80">
+      </div>
+      <div class="field">
+        <div class="field-letter field-letter-exclude">R</div>
+        <div class="field-label field-label-exclude">Refinar</div>
+        <div class="field-desc">Excluir (NOT)</div>
+        <div class="chips" id="chips-refinar"></div>
+        <input type="text" class="field-input" data-field="refinar" placeholder="Escribí y Enter" maxlength="80">
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3 · Dónde buscar</h2>
+    <p class="hint">Elegí la red. Cada una tiene su propia sintaxis, ya ajustada.</p>
+    <div class="network-tabs" id="networkTabs"></div>
+    <div class="custom-site-row hidden" id="customSiteRow">
+      <label>Dominio del sitio <input type="text" id="customSiteInput" placeholder="ej: bumeran.com.ar"></label>
+    </div>
+    <div class="github-mode-row hidden" id="githubModeRow">
+      <label><input type="radio" name="ghmode" value="people" checked> Buscar personas</label>
+      <label><input type="radio" name="ghmode" value="repos"> Buscar repositorios</label>
+      <label class="stars-input hidden" id="starsInputWrap">Mín. estrellas <input type="number" id="minStars" min="0" placeholder="100"></label>
+    </div>
+  </section>
+
+  <div class="generate-row">
+    <button class="btn btn-primary" id="generateBtn" type="button">Armar booleano</button>
+  </div>
+
+  <section class="results" id="results">
+
+    <div class="result-hero" id="resultHero">
+      <div class="result-hero-label">Booleano universal</div>
+      <div class="boolean-box boolean-box-lg" id="out-universal">—</div>
+      <p class="platform-note">AND / OR / NOT y comillas. Sirve tal cual en LinkedIn Recruiter y en la mayoría de los buscadores internos de portales y ATS.</p>
+      <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
+    </div>
+
+    <div class="result-secondary" id="resultXray">
+      <div class="platform-head">
+        <div class="platform-name" id="xrayNetworkLabel">X-Ray</div>
+        <button class="btn btn-copy" data-copy="out-xray" type="button">Copiar</button>
+      </div>
+      <div class="boolean-box" id="out-xray">—</div>
+      <div class="engine-buttons">
+        <a class="btn btn-engine" id="openGoogle" href="#" target="_blank" rel="noopener noreferrer">Abrir en Google</a>
+        <a class="btn btn-engine" id="openBing" href="#" target="_blank" rel="noopener noreferrer">Abrir en Bing</a>
+      </div>
+      <p class="platform-note" id="xrayNote"></p>
+    </div>
+
+    <div class="result-secondary hidden" id="resultGithub">
+      <div class="platform-head">
+        <div class="platform-name">GitHub</div>
+      </div>
+      <div class="engine-buttons">
+        <a class="btn btn-engine" id="openGithub" href="#" target="_blank" rel="noopener noreferrer">Abrir en GitHub</a>
+      </div>
+      <p class="platform-note">Búsqueda nativa de GitHub, no X-Ray: usa sus propios calificadores (language:, location:, stars:).</p>
+    </div>
+
+  </section>
+
+  <p class="privacy-note">Todo corre en tu navegador. Ningún dato de la JD sale de esta página ni se guarda en ningún servidor. El historial (si lo usás) se guarda solo en este navegador, nunca se envía a ningún lado.</p>
+
+</main>
+
+<aside class="side-panel hidden" id="historyPanel">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3>Historial de búsquedas</h3>
+      <button class="btn-close" id="closeHistoryBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <p class="hint">Últimas búsquedas en este navegador. Click para recuperar los campos.</p>
+    <div id="historyList" class="history-list"></div>
+    <button class="btn btn-ghost btn-small" id="clearHistoryBtn" type="button">Borrar historial</button>
+  </div>
+</aside>
+
+<aside class="side-panel hidden" id="helpPanel">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3>Método RADAR</h3>
+      <button class="btn-close" id="closeHelpBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <dl class="help-dl">
+      <dt>R · Rol</dt><dd>Título del puesto. Escribilo como lo escribiría el candidato en su perfil, no como lo nombra la empresa internamente.</dd>
+      <dt>A · Atributos</dt><dd>Skills, herramientas, tecnologías o certificaciones clave. 2 o 3 bien elegidos rinden más que diez genéricos.</dd>
+      <dt>D · Dominio</dt><dd>Industria o vertical del negocio (banca, retail, fintech...). Útil cuando el conocimiento de sector importa tanto como el skill técnico.</dd>
+      <dt>A · Alcance</dt><dd>País/ciudad, modalidad (remoto/híbrido/presencial) y seniority.</dd>
+      <dt>R · Refinar</dt><dd>Términos a excluir (NOT / -). Sirve para sacar de la búsqueda seniorities o roles que suelen aparecer mezclados.</dd>
+    </dl>
+    <p class="hint">Tip: pegá la JD completa y usá "Analizar JD" — el detector completa los cinco campos solo. Siempre revisá antes de generar.</p>
+    <p class="hint">Atajo de teclado: <strong>Ctrl/Cmd + Enter</strong> arma el booleano desde cualquier campo.</p>
+  </div>
+</aside>
+<div class="side-panel-backdrop hidden" id="sidePanelBackdrop"></div>
+
+<footer class="page-footer">
+  <img src="assets/mindata-logo.png" alt="Mindata" class="footer-logo">
+  <p class="footer-credit">Método RADAR — creado por <strong>Ale Gorino</strong> y <strong>Franco Velazco</strong> para el equipo de Mindata.</p>
+  <p class="footer-rights">© <span id="footerYear"></span> Mindata. Todos los derechos reservados.</p>
+</footer>
+
+<script src="js/countries.js"></script>
+<script src="js/keywords.js"></script>
+<script src="js/networks.js"></script>
+<script src="js/extractor.js"></script>
+<script src="js/generator.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
