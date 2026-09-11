@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'none'; base-uri 'none'; form-action 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'self' https://formsubmit.co; base-uri 'none'; form-action 'none';">
 <meta name="description" content="RADAR: generador de booleanos de sourcing para reclutadores. Convertí una JD en un booleano preciso para LinkedIn, Google X-Ray, GitHub y más. Método Mindata.">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -153,7 +153,7 @@
 
   </section>
 
-  <p class="privacy-note">Todo corre en tu navegador. Ningún dato de la JD sale de esta página ni se guarda en ningún servidor. El historial (si lo usás) se guarda solo en este navegador, nunca se envía a ningún lado. Lo único que sale es lo que vos mandes desde "¿Sugerencias o encontraste un bug?", y solo si vos apretás enviar en tu mail.</p>
+  <p class="privacy-note">Todo corre en tu navegador. Ningún dato de la JD sale de esta página ni se guarda en ningún servidor. El historial (si lo usás) se guarda solo en este navegador, nunca se envía a ningún lado. Lo único que sale es lo que escribas en "¿Sugerencias o encontraste un bug?", y solo cuando tocás Enviar.</p>
 
   <div class="feedback-row">
     <button class="btn btn-ghost btn-small" id="feedbackBtn" type="button">¿Sugerencias o encontraste un bug?</button>
@@ -198,8 +198,14 @@
       <h3>Reportar un bug o sugerencia</h3>
       <button class="btn-close" id="closeFeedbackBtn" type="button" aria-label="Cerrar">×</button>
     </div>
-    <p class="hint">Se abre tu cliente de mail con esto ya cargado, dirigido a Ale y Franco. Vos decidís si lo enviás.</p>
+    <p class="hint">Se manda directo, sin abrir tu mail. Elegí a quién.</p>
     <div class="feedback-form">
+      <label class="feedback-label" for="feedbackTo">Enviar a</label>
+      <select id="feedbackTo">
+        <option value="alexis">Alexis</option>
+        <option value="franco">Franco</option>
+        <option value="ambos">Ambos</option>
+      </select>
       <label class="feedback-label" for="feedbackType">Tipo</label>
       <select id="feedbackType">
         <option value="Bug">Bug — algo no funciona bien</option>
@@ -207,7 +213,7 @@
       </select>
       <label class="feedback-label" for="feedbackText">Contame qué pasó o qué se te ocurrió</label>
       <textarea id="feedbackText" rows="6" maxlength="2000" placeholder="Ej: al generar el booleano con la red Xing seleccionada, el botón..."></textarea>
-      <button class="btn btn-primary" id="sendFeedbackBtn" type="button">Abrir mail para enviar</button>
+      <button class="btn btn-primary" id="sendFeedbackBtn" type="button">Enviar</button>
       <p class="hint" id="feedbackHint"></p>
     </div>
   </div>

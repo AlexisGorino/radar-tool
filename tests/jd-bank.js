@@ -212,6 +212,49 @@ const cases = [
     expectDominio: "retail",
     expectCountry: "Argentina",
   },
+
+  // -----------------------------------------------------------------
+  // Short-form input: just "rol + ubicación", no JD paragraph at all.
+  // A very common real usage pattern — recruiter types a quick search
+  // instead of pasting a full posting. The location must not bleed
+  // into the role text.
+  // -----------------------------------------------------------------
+  {
+    name: "corto - 'sap fico en brasil' (bug reportado: ubicación colándose en el rol)",
+    text: "sap fico en brasil",
+    expectRolExact: "sap fico",
+    expectRolNotContains: ["brasil", " en "],
+    expectSkills: ["SAP FICO"],
+    expectCountry: "Brasil",
+  },
+  {
+    name: "corto - 'desarrollador java en buenos aires'",
+    text: "desarrollador java en buenos aires",
+    expectRolExact: "desarrollador java",
+    expectRolNotContains: ["buenos aires"],
+    expectSkills: ["Java"],
+    expectCountry: "Argentina",
+  },
+  {
+    name: "corto - 'product manager remoto' (modalidad al final, sin ubicación)",
+    text: "product manager remoto",
+    expectRolExact: "product manager",
+    expectRolNotContains: ["remoto"],
+  },
+  {
+    name: "corto - 'data analyst senior en madrid' (seniority + ubicación, ambas afuera del rol)",
+    text: "data analyst senior en madrid",
+    expectRolExact: "data analyst",
+    expectRolNotContains: ["senior", "madrid"],
+    expectCountry: "España",
+  },
+  {
+    name: "corto - 'community manager en mendoza' (ciudad, no país, no debe romper el rol)",
+    text: "community manager en mendoza",
+    expectRolExact: "community manager",
+    expectRolNotContains: ["mendoza"],
+    expectCountry: "Argentina",
+  },
 ];
 
 let passed = 0;
@@ -237,6 +280,16 @@ cases.forEach((c) => {
       rolText.includes(c.expectRolContains.toLowerCase()),
       `got rol="${r.rol.join(" | ")}"`
     );
+  }
+
+  if (c.expectRolExact) {
+    check(`${c.name} :: rol is exactly "${c.expectRolExact}"`, rolText === c.expectRolExact.toLowerCase(), `got rol="${r.rol.join(" | ")}"`);
+  }
+
+  if (c.expectRolNotContains) {
+    c.expectRolNotContains.forEach((w) => {
+      check(`${c.name} :: rol does NOT contain "${w}"`, !rolText.includes(w.toLowerCase()), `got rol="${r.rol.join(" | ")}"`);
+    });
   }
 
   if (c.expectSkills) {

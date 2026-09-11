@@ -52,7 +52,8 @@
   const sidePanelBackdrop = document.getElementById("sidePanelBackdrop");
   const historyList = document.getElementById("historyList");
 
-  const FEEDBACK_RECIPIENTS = ["alexis.gorino@mindata.es", "franco.velazco@mindata.es"];
+  const FEEDBACK_EMAILS = { alexis: "alexis.gorino@mindata.es", franco: "franco.velazco@mindata.es" };
+  const FEEDBACK_ENDPOINT = "https://formsubmit.co/ajax/";
 
   // ---------------------------------------------------------------
   // Chips
@@ -532,27 +533,58 @@
   document.getElementById("closeFeedbackBtn").addEventListener("click", closeSidePanels);
   sidePanelBackdrop.addEventListener("click", closeSidePanels);
 
+  function feedbackTargets(to) {
+    if (to === "ambos") return [FEEDBACK_EMAILS.alexis, FEEDBACK_EMAILS.franco];
+    return [FEEDBACK_EMAILS[to]];
+  }
+
+  function sendFeedbackTo(email, subject, message) {
+    return fetch(FEEDBACK_ENDPOINT + encodeURIComponent(email), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        _subject: subject,
+        name: "Radar Tool",
+        message: message,
+      }),
+    }).then((res) => {
+      if (!res.ok) throw new Error("bad status");
+      return res;
+    });
+  }
+
   document.getElementById("sendFeedbackBtn").addEventListener("click", () => {
+    const to = document.getElementById("feedbackTo").value;
     const type = document.getElementById("feedbackType").value;
     const text = document.getElementById("feedbackText").value.trim();
     const feedbackHint = document.getElementById("feedbackHint");
+    const btn = document.getElementById("sendFeedbackBtn");
+
     if (!text) {
-      feedbackHint.textContent = "Contá qué pasó antes de abrir el mail.";
       feedbackHint.style.color = "#F11423";
+      feedbackHint.textContent = "Contá qué pasó antes de enviar.";
       return;
     }
+
     const subject = "Radar Tool - " + type;
-    const body = text + "\n\n---\nEnviado desde Radar Tool (Mindata).";
-    const mailto =
-      "mailto:" +
-      FEEDBACK_RECIPIENTS.join(",") +
-      "?subject=" +
-      encodeURIComponent(subject) +
-      "&body=" +
-      encodeURIComponent(body);
-    window.location.href = mailto;
+    btn.disabled = true;
     feedbackHint.style.color = "";
-    feedbackHint.textContent = "Se abrió tu cliente de mail. Revisalo y mandalo cuando quieras.";
+    feedbackHint.textContent = "Enviando…";
+
+    const targets = feedbackTargets(to);
+    Promise.all(targets.map((email) => sendFeedbackTo(email, subject, text)))
+      .then(() => {
+        feedbackHint.style.color = "";
+        feedbackHint.textContent = "Enviado. Gracias por avisar.";
+        document.getElementById("feedbackText").value = "";
+      })
+      .catch(() => {
+        feedbackHint.style.color = "#F11423";
+        feedbackHint.textContent = "No se pudo enviar. Probá de nuevo en un rato.";
+      })
+      .finally(() => {
+        btn.disabled = false;
+      });
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSidePanels();

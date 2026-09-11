@@ -9,7 +9,8 @@
   "use strict";
 
   const SKILLS = [
-    "SAP BTP", "SAP FI", "SAP CO", "SAP MM", "SAP SD", "SAP HCM", "SAP Fiori",
+    "SAP BTP", "SAP FICO", "SAP FI", "SAP CO", "SAP MM", "SAP SD", "SAP HCM", "SAP PP",
+    "SAP QM", "SAP WM", "SAP EWM", "SAP Fiori", "SAP Basis", "SAP PM", "SAP ABAP",
     "SuccessFactors", "S/4HANA", "Business One", "ABAP", "SAP", "Fiori", "HANA",
     "Salesforce", "HubSpot", "Dynamics 365", "CRM", "ERP",
     "Java", "Python", "JavaScript", "TypeScript", "React", "Angular", "Vue",

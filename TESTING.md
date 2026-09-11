@@ -82,11 +82,17 @@ rompe casos que no se ven a simple vista.
 - [ ] Escape con un panel lateral abierto (Historial/Ayuda) → lo cierra.
 
 **Reportar bug/sugerencia**
-- [ ] Abrir el panel sin escribir nada y tocar "Abrir mail para enviar" →
-      pide completar el texto, no abre nada.
-- [ ] Escribir un texto y enviar → arma un `mailto:` a
-      `alexis.gorino@mindata.es,franco.velazco@mindata.es` con el tipo en
-      el asunto y el texto en el cuerpo, ambos codificados.
+- [ ] Abrir el panel sin escribir nada y tocar "Enviar" → pide completar
+      el texto, no manda nada.
+- [ ] Elegir "Alexis", escribir un texto y enviar → un solo POST a
+      `formsubmit.co/ajax/alexis.gorino@mindata.es`, mensaje de éxito.
+- [ ] Elegir "Ambos" → dos POST en paralelo (Alexis + Franco), éxito solo
+      si los dos responden bien.
+- [ ] Cortar la red (o bloquear `formsubmit.co`) y enviar → mensaje de
+      error claro, el botón vuelve a habilitarse.
+- Nota: la primera vez que se usa una dirección nueva, FormSubmit le pide
+  a esa dirección confirmar con un click antes de reenviar de verdad —
+  hay que hacerlo una vez por cada mail (Alexis y Franco).
 
 **Consola**
 - [ ] Sin errores en la consola del navegador durante todo el flujo de

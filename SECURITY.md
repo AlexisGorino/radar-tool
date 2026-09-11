@@ -8,10 +8,12 @@ que se trata siempre como texto plano, nunca como markup.
 
 ## Controles implementados
 
-**Sin red.** `index.html` fija `connect-src 'none'` en su Content-Security-
-Policy. No hay `fetch`, `XMLHttpRequest`, `WebSocket` ni beacons en ningún
-archivo del proyecto — se puede confirmar con `grep -r "fetch\|XMLHttpRequest" js/`
-y da cero resultados. El texto de la JD nunca sale del navegador.
+**Sin red, salvo una excepción explícita y acotada.** `connect-src` en la
+CSP sólo permite el propio origen y `https://formsubmit.co` — este segundo
+únicamente lo usa el botón de feedback (ver más abajo). Ningún otro flujo
+del sitio hace `fetch`/`XMLHttpRequest`: se puede confirmar con
+`grep -rn "fetch(" js/app.js` y el único resultado es `sendFeedbackTo`. El
+texto de la JD nunca sale del navegador por ningún otro camino.
 
 **Sin `innerHTML` sobre input de usuario.** Todo lo que viene del usuario
 (términos de los chips, texto de la JD, nombre de archivo) se inserta con
@@ -48,11 +50,17 @@ término con caracteres especiales rompa la URL o inyecte parámetros.
 
 ## La única excepción intencional
 
-El botón "¿Sugerencias o encontraste un bug?" arma un enlace `mailto:` con
-lo que la persona escribió en el formulario, dirigido a Ale y Franco. Es la
-única función del sitio que puede terminar mandando algo fuera del
-navegador — y sólo pasa si la persona confirma el envío desde su propio
-cliente de mail. No hay ningún `fetch`/`XMLHttpRequest` involucrado.
+El botón "¿Sugerencias o encontraste un bug?" es la única función del
+sitio que hace una llamada de red. Manda lo que la persona escribió a
+[FormSubmit](https://formsubmit.co) (`POST` a `formsubmit.co/ajax/<email>`),
+que lo reenvía por mail a Alexis, a Franco o a ambos según lo que elija
+quien reporta. No hay backend propio ni base de datos: FormSubmit es un
+relay gratuito sin cuenta, pensado justo para formularios de sitios
+estáticos. La llamada de red sólo ocurre cuando la persona toca "Enviar" —
+nunca automáticamente. Nota operativa: la primera vez que se le manda algo
+a una dirección nueva, FormSubmit le exige a esa dirección confirmar con
+un click en un mail de activación antes de empezar a reenviar de verdad —
+tanto Alexis como Franco necesitan hacer ese click una vez cada uno.
 
 ## Qué NO se guarda en ningún lado
 

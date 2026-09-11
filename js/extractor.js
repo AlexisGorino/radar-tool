@@ -39,10 +39,28 @@
     return text.replace(/<[^>]*>/g, " ").replace(/\s{2,}/g, " ");
   }
 
+  // Every country/city term plus modality words, longest-first so "buenos aires"
+  // is tried before "aires" would ever be (it isn't a term, but same idea applies
+  // generally) — avoids a short term matching inside a longer one.
+  let LOCATION_TAIL_RE = null;
+  function locationTailRegex() {
+    if (LOCATION_TAIL_RE) return LOCATION_TAIL_RE;
+    const terms = [];
+    Object.values(Countries.ALL_COUNTRIES).forEach((list) => terms.push(...list));
+    terms.push(...Countries.countryList());
+    const escaped = Array.from(new Set(terms.map((t) => t.toLowerCase())))
+      .sort((a, b) => b.length - a.length)
+      .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    LOCATION_TAIL_RE = new RegExp("\\s+en\\s+(?:" + escaped.join("|") + ")\\b.*$", "i");
+    return LOCATION_TAIL_RE;
+  }
+
   function trimRolPhrase(raw) {
     let rol = raw.trim();
-    const stopWords = /\s+(para|con|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in)\b[\s\S]*/i;
+    const stopWords =
+      /\s+(para|con|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
+    rol = rol.replace(locationTailRegex(), "").trim();
     if (rol.length > 60) {
       const cut = rol.slice(0, 60);
       const lastSpace = cut.lastIndexOf(" ");
