@@ -304,6 +304,17 @@ test("role words like 'Manager' or 'Lead' inside the title are not mistaken for 
   assert.ok(!r2.alcance.some((a) => a.toLowerCase() === "lead"), `alcance should not include "lead" from the title, got [${r2.alcance.join(", ")}]`);
 });
 
+test("'empresa/banco lider' describes the company, not the candidate's seniority", () => {
+  const r = Extractor.analyzeJD("Buscamos Backend Developer Python Senior para banco líder en Buenos Aires, modalidad híbrida.");
+  assert.ok(!r.alcance.some((a) => a.toLowerCase() === "líder"), `alcance should not include "líder" from "banco líder", got [${r.alcance.join(", ")}]`);
+  assert.ok(r.alcance.some((a) => a.toLowerCase() === "senior"), "expected 'senior' to still be detected");
+});
+
+test("a real 'líder' seniority signal is still detected when not describing the company", () => {
+  const r = Extractor.analyzeJD("Se busca Analista Contable con experiencia como líder de equipo para empresa de retail en Lima.");
+  assert.ok(r.alcance.some((a) => a.toLowerCase() === "líder"), `expected "líder" to be detected as a seniority signal, got [${r.alcance.join(", ")}]`);
+});
+
 test("a real seniority signal outside the title is still detected", () => {
   const r = Extractor.analyzeJD("Buscamos Community Manager senior con 5 años de experiencia para turismo.");
   assert.ok(r.alcance.some((a) => a.toLowerCase() === "senior"), "expected 'senior' to be detected when it appears outside the title");

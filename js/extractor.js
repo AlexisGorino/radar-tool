@@ -97,7 +97,13 @@
     // exclude senior/junior words that are actually part of the role title itself
     // (e.g. "Community Manager", "Tech Lead", "Head of Sales" should not count as seniority signals)
     const rolText = rol.join(" ");
-    const seniorFound = findMatches(text, Keywords.SENIOR_WORDS).filter((w) => !Countries.containsWord(rolText, w));
+    // "empresa/banco/compañía líder" describes the company, not the candidate's seniority
+    const companyLeaderPhrase = /(empresa|compañ[íi]a|compania|banco|organizaci[oó]n|firma|grupo|corporaci[oó]n)\s+l[íi]der/i;
+    const seniorFound = findMatches(text, Keywords.SENIOR_WORDS).filter((w) => {
+      if (Countries.containsWord(rolText, w)) return false;
+      if (/^l[íi]der$/i.test(w) && companyLeaderPhrase.test(text)) return false;
+      return true;
+    });
     const juniorFound = findMatches(text, Keywords.JUNIOR_WORDS).filter((w) => !Countries.containsWord(rolText, w));
     const years = extractYears(text);
 
