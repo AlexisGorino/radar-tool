@@ -40,9 +40,13 @@
     return found;
   }
 
+  function stripTags(text) {
+    return text.replace(/<[^>]*>/g, " ").replace(/\s{2,}/g, " ");
+  }
+
   function trimRolPhrase(raw) {
     let rol = raw.trim();
-    const stopWords = /\s+(para|con|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos)\b[\s\S]*/i;
+    const stopWords = /\s+(para|con|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
     if (rol.length > 60) {
       const cut = rol.slice(0, 60);
@@ -54,10 +58,18 @@
     return rol;
   }
 
-  function guessRol(text) {
+  function guessRol(rawText) {
+    const text = stripTags(rawText);
     const patterns = [
-      /(?:buscamos|se busca|se necesita|necesitamos|estamos buscando)\s+(?:un[ao]?\s+)?([^.\n,]{3,90})/i,
+      // explicit label wins over a generic "busca" phrased elsewhere in the text
+      // (e.g. "Posición: Product Manager. ... busca perfil con experiencia..." must not extract "perfil")
       /(?:puesto|posici[oó]n|cargo|rol|vacante)\s*[:\-]\s*([^.\n]{3,90})/i,
+      // Spanish: "buscamos un X", "se busca X", "empresa X busca Y"...
+      /(?:buscamos|se busca|se necesita|necesitamos|estamos buscando|busca incorporar|busca)\s+(?:un[ao]?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un[ao]?\s+)?([^.\n,]{3,90})/i,
+      // English: "looking for a X", "seeking X", "hiring a X"
+      /(?:looking for|seeking|hiring)\s+(?:an?\s+)?([^.\n,]{3,90})/i,
+      // English: "X Developer with Y" / "X Engineer needed for..." — role phrase leads the sentence
+      /^([A-Za-z][A-Za-z0-9À-ÿ\/\-\s]{2,60}?)\s+(?:with|needed|required)\b/i,
     ];
     for (const p of patterns) {
       const m = text.match(p);

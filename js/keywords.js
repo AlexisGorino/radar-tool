@@ -14,7 +14,7 @@
 
   const SKILLS = [
     "SAP BTP", "SAP FI", "SAP CO", "SAP MM", "SAP SD", "SAP HCM", "SAP Fiori",
-    "SuccessFactors", "S/4HANA", "Business One", "ABAP", "SAP",
+    "SuccessFactors", "S/4HANA", "Business One", "ABAP", "SAP", "Fiori", "HANA",
     "Salesforce", "HubSpot", "Dynamics 365", "CRM", "ERP",
     "Java", "Python", "JavaScript", "TypeScript", "React", "Angular", "Vue",
     "Node.js", ".NET", "C#", "C++", "Go", "Kotlin", "Swift", "PHP", "Ruby",
@@ -28,11 +28,12 @@
   ];
 
   const INDUSTRIES = [
-    "banca", "banco", "seguros", "telecomunicaciones", "telecom", "hoteleria",
-    "hotelería", "retail", "salud", "fintech", "e-commerce", "ecommerce",
-    "manufactura", "energia", "energía", "consultoria", "consultoría",
+    "banca", "banco", "seguros", "aseguradora", "telecomunicaciones", "telecom", "hoteleria",
+    "hotelería", "retail", "salud", "farmaceutica", "farmacéutica", "fintech", "e-commerce", "ecommerce",
+    "manufactura", "industrial", "energia", "energía", "petrolera", "consultoria", "consultoría", "consultora",
     "logistica", "logística", "turismo", "educacion", "educación",
-    "gaming", "inmobiliario", "real estate", "agro", "mineria", "minería",
+    "gaming", "inmobiliario", "inmobiliaria", "real estate", "agro", "agropecuario", "mineria", "minería",
+    "automotriz", "construccion", "construcción", "alimenticia", "textil",
   ];
 
   const SENIOR_WORDS = ["senior", "sr", "lead", "líder", "lider", "manager", "gerente", "head", "director", "principal"];
