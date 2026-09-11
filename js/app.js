@@ -3,7 +3,12 @@
   "use strict";
 
   const FIELDS = ["rol", "atributos", "dominio", "alcance", "refinar"];
-  const MAX_FILE_BYTES = 500 * 1024;
+  const MAX_TXT_BYTES = 500 * 1024;
+  const MAX_PDF_BYTES = 8 * 1024 * 1024;
+
+  if (typeof pdfjsLib !== "undefined") {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "js/vendor/pdf.worker.min.js";
+  }
 
   const state = { rol: [], atributos: [], dominio: [], alcance: [], refinar: [] };
   let selectedNetwork = "linkedin";
@@ -203,26 +208,78 @@
   document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
 
   // ---------------------------------------------------------------
-  // File upload + drag & drop (plain text only, size-capped)
+  // File upload + drag & drop (.txt read directly, .pdf parsed with pdf.js
+  // running fully client-side — the file never leaves the browser)
   // ---------------------------------------------------------------
+  function extractPdfText(arrayBuffer) {
+    return pdfjsLib.getDocument({ data: arrayBuffer }).promise.then((pdf) => {
+      const pageNumbers = Array.from({ length: pdf.numPages }, (_, i) => i + 1);
+      return pageNumbers
+        .reduce(
+          (chain, pageNum) =>
+            chain.then((textSoFar) =>
+              pdf
+                .getPage(pageNum)
+                .then((page) => page.getTextContent())
+                .then((content) => textSoFar + content.items.map((item) => item.str).join(" ") + "\n")
+            ),
+          Promise.resolve("")
+        );
+    });
+  }
+
   function loadTextFile(file) {
     if (!file) return;
     const isTxt = file.type === "text/plain" || /\.txt$/i.test(file.name);
-    if (!isTxt) {
-      showError("Solo se aceptan archivos .txt por ahora. Copiá y pegá el texto si viene de Word o PDF.", "file");
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+
+    if (!isTxt && !isPdf) {
+      showError("Solo se aceptan archivos .txt o .pdf por ahora. Copiá y pegá el texto si viene de Word.", "file");
       return;
     }
-    if (file.size > MAX_FILE_BYTES) {
-      showError("El archivo pesa más de 500 KB. Pegá el texto directamente en el cuadro.", "file");
+
+    if (isTxt) {
+      if (file.size > MAX_TXT_BYTES) {
+        showError("El archivo pesa más de 500 KB. Pegá el texto directamente en el cuadro.", "file");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        jdInput.value = String(reader.result || "").slice(0, 20000);
+        runAnalysis();
+      };
+      reader.onerror = () => showError("No se pudo leer el archivo.", "file");
+      reader.readAsText(file);
       return;
     }
+
+    // isPdf
+    if (file.size > MAX_PDF_BYTES) {
+      showError("El PDF pesa más de 8 MB. Copiá y pegá el texto directamente en el cuadro.", "file");
+      return;
+    }
+    if (typeof pdfjsLib === "undefined") {
+      showError("No se pudo cargar el lector de PDF. Copiá y pegá el texto directamente.", "file");
+      return;
+    }
+    showError("Leyendo el PDF…", "file");
     const reader = new FileReader();
     reader.onload = () => {
-      jdInput.value = String(reader.result || "").slice(0, 20000);
-      runAnalysis();
+      extractPdfText(reader.result)
+        .then((text) => {
+          const trimmed = text.trim();
+          if (!trimmed) {
+            showError("No se pudo extraer texto de ese PDF (¿es un escaneo/imagen?). Pegalo a mano.", "file");
+            return;
+          }
+          jdInput.value = trimmed.slice(0, 20000);
+          showError("", "file");
+          runAnalysis();
+        })
+        .catch(() => showError("No se pudo leer ese PDF. Puede estar dañado o protegido.", "file"));
     };
     reader.onerror = () => showError("No se pudo leer el archivo.", "file");
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   }
 
   fileInput.addEventListener("change", (e) => loadTextFile(e.target.files[0]));

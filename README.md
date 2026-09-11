@@ -1,19 +1,23 @@
 # RADAR — Generador de booleanos
 
+**En vivo: https://alexisgorino.github.io/radar-tool/**
+
 Herramienta de sourcing de Mindata, creada por **Ale Gorino** y **Franco Velazco**.
 Convierte una JD en un booleano preciso y en variantes listas para LinkedIn,
 Google/Bing (X-Ray), GitHub, Indeed, Behance, CVs sueltos en PDF/Word y otras redes.
 
 Pensada para el uso diario de un reclutador: sin cuentas, sin backend, sin
-dependencias externas. Corre igual abierto como archivo local, en Netlify,
-en Vercel, en GitHub Pages o publicada como página estática en cualquier lado.
+dependencias externas más allá de una librería vendorizada para leer PDF.
+Corre igual abierto como archivo local, en Netlify, en Vercel, en GitHub
+Pages o publicada como página estática en cualquier lado.
 
 ## Funcionalidad
 
 - **Método RADAR**: Rol, Atributos, Dominio, Alcance, Refinar — cinco campos
   que arman el booleano.
-- **Analizador de JD**: pegá o arrastrá una JD y el detector completa los
-  campos solo (rol, skills, industria, país, modalidad, seniority).
+- **Analizador de JD**: pegá el texto, o arrastrá/subí un `.txt` o `.pdf`
+  (se lee en el navegador, no sube a ningún lado), y el detector completa
+  los cinco campos solo (rol, skills, industria, país, modalidad, seniority).
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
 - **Redes soportadas**: LinkedIn, GitHub (búsqueda nativa de personas o
@@ -23,6 +27,9 @@ en Vercel, en GitHub Pages o publicada como página estática en cualquier lado.
   navegador (no en un servidor) para recuperarlas con un click.
 - **Atajo de teclado**: Ctrl/Cmd + Enter arma el booleano desde cualquier campo.
 - **Ayuda integrada**: panel con la explicación del método RADAR.
+- **Reportar bug/sugerencia**: botón al pie que arma un mail precargado a
+  Ale y Franco — nada se envía solo, la persona confirma desde su cliente
+  de mail.
 
 ## Estructura
 
@@ -40,7 +47,12 @@ radar-tool/
   assets/
     mindata-logo.png
     favicon.svg
-  tests/run.js         suite de tests (node tests/run.js, sin dependencias)
+  js/vendor/
+    pdf.min.js           pdf.js, vendorizado localmente (sin CDN)
+    pdf.worker.min.js
+  tests/
+    run.js               suite unitaria (node tests/run.js, sin dependencias)
+    jd-bank.js            banco de regresion con JDs reales (node tests/jd-bank.js)
 ```
 
 `extractor.js` y `generator.js` no tocan el DOM ni hacen llamadas de red:
@@ -51,13 +63,11 @@ levantar un navegador. `app.js` es la única capa que conoce el HTML.
 
 ```
 node tests/run.js
+node tests/jd-bank.js
 ```
 
-46 tests. Cubre extracción de rol, detección de país (LATAM + Europa, sin
-falsos positivos entre países), detección de skills/industria, sinónimos de
-rol, construcción de booleanos (largo acotado, comillas, exclusiones),
-generación de URLs (Google, Bing, GitHub, CVs sueltos) y un caso de
-seguridad (texto con HTML/script embebido no se ejecuta ni se interpreta).
+170+ casos entre ambos. Ver [`TESTING.md`](TESTING.md) para el detalle y
+el checklist de QA manual.
 
 ## Probarlo en local
 
@@ -86,12 +96,20 @@ y abrir `http://localhost:8080` (o el puerto que corresponda).
 - El texto ingresado por el usuario siempre se inserta en la página con
   `textContent`, nunca con `innerHTML`, así que no hay forma de inyectar
   HTML o JavaScript pegando una JD maliciosa.
-- El archivo subido se valida por tipo y tamaño (.txt, máx. 500 KB) antes
-  de leerlo.
+- El archivo subido se valida por tipo y tamaño (.txt hasta 500 KB, .pdf
+  hasta 8 MB) antes de leerlo. El PDF se parsea en el navegador con pdf.js
+  vendorizado localmente — nunca se sube a ningún servidor.
 - Todas las URLs armadas (Google, Bing, GitHub) codifican el query con
   `encodeURIComponent`.
 
-## Desplegarlo gratis
+## Dónde está desplegado
+
+GitHub Pages, sirviendo directo desde la rama `main` de este repo:
+**https://alexisgorino.github.io/radar-tool/**. Cualquier push a `main`
+dispara un rebuild automático (unos segundos). Sin límite de uso, sin
+cuenta para quien lo usa, gratis de forma indefinida.
+
+## Desplegarlo en otro lado
 
 No hace falta cuenta ni tarjeta. Tres opciones, elegí la que te resulte
 más cómoda:

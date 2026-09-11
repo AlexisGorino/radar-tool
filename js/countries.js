@@ -50,7 +50,7 @@
   const ALL_COUNTRIES = Object.assign({}, LATAM, EUROPE, OTHER);
 
   const MODALITY = {
-    terms: ["remoto", "remote", "hibrido", "híbrido", "hybrid", "presencial", "onsite"],
+    terms: ["remoto", "remota", "remote", "hibrido", "híbrido", "hibrida", "híbrida", "hybrid", "presencial", "onsite"],
   };
 
   function escapeRegex(str) {
@@ -77,7 +77,15 @@
   /** Returns matched modality words present in the text (deduped, original casing lost -> canonical). */
   function detectModality(text) {
     const found = [];
-    const canon = { "remote": "remoto", "hibrido": "híbrido", "hybrid": "híbrido", "onsite": "presencial" };
+    const canon = {
+      remote: "remoto",
+      remota: "remoto",
+      hibrido: "híbrido",
+      hibrida: "híbrido",
+      híbrida: "híbrido",
+      hybrid: "híbrido",
+      onsite: "presencial",
+    };
     MODALITY.terms.forEach((t) => {
       if (containsWord(text, t)) {
         const label = canon[t] || t;

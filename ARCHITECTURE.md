@@ -41,6 +41,13 @@ Cada módulo se expone como global (`RadarCountries`, `RadarKeywords`, etc.)
 via el patrón UMD que también soporta `require()`, así los mismos archivos
 corren en el navegador y en los tests de Node sin duplicar código.
 
+## La única dependencia externa
+
+`js/vendor/pdf.min.js` (pdf.js, de Mozilla) para leer texto de PDFs
+subidos. Vendorizada como archivo local, no cargada desde un CDN — sigue
+sin haber llamadas de red en ningún flujo del sitio. Todo lo demás del
+proyecto es JavaScript propio sin dependencias.
+
 ## Por qué no hay framework
 
 No hay estado complejo que justifique uno: cinco listas de strings, una red

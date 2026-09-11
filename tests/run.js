@@ -64,6 +64,11 @@ test("modality detection finds remoto/híbrido variants", () => {
   assert.deepStrictEqual(Countries.detectModality("Trabajo hybrid desde casa"), ["híbrido"]);
 });
 
+test("modality detection finds feminine agreement (modalidad híbrida/remota)", () => {
+  assert.deepStrictEqual(Countries.detectModality("Modalidad híbrida, 2 días en oficina"), ["híbrido"]);
+  assert.deepStrictEqual(Countries.detectModality("Puesto 100% remota"), ["remoto"]);
+});
+
 // ---------------------------------------------------------------
 // 2. Role extraction across many real-world-style postings
 // ---------------------------------------------------------------

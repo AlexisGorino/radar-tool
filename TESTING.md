@@ -29,9 +29,14 @@ rompe casos que no se ven a simple vista.
 - [ ] Pegar una JD larga (banco, LATAM) y tocar "Analizar JD" → los 5 campos
       se completan con valores sensatos, sin duplicados.
 - [ ] Arrastrar un `.txt` a la zona de drop → se carga y analiza solo.
-- [ ] Subir un archivo que no sea `.txt` (ej. `.pdf`) → mensaje de error,
-      no rompe nada.
-- [ ] Subir un `.txt` de más de 500 KB → mensaje de error, no lo lee.
+- [ ] Subir un `.pdf` con texto real (no escaneado) → se extrae el texto
+      y se analiza solo, igual que un `.txt`.
+- [ ] Subir un `.pdf` escaneado (solo imagen, sin texto) → aviso de que no
+      se pudo extraer texto, no rompe nada.
+- [ ] Subir un archivo que no sea `.txt` ni `.pdf` (ej. `.docx`) → mensaje
+      de error, no rompe nada.
+- [ ] Subir un `.txt` de más de 500 KB, o un `.pdf` de más de 8 MB →
+      mensaje de error, no lo lee.
 - [ ] JD vacía + "Analizar JD" → no crashea, no agrega campos basura.
 
 **Campos RADAR**
