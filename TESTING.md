@@ -76,6 +76,13 @@ rompe casos que no se ven a simple vista.
 - [ ] Ctrl/Cmd + Enter desde cualquier campo → dispara "Armar booleano".
 - [ ] Escape con un panel lateral abierto (Historial/Ayuda) → lo cierra.
 
+**Reportar bug/sugerencia**
+- [ ] Abrir el panel sin escribir nada y tocar "Abrir mail para enviar" →
+      pide completar el texto, no abre nada.
+- [ ] Escribir un texto y enviar → arma un `mailto:` a
+      `alexis.gorino@mindata.es,franco.velazco@mindata.es` con el tipo en
+      el asunto y el texto en el cuerpo, ambos codificados.
+
 **Consola**
 - [ ] Sin errores en la consola del navegador durante todo el flujo de
       arriba.

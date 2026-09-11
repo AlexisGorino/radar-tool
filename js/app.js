@@ -43,8 +43,11 @@
   const synonymsList = document.getElementById("synonymsList");
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
+  const feedbackPanel = document.getElementById("feedbackPanel");
   const sidePanelBackdrop = document.getElementById("sidePanelBackdrop");
   const historyList = document.getElementById("historyList");
+
+  const FEEDBACK_RECIPIENTS = ["alexis.gorino@mindata.es", "franco.velazco@mindata.es"];
 
   // ---------------------------------------------------------------
   // Chips
@@ -451,6 +454,7 @@
   function closeSidePanels() {
     historyPanel.classList.add("hidden");
     helpPanel.classList.add("hidden");
+    feedbackPanel.classList.add("hidden");
     sidePanelBackdrop.classList.add("hidden");
   }
 
@@ -465,9 +469,34 @@
     openSidePanel(historyPanel);
   });
   document.getElementById("helpBtn").addEventListener("click", () => openSidePanel(helpPanel));
+  document.getElementById("feedbackBtn").addEventListener("click", () => openSidePanel(feedbackPanel));
   document.getElementById("closeHistoryBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeHelpBtn").addEventListener("click", closeSidePanels);
+  document.getElementById("closeFeedbackBtn").addEventListener("click", closeSidePanels);
   sidePanelBackdrop.addEventListener("click", closeSidePanels);
+
+  document.getElementById("sendFeedbackBtn").addEventListener("click", () => {
+    const type = document.getElementById("feedbackType").value;
+    const text = document.getElementById("feedbackText").value.trim();
+    const feedbackHint = document.getElementById("feedbackHint");
+    if (!text) {
+      feedbackHint.textContent = "Contá qué pasó antes de abrir el mail.";
+      feedbackHint.style.color = "#F11423";
+      return;
+    }
+    const subject = "Radar Tool - " + type;
+    const body = text + "\n\n---\nEnviado desde Radar Tool (Mindata).";
+    const mailto =
+      "mailto:" +
+      FEEDBACK_RECIPIENTS.join(",") +
+      "?subject=" +
+      encodeURIComponent(subject) +
+      "&body=" +
+      encodeURIComponent(body);
+    window.location.href = mailto;
+    feedbackHint.style.color = "";
+    feedbackHint.textContent = "Se abrió tu cliente de mail. Revisalo y mandalo cuando quieras.";
+  });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSidePanels();
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {

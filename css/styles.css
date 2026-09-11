@@ -181,6 +181,17 @@ textarea:focus{outline:2px solid var(--red);outline-offset:1px;}
 
 .privacy-note{color:var(--gray);font-size:11.5px;margin-top:24px;}
 
+.feedback-row{text-align:center;margin-top:14px;}
+
+.feedback-form{display:flex;flex-direction:column;gap:6px;margin-top:14px;}
+.feedback-form select, .feedback-form textarea{
+  width:100%;border:1px solid var(--lightgray);padding:8px;
+  font-family:Arial,sans-serif;font-size:12.5px;color:var(--dark);background:var(--white);
+}
+.feedback-form textarea{resize:vertical;min-height:110px;}
+.feedback-label{font-size:11px;font-weight:700;color:var(--dark);margin-top:6px;}
+.feedback-form .btn-primary{margin-top:6px;}
+
 /* ---------- footer ---------- */
 .page-footer{
   border-top:1px solid var(--lightgray);text-align:center;
