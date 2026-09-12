@@ -264,6 +264,13 @@ test("Google and Bing URLs are properly percent-encoded (no raw spaces or quotes
   assert.ok(bUrl.startsWith("https://www.bing.com/search?q="));
 });
 
+test("linkedinSearchUrl encodes the universal boolean for LinkedIn's own search box", () => {
+  const url = Generator.linkedinSearchUrl('"Project Manager" AND AWS -junior');
+  assert.ok(url.startsWith("https://www.linkedin.com/search/results/people/?keywords="));
+  assert.ok(!url.includes(" "), "must be percent-encoded, no raw spaces");
+  assert.ok(!url.includes('"'), "must be percent-encoded, no raw quotes");
+});
+
 test("GitHub people URL detects language and builds native search query", () => {
   const state = { rol: ["Developer"], atributos: ["Python", "AWS"], dominio: [], alcance: ["Argentina"], refinar: [] };
   const url = Generator.buildGithubPeopleUrl(state);

@@ -74,6 +74,13 @@
     return "https://www.bing.com/search?q=" + encodeURIComponent(query);
   }
 
+  // LinkedIn's own search box parses AND/OR/NOT/quotes natively (no X-Ray
+  // needed) — this stays reliable even when Google/Bing stop indexing
+  // linkedin.com/in pages, which is increasingly common.
+  function linkedinSearchUrl(universalBooleanQuery) {
+    return "https://www.linkedin.com/search/results/people/?keywords=" + encodeURIComponent(universalBooleanQuery);
+  }
+
   /** Picks the first attribute that matches a known GitHub-supported language. */
   function detectGithubLanguage(atributos) {
     const found = (atributos || []).find((a) => Keywords.GH_LANGUAGES.includes(a.toLowerCase()));
@@ -118,6 +125,7 @@
     buildResumesQuery,
     googleUrl,
     bingUrl,
+    linkedinSearchUrl,
     detectGithubLanguage,
     buildGithubPeopleUrl,
     buildGithubRepoUrl,

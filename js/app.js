@@ -16,7 +16,7 @@
   // Each entry: what the search actually does, and what kind of result to expect.
   const NETWORK_DESCRIPTIONS = {
     linkedin:
-      "Cómo busca: arma una X-Ray con site:linkedin.com/in para que Google o Bing indexen perfiles de LinkedIn desde afuera — no hace falta Recruiter ni estar logueado. Qué trae: links a perfiles públicos de personas cuyo perfil menciona tu rol, atributos y ubicación. Sirve para cualquier rubro, técnico o no.",
+      "Recomendado: usá el botón \"Buscar en LinkedIn\" — pega el booleano directo en el buscador propio de LinkedIn, que entiende AND/OR/NOT/comillas con cuenta gratis. La alternativa X-Ray (site:linkedin.com/in vía Google/Bing) depende de que el buscador externo tenga indexados los perfiles, y LinkedIn viene bloqueando cada vez más eso — probado: hoy Bing ni siquiera respeta el site: y devuelve resultados sin relación. Usala solo como respaldo.",
     github:
       "Cómo busca: búsqueda nativa de GitHub (no X-Ray), con sus propios operadores (language:, location:, stars:). Qué trae: perfiles de developers con actividad pública en GitHub, o repositorios. Solo tiene sentido para roles de programación/datos — para roles no técnicos casi no va a traer nada relevante.",
     stackoverflow:
@@ -37,7 +37,7 @@
   };
 
   const NOTES = {
-    linkedin: "OR y comillas funcionan en la cuenta free; el NOT es más confiable en Recruiter / Recruiter Lite.",
+    linkedin: "Este X-Ray es el respaldo. Para buscar de verdad, usá el botón \"Buscar en LinkedIn\" de arriba — es más confiable porque no depende de Google/Bing.",
     stackoverflow: "Útil para perfiles técnicos con actividad pública en preguntas y respuestas.",
     xing: "Red fuerte en Alemania, Austria y Suiza. Poco uso en LATAM.",
     twitter: "Sirve para roles con presencia pública: devrel, marketing técnico, comunidad.",
@@ -68,6 +68,7 @@
   const resultsEl = document.getElementById("results");
   const resultXray = document.getElementById("resultXray");
   const resultGithub = document.getElementById("resultGithub");
+  const resultLinkedinNative = document.getElementById("resultLinkedinNative");
   const synonymsRow = document.getElementById("synonymsRow");
   const synonymsList = document.getElementById("synonymsList");
   const historyPanel = document.getElementById("historyPanel");
@@ -365,6 +366,11 @@
     document.getElementById("out-universal").textContent = universal;
 
     const net = RadarNetworks.NETWORKS[selectedNetwork];
+
+    resultLinkedinNative.classList.toggle("hidden", selectedNetwork !== "linkedin");
+    if (selectedNetwork === "linkedin") {
+      document.getElementById("openLinkedinNative").href = RadarGenerator.linkedinSearchUrl(universal);
+    }
 
     if (net.mode === "native-github") {
       resultXray.classList.add("hidden");
