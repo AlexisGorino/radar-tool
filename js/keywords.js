@@ -24,6 +24,8 @@
     "GPON", "RF", "Networking", "Cisco", "Telecomunicaciones",
     "QA", "Testing", "Automation", "Selenium", "Cypress",
     "Machine Learning", "Data Science", "Power BI", "Tableau", "ETL", "Spark",
+    "Kafka", "Airflow", "dbt", "Snowflake", "Databricks", "Redshift", "BigQuery",
+    "Looker", "Airbyte", "Prefect", "Flink", "Data Warehouse", "Data Lake",
     "Figma", "UX", "UI",
     "ISO 27001", "NIST", "GDPR", "NIS2", "DORA", "PCI-DSS", "CISM", "CISSP", "CISA", "CRISC",
     "PMP", "PRINCE2", "IAM", "PAM", "Zero Trust", "SIEM", "SOC", "Pentesting",
@@ -39,6 +41,37 @@
     "Tesoreria", "Tesorería", "Presupuestos", "Costos", "US GAAP",
     // Legal
     "Compliance", "Derecho Laboral", "Propiedad Intelectual", "Contratos",
+    // IA / Machine Learning (más allá de "Machine Learning" / "Data Science")
+    "Inteligencia Artificial", "IA Generativa", "Generative AI", "LLM", "GPT",
+    "NLP", "Procesamiento de Lenguaje Natural", "Computer Vision", "PyTorch",
+    "TensorFlow", "Hugging Face", "LangChain", "RAG", "Prompt Engineering", "MLOps",
+    "Scikit-learn", "OpenAI", "Copilot",
+    // Más SAP / otros ERP
+    "SAP MDG", "SAP TM", "SAP IBP", "SAP Ariba", "SAP Concur", "SAP GRC",
+    "Oracle EBS", "Oracle Fusion", "NetSuite", "Odoo", "Sage", "Infor",
+    // Infraestructura / observabilidad / seguridad ofensiva
+    "Linux", "Windows Server", "Active Directory", "VMware", "Ansible", "Puppet", "Chef",
+    "Prometheus", "Grafana", "ELK", "Splunk", "Nagios", "VPN", "Firewall",
+    // Testing / QA adicional
+    "Playwright", "JMeter", "Postman", "SoapUI",
+    // Mobile / blockchain
+    "Android", "iOS", "Xamarin", "Blockchain", "Solidity", "Web3", "Smart Contracts",
+    // Salud / farma
+    "Farmacovigilancia", "Buenas Practicas de Manufactura", "Buenas Prácticas de Manufactura",
+    "GMP", "Registro Sanitario", "Ensayos Clinicos", "Ensayos Clínicos",
+    // Ingeniería (mecánica/civil/industrial) y calidad
+    "AutoCAD", "SolidWorks", "Lean Manufacturing", "Six Sigma", "ISO 9001", "Gestion de Calidad", "Gestión de Calidad",
+    // Logística / comercio exterior
+    "Supply Chain", "Comercio Exterior", "Logistica Internacional", "Logística Internacional",
+    "Gestion de Inventarios", "Gestión de Inventarios", "WMS", "TMS", "Comex",
+    // Educación
+    "Diseño Instruccional", "Diseno Instruccional", "LMS", "E-learning",
+    // Hotelería / turismo
+    "Revenue Management", "Gestion Hotelera", "Gestión Hotelera", "PMS",
+    // Atención al cliente
+    "Atencion al Cliente", "Atención al Cliente", "Call Center", "Zendesk",
+    // Retail
+    "Visual Merchandising", "Category Management",
   ];
 
   const INDUSTRIES = [
@@ -49,6 +82,7 @@
     "gaming", "inmobiliario", "inmobiliaria", "real estate", "agro", "agropecuario", "mineria", "minería",
     "automotriz", "construccion", "construcción", "alimenticia", "textil",
     "ciberseguridad", "seguridad informatica", "seguridad informática", "seguridad de la informacion", "seguridad de la información",
+    "bpo", "moda", "sin fines de lucro", "ong",
   ];
 
   // Common to almost every posting in their category — real, but they don't

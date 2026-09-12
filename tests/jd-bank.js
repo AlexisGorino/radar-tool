@@ -324,6 +324,56 @@ const cases = [
     expectDominio: "consultoría",
     expectCountry: "España",
   },
+  {
+    name: "CL - Data Engineer con stack moderno",
+    text: "Buscamos Data Engineer con experiencia en Kafka, Airflow, dbt y Snowflake para empresa fintech en Santiago, Chile.",
+    expectRolContains: "data engineer",
+    expectSkills: ["Kafka", "Airflow", "dbt", "Snowflake"],
+    expectDominio: "fintech",
+    expectCountry: "Chile",
+  },
+
+  // -----------------------------------------------------------------
+  // Ronda 2 de perfiles no técnicos + IA/ML, para cubrir "todo el mundo IT
+  // y no IT, LATAM y Europa" (pedido explícito, no solo Argentina).
+  // -----------------------------------------------------------------
+  {
+    name: "PE - Machine Learning Engineer con stack de IA generativa",
+    text: "Buscamos Machine Learning Engineer con experiencia en PyTorch, LangChain y Prompt Engineering para empresa de salud en Lima, Perú.",
+    expectRolContains: "machine learning engineer",
+    expectSkills: ["PyTorch", "LangChain", "Prompt Engineering"],
+    expectDominio: "salud",
+    expectCountry: "Perú",
+  },
+  {
+    name: "DE - QA Engineer con Ansible y Playwright",
+    text: "Suchen QA Engineer mit Erfahrung in Ansible und Playwright fur Industrieunternehmen in Munich, Germany.",
+    expectSkills: ["Ansible", "Playwright"],
+    expectCountry: "Alemania",
+  },
+  {
+    name: "AR - Ingeniero Industrial con Lean Manufacturing",
+    text: "Se busca Ingeniero Industrial con experiencia en Lean Manufacturing, Six Sigma e ISO 9001 para empresa de manufactura en Rosario, Argentina.",
+    expectRolContains: "ingeniero industrial",
+    expectSkills: ["Lean Manufacturing", "Six Sigma", "ISO 9001"],
+    expectDominio: "manufactura",
+    expectCountry: "Argentina",
+  },
+  {
+    name: "MX - Coordinador de Comercio Exterior",
+    text: "Buscamos Coordinador de Comercio Exterior con manejo de WMS y Supply Chain para empresa de logística en Monterrey, México.",
+    expectRolContains: "coordinador de comercio exterior",
+    expectSkills: ["WMS", "Supply Chain"],
+    expectDominio: "logística",
+    expectCountry: "México",
+  },
+  {
+    name: "ES - Revenue Manager hotelero",
+    text: "Buscamos Revenue Manager con experiencia en Revenue Management y PMS para cadena hotelera en Barcelona, España.",
+    expectRolContains: "revenue manager",
+    expectSkills: ["Revenue Management", "PMS"],
+    expectCountry: "España",
+  },
 ];
 
 let passed = 0;

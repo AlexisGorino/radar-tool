@@ -21,8 +21,6 @@
       "Cómo busca: búsqueda nativa de GitHub (no X-Ray), con sus propios operadores (language:, location:, stars:). Qué trae: perfiles de developers con actividad pública en GitHub, o repositorios. Solo tiene sentido para roles de programación/datos — para roles no técnicos casi no va a traer nada relevante.",
     stackoverflow:
       "Cómo busca: X-Ray sobre site:stackoverflow.com/users. Qué trae: perfiles de gente con actividad pública respondiendo o preguntando en Stack Overflow. Solo útil para roles técnicos (dev, QA, data, DevOps) — para roles comerciales o de negocio no va a traer resultados.",
-    indeed:
-      "Probado en vivo: Google no tiene indexada la base de CVs de Indeed (site:indeed.com/r no devuelve ni un resultado, ni siquiera con términos genéricos) — hoy Indeed exige cuenta de reclutador para ver currículums, no son públicos. Dejá esta red para el final; probá LinkedIn, Stack Overflow o CVs sueltos primero.",
     xing: "Cómo busca: X-Ray sobre site:xing.com/profile. Qué trae: perfiles profesionales de Xing, equivalente a LinkedIn pero local — probado en vivo, trae perfiles reales. Solo tiene sentido si el candidato puede estar en Alemania, Austria o Suiza — en el resto del mundo casi no hay usuarios.",
     twitter:
       "Cómo busca: X-Ray sobre X/Twitter. Qué trae: cuentas públicas cuya bio o tuits mencionan tu rol/atributos — probado en vivo, trae cuentas reales del rubro. Sirve solo para roles con presencia pública activa (devrel, comunidad, marketing técnico, prensa) — para la mayoría de los roles no es una buena fuente.",
@@ -42,7 +40,6 @@
     xing: "Red fuerte en Alemania, Austria y Suiza. Poco uso en LATAM.",
     twitter: "Sirve para roles con presencia pública: devrel, marketing técnico, comunidad.",
     wellfound: "Orientado a startups. Buen lugar para roles de producto y early-stage engineering.",
-    indeed: "Probado en vivo: Google no tiene indexados los CVs de Indeed hoy. Probá otra red primero.",
     behance: "Portfolios públicos. Ideal para roles de diseño, UX/UI e ilustración.",
     resumes: "Busca archivos PDF/Word sueltos en toda la web, sin restringir a un sitio. Trae currículums publicados fuera de las redes profesionales.",
     custom: "Ajustá el dominio arriba. La sintaxis site: funciona igual en cualquier sitio indexado por Google.",
@@ -377,7 +374,7 @@
     const key = kind === "file" ? "file" : "generate";
     if (!errorSlots[key]) {
       const el = document.createElement("div");
-      el.style.color = "#F11423";
+      el.style.color = "#E71322";
       el.style.fontSize = "12.5px";
       el.style.marginTop = "10px";
       el.style.fontWeight = "700";
@@ -593,27 +590,62 @@
   });
 
   // ---------------------------------------------------------------
-  // Side panels (history / help)
+  // Side panels (history / help / feedback) — each is a modal dialog for
+  // accessibility purposes: focus moves in on open, is trapped inside the
+  // panel with Tab while it's open, and returns to whatever triggered it
+  // on close, so a keyboard/screen-reader user never loses their place.
   // ---------------------------------------------------------------
-  function closeSidePanels() {
-    historyPanel.classList.add("hidden");
-    helpPanel.classList.add("hidden");
-    feedbackPanel.classList.add("hidden");
-    sidePanelBackdrop.classList.add("hidden");
+  const ALL_SIDE_PANELS = [historyPanel, helpPanel, feedbackPanel];
+  let sidePanelOpenerEl = null;
+
+  function focusableIn(panel) {
+    return Array.from(panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(
+      (el) => !el.disabled && el.offsetParent !== null
+    );
   }
 
-  function openSidePanel(panel) {
+  function closeSidePanels() {
+    const wasOpen = ALL_SIDE_PANELS.some((p) => !p.classList.contains("hidden"));
+    ALL_SIDE_PANELS.forEach((p) => p.classList.add("hidden"));
+    sidePanelBackdrop.classList.add("hidden");
+    if (wasOpen && sidePanelOpenerEl) {
+      sidePanelOpenerEl.focus();
+      sidePanelOpenerEl = null;
+    }
+  }
+
+  function openSidePanel(panel, openerEl) {
     closeSidePanels();
+    sidePanelOpenerEl = openerEl || document.activeElement;
     panel.classList.remove("hidden");
     sidePanelBackdrop.classList.remove("hidden");
+    const focusables = focusableIn(panel);
+    if (focusables.length) focusables[0].focus();
   }
 
-  document.getElementById("historyToggleBtn").addEventListener("click", () => {
-    renderHistory();
-    openSidePanel(historyPanel);
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const openPanel = ALL_SIDE_PANELS.find((p) => !p.classList.contains("hidden"));
+    if (!openPanel) return;
+    const focusables = focusableIn(openPanel);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   });
-  document.getElementById("helpBtn").addEventListener("click", () => openSidePanel(helpPanel));
-  document.getElementById("feedbackBtn").addEventListener("click", () => openSidePanel(feedbackPanel));
+
+  document.getElementById("historyToggleBtn").addEventListener("click", (e) => {
+    renderHistory();
+    openSidePanel(historyPanel, e.currentTarget);
+  });
+  document.getElementById("helpBtn").addEventListener("click", (e) => openSidePanel(helpPanel, e.currentTarget));
+  document.getElementById("feedbackBtn").addEventListener("click", (e) => openSidePanel(feedbackPanel, e.currentTarget));
   document.getElementById("closeHistoryBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeHelpBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeFeedbackBtn").addEventListener("click", closeSidePanels);
@@ -647,7 +679,7 @@
     const btn = document.getElementById("sendFeedbackBtn");
 
     if (!text) {
-      feedbackHint.style.color = "#F11423";
+      feedbackHint.style.color = "#E71322";
       feedbackHint.textContent = "Contá qué pasó antes de enviar.";
       return;
     }
@@ -665,7 +697,7 @@
         document.getElementById("feedbackText").value = "";
       })
       .catch(() => {
-        feedbackHint.style.color = "#F11423";
+        feedbackHint.style.color = "#E71322";
         feedbackHint.textContent = "No se pudo enviar. Probá de nuevo en un rato.";
       })
       .finally(() => {

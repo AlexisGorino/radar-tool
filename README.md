@@ -4,7 +4,7 @@
 
 Herramienta de sourcing de Mindata, creada por **Ale Gorino** y **Franco Velazco**.
 Convierte una JD en un booleano preciso y en variantes listas para LinkedIn,
-Google/Bing (X-Ray), GitHub, Indeed, Behance, CVs sueltos en PDF/Word y otras redes.
+Google/Bing (X-Ray), GitHub, Behance, CVs sueltos en PDF/Word y otras redes.
 
 Pensada para el uso diario de un reclutador: sin cuentas, sin backend, sin
 dependencias externas más allá de una librería vendorizada para leer PDF.
@@ -20,9 +20,11 @@ Pages o publicada como página estática en cualquier lado.
   los cinco campos solo (rol, skills, industria, país, modalidad, seniority).
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
-- **Redes soportadas**: LinkedIn, GitHub (búsqueda nativa de personas o
-  repos), Stack Overflow, Indeed CVs, Xing, X/Twitter, Wellfound, Behance,
-  búsqueda de CVs sueltos (PDF/Word en toda la web) y cualquier sitio custom.
+- **Redes soportadas**: LinkedIn (búsqueda nativa + X-Ray), GitHub (búsqueda
+  nativa de personas o repos), Stack Overflow, Xing, X/Twitter, Wellfound,
+  Behance, búsqueda de CVs sueltos (PDF/Word en toda la web) y cualquier
+  sitio custom. Todas probadas en vivo contra Google (ver `TESTING.md`) —
+  Indeed CVs se sacó del listado porque Google no la tiene indexada.
 - **Historial de búsquedas**: guarda las últimas 20 búsquedas en el propio
   navegador (no en un servidor) para recuperarlas con un click.
 - **Atajo de teclado**: Ctrl/Cmd + Enter arma el booleano desde cualquier campo.

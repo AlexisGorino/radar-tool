@@ -1,8 +1,11 @@
 :root{
-  --red:#F11423;
+  /* Brand red/gray, nudged just enough to clear WCAG AA (4.5:1) for normal
+     text and for white-on-red buttons — visually the same shade, verified
+     with the relative-luminance formula, not eyeballed. */
+  --red:#E71322;
   --black:#000000;
   --dark:#2B2A29;
-  --gray:#7A7A7A;
+  --gray:#767676;
   --lightgray:#D9D9D9;
   --bg:#F7F7F7;
   --white:#FFFFFF;

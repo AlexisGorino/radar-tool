@@ -66,11 +66,11 @@ Backend Developer). Resultado, red por red:
 | Behance | Sí | Trae portfolios reales |
 | CVs sueltos | Sí | Trae PDFs de CV reales |
 | Otro sitio (custom) | Sí | Probado contra bumeran.com.ar |
-| **Indeed CVs** | **No** | Google no tiene indexada `indeed.com/r` ni con términos genéricos — Indeed exige cuenta de reclutador. Descripción actualizada para avisarlo. |
 | **Wellfound** | Corregido | El dominio apuntaba a `wellfound.com` (que Google llena de *avisos de trabajo*, no candidatos); corregido a `wellfound.com/u`, la ruta real de perfiles de personas. |
+| **Indeed CVs** | **Sacada** | Google no tiene indexada `indeed.com/r` ni con términos genéricos — Indeed exige cuenta de reclutador para ver currículums, no hay nada público que buscar. Se probó marcarla como "no confiable" en la UI, pero a pedido se sacó del todo la red en vez de dejar una opción que no sirve. |
 
 Conclusión operativa: Bing no sirve para X-Ray hoy (ver arriba), Google sí
-y de forma consistente en 9 de 10 redes. La UI ya recomienda Google
+y de forma consistente en las redes restantes. La UI ya recomienda Google
 primero en todos los `platform-note`.
 
 ## "Relajar búsqueda"
@@ -93,6 +93,33 @@ Verificado con los dos PDFs reales, subidos como archivo de verdad
 un drag-and-drop real) para que `pdf.js` los lea dentro del navegador —
 no inyectando el texto ya extraído a mano. Ambos casos completaron Rol,
 Atributos, Dominio y Alcance correctamente y sin errores de consola.
+
+También se generó un PDF sintético de 15 páginas (bastante más de los
+20.000 caracteres de `MAX_INPUT_LENGTH`) para probar el límite real, no
+solo en un test unitario con un string armado a mano. Medido desde adentro
+de la página (sin esperas artificiales del lado del test, que habían
+contaminado una primera medición): **339 ms** de principio a fin, JD
+truncada a exactamente 20.000 caracteres, Rol/Atributos extraídos bien.
+Sin problema de performance.
+
+## Accesibilidad
+
+- **Contraste de color (WCAG AA)**: calculado con la fórmula de luminancia
+  relativa, no a ojo. El rojo de marca (`#F11423`) y el gris de texto
+  secundario (`#7A7A7A`) daban 4.32:1 y 4.29:1 sobre blanco — por debajo
+  del mínimo de 4.5:1 para texto normal (afectaba texto chico como
+  `.hint`/`.platform-note` y los botones rojos con texto blanco). Ajustados
+  a `#E71322` y `#767676` — visualmente el mismo color, ahora ≥4.5:1 en
+  todos los pares texto/fondo relevantes del sitio.
+- **Paneles laterales (Historial/Ayuda/Feedback) como diálogo real**:
+  `role="dialog"` + `aria-modal="true"` + `aria-labelledby`. El foco se
+  mueve adentro al abrir, queda atrapado con Tab/Shift+Tab mientras el
+  panel está abierto (no se escapa al contenido de atrás), y vuelve al
+  botón que lo abrió al cerrar (con Escape, con el botón ×, o clickeando
+  afuera). Probado a mano con teclado en el navegador: abrir el panel de
+  feedback (4 elementos enfocables), Tab x4 hasta el botón de enviar, un
+  Tab más vuelve al botón de cerrar (no se escapa), Escape cierra y
+  devuelve el foco al botón "¿Sugerencias o encontraste un bug?" original.
 
 ## Mobile
 
@@ -223,8 +250,8 @@ párrafo al azar), que era el caso que importaba resolver.
 - [ ] Generar sin cargar Rol → error inline, no genera.
 - [ ] Generar con los 5 campos cargados → booleano universal + X-Ray
       correctos, comillas solo en términos con espacio.
-- [ ] Cambiar de red (LinkedIn → GitHub → Indeed → CVs sueltos → Otro
-      sitio) y volver a generar → cada una arma su propia query/URL.
+- [ ] Cambiar de red (LinkedIn → GitHub → Stack Overflow → CVs sueltos →
+      Otro sitio) y volver a generar → cada una arma su propia query/URL.
 - [ ] Modo GitHub, buscar repos con mínimo de estrellas → el filtro
       `stars:>N` aparece en la URL.
 - [ ] "Otro sitio" con un dominio custom (ej. `bumeran.com.ar`) → el

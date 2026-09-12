@@ -182,10 +182,10 @@
 
 </main>
 
-<aside class="side-panel hidden" id="historyPanel">
+<aside class="side-panel hidden" id="historyPanel" role="dialog" aria-modal="true" aria-labelledby="historyPanelTitle">
   <div class="side-panel-inner">
     <div class="side-panel-head">
-      <h3>Historial de búsquedas</h3>
+      <h3 id="historyPanelTitle">Historial de búsquedas</h3>
       <button class="btn-close" id="closeHistoryBtn" type="button" aria-label="Cerrar">×</button>
     </div>
     <p class="hint">Últimas búsquedas en este navegador. Click para recuperar los campos.</p>
@@ -194,10 +194,10 @@
   </div>
 </aside>
 
-<aside class="side-panel hidden" id="helpPanel">
+<aside class="side-panel hidden" id="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpPanelTitle">
   <div class="side-panel-inner">
     <div class="side-panel-head">
-      <h3>Cómo se usa</h3>
+      <h3 id="helpPanelTitle">Cómo se usa</h3>
       <button class="btn-close" id="closeHelpBtn" type="button" aria-label="Cerrar">×</button>
     </div>
     <dl class="help-dl">
@@ -213,10 +213,10 @@
   </div>
 </aside>
 
-<aside class="side-panel hidden" id="feedbackPanel">
+<aside class="side-panel hidden" id="feedbackPanel" role="dialog" aria-modal="true" aria-labelledby="feedbackPanelTitle">
   <div class="side-panel-inner">
     <div class="side-panel-head">
-      <h3>Reportar un bug o sugerencia</h3>
+      <h3 id="feedbackPanelTitle">Reportar un bug o sugerencia</h3>
       <button class="btn-close" id="closeFeedbackBtn" type="button" aria-label="Cerrar">×</button>
     </div>
     <p class="hint">Se manda directo, sin abrir tu mail. Elegí a quién.</p>
