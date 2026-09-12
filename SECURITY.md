@@ -48,6 +48,22 @@ ya lo cubre — es para que la sugerencia de rol no quede con basura de markup.
 `encodeURIComponent` antes de concatenarse (`generator.js`), evitando que un
 término con caracteres especiales rompa la URL o inyecte parámetros.
 
+## Pantalla de acceso (`js/gate.js` + el bloque de arriba de `app.js`)
+
+Es una puerta de recepción, no una cerradura. El repo es público en GitHub,
+así que la contraseña ("MinDataTeam") está a un click de "ver código fuente"
+de cualquiera que la busque — esto **no** es control de acceso real, y no
+hay que tratarlo como si protegiera algo. Lo que sí hace: evita que la
+herramienta se abra en frío para un visitante casual que llega al link
+público (un buscador que la indexó, alguien que la reenvió sin contexto),
+sin agregar backend, cuentas ni fricción para el equipo. Una vez tipeada
+correctamente, se guarda en `localStorage` (`radar-auth-v1`) para no
+volver a pedirla en ese navegador. Si en algún momento se necesita
+protección de verdad (por ejemplo, si la JD que se pega empezara a incluir
+datos sensibles), esto hay que reemplazarlo por autenticación real del lado
+del servidor — un password compartido en JS del lado del cliente nunca
+puede serlo, sin importar cuánto se lo ofusque.
+
 ## La única excepción intencional
 
 El botón "¿Sugerencias o encontraste un bug?" es la única función del
@@ -57,7 +73,12 @@ que lo reenvía por mail a Alexis, a Franco o a ambos según lo que elija
 quien reporta. No hay backend propio ni base de datos: FormSubmit es un
 relay gratuito sin cuenta, pensado justo para formularios de sitios
 estáticos. La llamada de red sólo ocurre cuando la persona toca "Enviar" —
-nunca automáticamente. Nota operativa: la primera vez que se le manda algo
+nunca automáticamente. El formulario tiene además un honeypot
+(`#feedbackWebsite`, oculto por CSS y por `aria-hidden`, nunca visible ni
+para una persona ni para un lector de pantalla): un bot que completa cada
+`<input>` de la página lo va a llenar, una persona real nunca lo ve — si
+llega con contenido, el envío se cancela en silencio antes de tocar la red.
+Nota operativa: la primera vez que se le manda algo
 a una dirección nueva, FormSubmit le exige a esa dirección confirmar con
 un click en un mail de activación antes de empezar a reenviar de verdad —
 tanto Alexis como Franco necesitan hacer ese click una vez cada uno.

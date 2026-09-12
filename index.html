@@ -5,12 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'self' https://formsubmit.co; base-uri 'none'; form-action 'none';">
 <meta name="description" content="RADAR: generador de booleanos de sourcing para reclutadores. Convertí una JD en un booleano preciso para LinkedIn, Google X-Ray, GitHub y más. Método Mindata.">
+<meta property="og:title" content="RADAR — Generador de booleanos | Mindata">
+<meta property="og:description" content="Convertí una JD en un booleano de sourcing preciso para LinkedIn, Google X-Ray, GitHub y más. Herramienta interna del equipo de Mindata.">
+<meta property="og:image" content="assets/mindata-logo.png">
+<meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=9">
+<link rel="stylesheet" href="css/styles.css?v=10">
+<script src="js/gate.js?v=10"></script>
 </head>
 <body>
 
+<div id="authGate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="authGateTitle">
+  <form class="auth-gate-box" id="authGateForm">
+    <img src="assets/mindata-logo.png" alt="Mindata" class="auth-gate-logo">
+    <h2 id="authGateTitle">Acceso del equipo</h2>
+    <p class="hint">RADAR es de uso interno de Mindata. Ingresá la contraseña del equipo para entrar.</p>
+    <label class="auth-gate-label" for="authGatePassword">Contraseña</label>
+    <input type="password" id="authGatePassword" autocomplete="current-password" placeholder="Contraseña del equipo">
+    <button class="btn btn-primary" id="authGateSubmit" type="submit">Entrar</button>
+    <p class="hint auth-gate-error" id="authGateError" role="alert"></p>
+  </form>
+</div>
+
+<div id="appShell" class="app-shell">
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand-left">
@@ -36,7 +54,7 @@
     <p class="hint">Detector de palabras clave: no es magia, revisá las sugerencias antes de generar.</p>
 
     <div id="dropzone" class="dropzone">
-      <textarea id="jdInput" maxlength="20000" placeholder="Pegá el texto de la JD acá, o soltá un archivo .txt o .pdf en esta zona..."></textarea>
+      <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description" placeholder="Pegá el texto de la JD acá, o soltá un archivo .txt o .pdf en esta zona..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <div class="row-actions">
@@ -234,6 +252,8 @@
       </select>
       <label class="feedback-label" for="feedbackText">Contame qué pasó o qué se te ocurrió</label>
       <textarea id="feedbackText" rows="6" maxlength="2000" placeholder="Ej: al generar el booleano con la red Xing seleccionada, el botón..."></textarea>
+      <label class="feedback-label hidden" for="feedbackWebsite">No completar</label>
+      <input type="text" id="feedbackWebsite" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
       <button class="btn btn-primary" id="sendFeedbackBtn" type="button">Enviar</button>
       <p class="hint" id="feedbackHint"></p>
     </div>
@@ -246,13 +266,14 @@
   <p class="footer-credit">Solución hecha con amor para todo el equipo de Mindata, por <strong>Ale Gorino</strong> y <strong>Franco Velazco</strong>.</p>
   <p class="footer-rights">© <span id="footerYear"></span> Mindata. Todos los derechos reservados.</p>
 </footer>
+</div>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/countries.js?v=9"></script>
-<script src="js/keywords.js?v=9"></script>
-<script src="js/networks.js?v=9"></script>
-<script src="js/extractor.js?v=9"></script>
-<script src="js/generator.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
+<script src="js/countries.js?v=10"></script>
+<script src="js/keywords.js?v=10"></script>
+<script src="js/networks.js?v=10"></script>
+<script src="js/extractor.js?v=10"></script>
+<script src="js/generator.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>

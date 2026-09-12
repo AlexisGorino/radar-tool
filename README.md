@@ -66,9 +66,10 @@ levantar un navegador. `app.js` es la única capa que conoce el HTML.
 ```
 node tests/run.js
 node tests/jd-bank.js
+node tests/locations.js
 ```
 
-170+ casos entre ambos. Ver [`TESTING.md`](TESTING.md) para el detalle y
+304 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local

@@ -31,7 +31,12 @@
   // in the exact words RADAR picked) — this is the one-click way out of
   // that without manually deleting chips.
   function coreBlocks(state, relaxed) {
-    const blocks = [orGroup(state.rol), orGroup(state.atributos)];
+    // Same cleanup GitHub's free text already gets (see stripAbbreviatedTitlePrefix
+    // below) applied here too, so a chip typed by hand ("Sr. Backend Developer")
+    // can't quietly re-introduce the same dead-on-arrival exact phrase that
+    // extractor.js already strips out of anything it auto-detects.
+    const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix);
+    const blocks = [orGroup(rol), orGroup(state.atributos)];
     if (!relaxed) blocks.push(orGroup(state.dominio), orGroup(state.alcance));
     return blocks.filter(Boolean);
   }

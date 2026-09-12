@@ -2,6 +2,39 @@
 (function () {
   "use strict";
 
+  // ---------------------------------------------------------------
+  // Access gate. NOTE this is a lobby door, not a lock: the repo is public,
+  // so the password below is one "view source" away from anyone who looks —
+  // it keeps the tool from showing up cold to a random visitor or search
+  // crawler, it does not protect the JD text or booleans from someone who
+  // actually wants in. js/gate.js already flips <html class="authed"> before
+  // paint for a returning visitor; this only wires up the form for a first
+  // visit on this browser.
+  // ---------------------------------------------------------------
+  const AUTH_KEY = "radar-auth-v1";
+  const AUTH_PASSWORD = "MinDataTeam";
+  const authGateForm = document.getElementById("authGateForm");
+  const authGatePassword = document.getElementById("authGatePassword");
+  const authGateError = document.getElementById("authGateError");
+
+  authGateForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (authGatePassword.value === AUTH_PASSWORD) {
+      try {
+        localStorage.setItem(AUTH_KEY, "ok");
+      } catch (err) {
+        // private browsing / storage disabled — still unlocks this load,
+        // just won't be remembered next time
+      }
+      document.documentElement.classList.add("authed");
+      authGateError.textContent = "";
+    } else {
+      authGateError.textContent = "Contraseña incorrecta.";
+      authGatePassword.value = "";
+      authGatePassword.focus();
+    }
+  });
+
   const FIELDS = ["rol", "atributos", "dominio", "alcance", "refinar"];
   const MAX_TXT_BYTES = 500 * 1024;
   const MAX_PDF_BYTES = 8 * 1024 * 1024;
@@ -374,10 +407,7 @@
     const key = kind === "file" ? "file" : "generate";
     if (!errorSlots[key]) {
       const el = document.createElement("div");
-      el.style.color = "#E71322";
-      el.style.fontSize = "12.5px";
-      el.style.marginTop = "10px";
-      el.style.fontWeight = "700";
+      el.className = "inline-error";
       errorAnchor(key).insertAdjacentElement("afterend", el);
       errorSlots[key] = el;
     }
@@ -678,26 +708,33 @@
     const feedbackHint = document.getElementById("feedbackHint");
     const btn = document.getElementById("sendFeedbackBtn");
 
+    // Honeypot: a hidden field a human never sees or fills. Any script that
+    // blindly fills every input on the page will fill it too, so a non-empty
+    // value here means "not a person" — bail out quietly, no error shown,
+    // no request sent (showing an error would just teach the bot to leave
+    // it blank).
+    if (document.getElementById("feedbackWebsite").value.trim()) return;
+
     if (!text) {
-      feedbackHint.style.color = "#E71322";
+      feedbackHint.classList.add("hint-error");
       feedbackHint.textContent = "Contá qué pasó antes de enviar.";
       return;
     }
 
     const subject = "Radar Tool - " + type;
     btn.disabled = true;
-    feedbackHint.style.color = "";
+    feedbackHint.classList.remove("hint-error");
     feedbackHint.textContent = "Enviando…";
 
     const targets = feedbackTargets(to);
     Promise.all(targets.map((email) => sendFeedbackTo(email, subject, text)))
       .then(() => {
-        feedbackHint.style.color = "";
+        feedbackHint.classList.remove("hint-error");
         feedbackHint.textContent = "Enviado. Gracias por avisar.";
         document.getElementById("feedbackText").value = "";
       })
       .catch(() => {
-        feedbackHint.style.color = "#E71322";
+        feedbackHint.classList.add("hint-error");
         feedbackHint.textContent = "No se pudo enviar. Probá de nuevo en un rato.";
       })
       .finally(() => {

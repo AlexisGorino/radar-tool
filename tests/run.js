@@ -465,7 +465,19 @@ test("title-shaped phrase at the very start of a JD with no line breaks or verb 
   const flattened =
     "Sr. Backend Developer  Ardua Solutions · Tecnología  Reporta a: Santiago Ahmed  Híbrido — Puerto Madero, CABA — Full Time  Sobre la Empresa  Somos una fintech...";
   const r = Extractor.guessRol(flattened);
-  assert.strictEqual(r[0], "Sr. Backend Developer");
+  // "Sr." is the internal seniority shorthand, not a title a real profile is
+  // ever quoted verbatim with — it must be stripped, not kept as part of the
+  // exact phrase every network ANDs against (verified live: this exact
+  // prefix zeroed out LinkedIn/Google/Bing on an otherwise sound search).
+  assert.strictEqual(r[0], "Backend Developer");
+});
+
+test("a leading seniority abbreviation (Sr./Ssr./Jr.) never survives into the role", () => {
+  assert.strictEqual(Extractor.trimRolPhrase("Ssr. QA Analyst"), "QA Analyst");
+  assert.strictEqual(Extractor.trimRolPhrase("Jr. Data Engineer"), "Data Engineer");
+  assert.strictEqual(Extractor.trimRolPhrase("Sr Backend Developer"), "Backend Developer"); // no period, still an abbreviation
+  // bare "SRE" must not be mistaken for the "sr" abbreviation — no period, no space after "sr"
+  assert.strictEqual(Extractor.trimRolPhrase("SRE"), "SRE");
 });
 
 test("title-shaped phrase at doc start works in English too", () => {

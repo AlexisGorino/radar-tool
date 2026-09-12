@@ -11,7 +11,7 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-272 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+304 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -192,6 +192,37 @@ ningún patrón que lo capturara) y, probando la búsqueda de GitHub contra
 GitHub de verdad, un "Sr." con punto en el texto libre hacía que GitHub
 devolviera 0 resultados en vez de los 7 reales que trae la misma consulta
 sin ese prefijo.
+
+## El "Sr." que dejaba en cero LinkedIn, Google y Bing a la vez
+
+Detectado en vivo con una JD real (Ardua Solutions, Sr. Backend Developer,
+fintech, AWS/Go/Lambda/SQS, CABA): el booleano generado —
+`"Sr. Backend Developer" AND (AWS OR Go OR Lambda OR SQS) AND fintech AND
+(Argentina OR CABA)` — no traía un solo resultado en ninguna red. La causa
+no era la combinación de bloques (para eso ya existe "Relajar búsqueda"):
+era el propio Rol. `guessRol` tomaba "Sr." tal cual del inicio de la JD y lo
+metía dentro de la frase citada del Rol — pero casi nadie escribe su propio
+título de perfil con esa abreviatura puntuada exacta ("Senior Backend
+Developer", "Backend Developer" a secas, o "Sr Backend Developer" sin punto
+son las formas reales). Ya existía la corrección exacta para este mismo
+problema, pero aplicada solo a GitHub (`stripAbbreviatedTitlePrefix` en
+`generator.js`, con su propia evidencia en vivo: 0→7 resultados sacando el
+"Sr.") — nunca se había extendido a LinkedIn, al booleano universal ni a
+X-Ray, que son justamente los que citan el Rol como frase exacta.
+
+Corregido en la fuente (`trimRolPhrase` en `extractor.js`): un "Sr."/"Ssr."/
+"Jr." al inicio de un candidato a Rol se descarta antes de convertirse en
+chip, y como consecuencia deja de bloquear su propio hueco en
+`refinarSuggestion` — la seniority vuelve a aparecer como pill clickeable en
+Refinar, tal como ya pasa con el resto de los casos de seniority/modalidad.
+`generator.js` aplica la misma limpieza también sobre `state.rol` al armar
+el booleano, como red de seguridad para un chip tipeado a mano. Verificado
+de punta a punta contra la JD real: el booleano pasó a
+`"Backend Developer" AND (AWS OR Go OR Lambda OR SQS) AND fintech AND
+(Argentina OR CABA)`. Fixture de regresión: el caso "Ardua" en
+`tests/jd-bank.js` ahora exige `expectRolExact` (no alcanza con que el rol
+"contenga" el título, tiene que ser exactamente ese) para que este bug no
+pueda reabrirse en silencio.
 
 ## "¿Esto es una JD?"
 

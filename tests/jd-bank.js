@@ -31,7 +31,11 @@ const cases = [
   {
     name: "AR - JD real, plantilla moderna sin verbo ni etiqueta (Sr. Backend Developer, Ardua)",
     text: pdfModernTemplateJD,
-    expectRolContains: "backend developer",
+    // Exacto, no "contains": el "Sr." tiene que desaparecer del todo, no
+    // alcanza con que "backend developer" esté en algún lado del string —
+    // fue precisamente ese prefijo el que dejó en cero LinkedIn/Google/Bing
+    // en una búsqueda real (booleano AND'eado con Atributos/Dominio/Alcance).
+    expectRolExact: "backend developer",
     expectSkills: ["Go", "AWS", "Lambda", "SQS"],
     expectDominio: "fintech",
     expectCountry: "Argentina",

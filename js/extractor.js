@@ -66,7 +66,7 @@
   }
 
   function stripTags(text) {
-    return text.replace(/<[^>]*>/g, " ").replace(/\s{2,}/g, " ");
+    return text.replace(/<[^>]*>/g, " ").replace(/\s{2,}/g, " ").trim();
   }
 
   // Every country/city term plus modality words, longest-first so "buenos aires"
@@ -92,8 +92,20 @@
   const LEADING_VERB_RE =
     /^(?:buscamos|se busca|se necesita|necesitamos|estamos buscando|queremos incorporar|queremos sumar|busca incorporar|busco|necesito|quiero|busca)\s+(?:un[ao]?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un[ao]?\s+)?(?:\d+\s+)?/i;
 
+  // A JD names its own opening ("Sr. Backend Developer", "Ssr. QA Analyst")
+  // with the internal seniority shorthand, but almost nobody spells their
+  // own profile title that way — quoting it whole turns a normal boolean
+  // into one that matches almost nobody (verified live: this exact prefix
+  // zeroed out LinkedIn, Google X-Ray and Bing on a real Rol AND Atributos
+  // AND Dominio AND Alcance search). Strip it before it ever reaches a
+  // chip, the same way it's already stripped for GitHub's free text in
+  // generator.js — the seniority itself still surfaces, but as a Refinar
+  // suggestion (SENIOR_WORDS/JUNIOR_WORDS below), never as a dead-weight
+  // literal baked into the one field every network ANDs against.
+  const LEADING_SENIORITY_ABBREV_RE = /^(?:sr|ssr|jr)\.?\s+/i;
+
   function trimRolPhrase(raw) {
-    let rol = raw.trim().replace(LEADING_VERB_RE, "").trim();
+    let rol = raw.trim().replace(LEADING_VERB_RE, "").replace(LEADING_SENIORITY_ABBREV_RE, "").trim();
     const stopWords =
       /\s+(para|con|a nuestro|a nuestra|al equipo|a su equipo|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
