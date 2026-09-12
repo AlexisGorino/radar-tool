@@ -6,22 +6,48 @@ Dos capas: automatizada (lógica pura, corre en cada cambio) y manual
 ## Automatizada
 
 ```
-node tests/run.js       # 48 tests unitarios: extractor, generator, seguridad
-node tests/jd-bank.js   # 123 tests de regresión con JDs reales
+node tests/run.js        # tests unitarios: extractor, generator, seguridad
+node tests/jd-bank.js    # tests de regresión con JDs reales
+node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-171 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+215 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
 Alemania, Reino Unido, Países Bajos e Italia, en español e inglés, con
 distintos formatos de redacción ("buscamos", "se busca", "posición:",
 "looking for", "X Developer with Y"), para agarrar retrocesos en precisión
-antes de que lleguen a producción.
+antes de que lleguen a producción. `tests/locations.js` prueba que además
+de capitales y ciudades grandes se detecten provincias/estados/regiones
+(Neuquén, Jalisco, Cataluña, Baviera...) y que palabras comunes que se
+parecen a un nombre de provincia (ej. "salta" como verbo) no disparen un
+falso positivo.
 
-Correr ambos antes de cualquier cambio a `extractor.js`, `generator.js`,
+Correr los tres antes de cualquier cambio a `extractor.js`, `generator.js`,
 `keywords.js` o `countries.js` — son los módulos donde un cambio chico
 rompe casos que no se ven a simple vista.
+
+## Hallazgo importante: `site:` en Bing dejó de ser confiable
+
+Probado en vivo (no es una suposición): `site:stackoverflow.com/users
+terraform` en Bing devuelve una página de Zhihu (un sitio chino de
+preguntas y respuestas) — Bing directamente ignora la restricción de
+sitio. Se repitió el mismo resultado con `site:linkedin.com/in`. Por eso:
+
+- LinkedIn ahora tiene un botón propio ("Buscar en LinkedIn") que usa el
+  buscador nativo de LinkedIn en vez de X-Ray — no depende de que ningún
+  buscador externo tenga indexados los perfiles.
+- Para el resto de las redes (X-Ray por sitio), Google quedó como opción
+  principal y Bing marcado como "menos confiable hoy" en la propia UI.
+- Si ni Google trae nada, la salida es copiar el booleano y pegarlo a mano
+  en el buscador propio del sitio (cuando lo tiene, como LinkedIn o los
+  portales de empleo).
+
+Esto no es algo que el código de RADAR pueda arreglar — es un cambio de
+comportamiento de los buscadores externos. Si en el futuro Bing vuelve a
+respetar `site:`, hay que revisar esta nota y la de la UI (`xrayNote` /
+`NETWORK_DESCRIPTIONS.linkedin` en `js/app.js`).
 
 ## Manual (checklist previo a deploy)
 
