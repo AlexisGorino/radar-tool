@@ -225,7 +225,15 @@
   // ---------------------------------------------------------------
   function runAnalysis() {
     const text = jdInput.value;
+    if (!text.trim()) {
+      showError("Pegá o subí una JD antes de analizar.", "file");
+      return;
+    }
     const result = RadarExtractor.analyzeJD(text);
+    if (!result.isJobPosting) {
+      showError("Esto no parece una descripción de puesto — no encontramos rol, ubicación, skills ni palabras típicas de una JD (\"requisitos\", \"responsabilidades\"...). Completá los campos a mano.", "file");
+      return;
+    }
     FIELDS.forEach((f) => {
       (result[f] || []).forEach((term) => addTerm(f, term));
     });

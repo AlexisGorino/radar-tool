@@ -11,7 +11,7 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-229 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+246 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -86,7 +86,33 @@ acerca:
 Fixture de regresión: `tests/fixtures/pdf-table-template-jd.txt` es el
 texto real extraído por pdf.js de esa JD (no una versión limpiada a
 mano) — si un cambio futuro vuelve a romper la extracción con este tipo
-de formato de tabla, `tests/jd-bank.js` lo va a agarrar.
+de formato de tabla, `tests/jd-bank.js` lo va a agarrar. Una segunda JD
+real de otra empresa, con un formato de prosa moderno completamente
+distinto (el título solo al principio del documento, sin verbo ni
+etiqueta), está guardada en `tests/fixtures/pdf-modern-template-jd.txt`
+— ese caso dejó en evidencia dos bugs más: el rol quedaba vacío (no había
+ningún patrón que lo capturara) y, probando la búsqueda de GitHub contra
+GitHub de verdad, un "Sr." con punto en el texto libre hacía que GitHub
+devolviera 0 resultados en vez de los 7 reales que trae la misma consulta
+sin ese prefijo.
+
+## "¿Esto es una JD?"
+
+Si el texto pegado o subido no tiene ninguna señal real de ser una
+descripción de puesto (ni rol, ni país, ni skills, ni dominio, ni una
+palabra típica como "requisitos"/"responsabilidades"), "Analizar JD"
+muestra un error en vez de completar los campos con ruido o dejarlos
+vacíos en silencio (`isJobPosting` en `extractor.js`, umbral en
+`countJobPostingSignals`). Un rol real detectado alcanza por sí solo
+(ya pasó por los filtros anti-falso-positivo de `guessRol`), así que una
+consulta corta manual como "busco un Backend Developer" sigue
+aceptándose aunque no tenga ubicación ni skills.
+
+Límite conocido y aceptado: esto no distingue de forma confiable una JD
+de un CV — ambos son documentos profesionales que comparten vocabulario
+("experiencia", skills, a veces hasta una industria). Sí rechaza con
+confianza texto claramente no relacionado (una noticia, una receta, un
+párrafo al azar), que era el caso que importaba resolver.
 
 ## Manual (checklist previo a deploy)
 
@@ -103,6 +129,9 @@ de formato de tabla, `tests/jd-bank.js` lo va a agarrar.
 - [ ] Subir un `.txt` de más de 500 KB, o un `.pdf` de más de 8 MB →
       mensaje de error, no lo lee.
 - [ ] JD vacía + "Analizar JD" → no crashea, no agrega campos basura.
+- [ ] Pegar texto claramente no relacionado (una noticia, una receta) y
+      analizar → mensaje de error ("no parece una descripción de puesto"),
+      ningún campo se completa con ruido.
 
 **Campos RADAR**
 - [ ] Escribir un término y Enter en cada uno de los 5 campos → aparece

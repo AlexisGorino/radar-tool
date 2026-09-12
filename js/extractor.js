@@ -233,10 +233,42 @@
     return m ? [m[0].trim()] : [];
   }
 
+  // Words that show up in an actual job posting (any section: intro,
+  // responsibilities, requirements, benefits...) but essentially never in
+  // unrelated text pasted by mistake (a CV, a news article, a random
+  // paragraph). Used only as one signal among several — see isJobPosting.
+  const JD_SECTION_WORDS = [
+    "responsabilidades", "funciones", "tareas", "requisitos", "requerimientos",
+    "beneficios", "salario", "sueldo", "experiencia", "conocimientos", "habilidades",
+    "perfil", "puesto", "vacante", "cargo", "posici[oó]n", "postulate", "postulaci[oó]n",
+    "buscamos", "se busca", "estamos buscando", "necesitamos", "reporta a",
+    "responsibilities", "requirements", "qualifications", "reports to", "apply",
+  ];
+  function countJobPostingSignals(text, analyzed) {
+    let signals = 0;
+    // A real role title survives several anti-false-positive guards already
+    // (looksLikeTemplateNoise, isBareNonRole...), so on its own it's already
+    // as trustworthy as two weaker signals combined — "busco un Backend
+    // Developer" with nothing else shouldn't be rejected as "not a JD".
+    if (analyzed.rol.length) signals += 2;
+    if (analyzed.country) signals++;
+    if (analyzed.atributos.length) signals++;
+    if (analyzed.dominio.length) signals++;
+    if (JD_SECTION_WORDS.some((w) => new RegExp("\\b" + w + "\\b", "i").test(text))) signals++;
+    return signals;
+  }
+
+  // Below this many signals (rol / país / atributos / dominio / palabra
+  // típica de JD), the text is treated as "not a job posting" rather than
+  // silently generating an empty or misleading analysis. 2 is deliberately
+  // low: a short manual query like "busco Java Developer en Brasil" only
+  // has 2 signals (rol + país) and must still be accepted.
+  const MIN_JOB_POSTING_SIGNALS = 2;
+
   function analyzeJD(rawText) {
     const text = String(rawText || "").slice(0, MAX_INPUT_LENGTH);
     if (!text.trim()) {
-      return { rol: [], atributos: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null };
+      return { rol: [], atributos: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false };
     }
 
     const rol = dedupe(guessRol(text));
@@ -269,17 +301,21 @@
     // not as pre-added chips.
     const refinarSuggestion = dedupe([...seniorFound, ...juniorFound, ...modality]);
 
-    return { rol, atributos, dominio, alcance, refinar: [], refinarSuggestion, country };
+    const analyzed = { rol, atributos, dominio, alcance, refinar: [], refinarSuggestion, country };
+    analyzed.isJobPosting = countJobPostingSignals(text, analyzed) >= MIN_JOB_POSTING_SIGNALS;
+    return analyzed;
   }
 
   return {
     MAX_INPUT_LENGTH,
     MAX_ATTRIBUTES,
     MAX_DOMINIO,
+    MIN_JOB_POSTING_SIGNALS,
     dedupe,
     findMatches,
     findMatchesRanked,
     looksLikeTemplateNoise,
+    countJobPostingSignals,
     guessRol,
     trimRolPhrase,
     extractYears,

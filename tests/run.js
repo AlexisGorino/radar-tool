@@ -313,6 +313,47 @@ test("GitHub people URL falls back gracefully when no language detected", () => 
 });
 
 // ---------------------------------------------------------------
+// 4b. "Is this actually a job posting?" — pasted content unrelated to a JD
+// (a recipe, a news article, a CV) should be flagged instead of silently
+// producing an empty or misleading analysis.
+// ---------------------------------------------------------------
+
+test("unrelated text (news, recipe) is flagged as not a job posting", () => {
+  const news = Extractor.analyzeJD(
+    "El gobierno anuncio ayer nuevas medidas economicas que afectaran el tipo de cambio segun analistas del mercado financiero local."
+  );
+  assert.strictEqual(news.isJobPosting, false);
+
+  const recipe = Extractor.analyzeJD("Para hacer un buen asado necesitas carne de calidad, sal gruesa y paciencia.");
+  assert.strictEqual(recipe.isJobPosting, false);
+});
+
+test("empty input is flagged as not a job posting", () => {
+  const r = Extractor.analyzeJD("");
+  assert.strictEqual(r.isJobPosting, false);
+});
+
+test("a short manual query with just a role is still accepted as a job posting", () => {
+  const r = Extractor.analyzeJD("busco un Backend Developer");
+  assert.strictEqual(r.rol[0], "Backend Developer");
+  assert.strictEqual(r.isJobPosting, true, "a real role title alone is enough signal");
+});
+
+test("a short manual query with role + location is accepted", () => {
+  const r = Extractor.analyzeJD("busco un Backend Developer con Java y Spring que viva en Brasil");
+  assert.strictEqual(r.isJobPosting, true);
+});
+
+test("a full real JD (with no explicit role match) is still accepted via combined signals", () => {
+  // dominio + país + atributos + JD-section words add up even without a
+  // confidently-parsed rol — this must not be flagged as "not a JD".
+  const r = Extractor.analyzeJD(
+    "Requisitos: experiencia en Python y SQL. Responsabilidades: mantenimiento de pipelines de datos. Sede en Bogotá, Colombia. Sector fintech."
+  );
+  assert.strictEqual(r.isJobPosting, true);
+});
+
+// ---------------------------------------------------------------
 // 5. Chip-list style operations (add/remove/clear) — logic mirrors app.js state handling
 // ---------------------------------------------------------------
 
