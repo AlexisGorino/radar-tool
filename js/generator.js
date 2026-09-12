@@ -86,10 +86,14 @@
     const cityLike = (state.alcance || []).find(
       (a) => !Keywords.SENIOR_WORDS.includes(a.toLowerCase()) && !Keywords.JUNIOR_WORDS.includes(a.toLowerCase()) && isNaN(parseInt(a, 10))
     );
-    const parts = [];
-    if (lang) parts.push(`language:${lang}`);
-    if (cityLike) parts.push(`location:"${cityLike}"`);
-    const q = parts.join(" ") || (state.atributos || [])[0] || (state.rol || [])[0] || "";
+    const qualifiers = [];
+    if (lang) qualifiers.push(`language:${lang}`);
+    if (cityLike) qualifiers.push(`location:"${cityLike}"`);
+    // GitHub's free-text search still matches on rol/atributos even without a
+    // recognized language qualifier — dropping them left non-technical roles
+    // (sales, recruiting, etc.) with a location-only query and no real signal.
+    const freeText = (state.rol || [])[0] || (state.atributos || [])[0] || "";
+    const q = [freeText, qualifiers.join(" ")].filter(Boolean).join(" ").trim();
     return "https://github.com/search?q=" + encodeURIComponent(q) + "&type=users";
   }
 

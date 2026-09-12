@@ -278,6 +278,13 @@ test("GitHub repo URL includes stars filter when provided", () => {
   assert.ok(url.includes("type=repositories"));
 });
 
+test("GitHub people URL keeps the role text for non-technical searches (not just location)", () => {
+  const state = { rol: ["Ejecutivo de Cuentas"], atributos: ["CRM"], dominio: ["seguros"], alcance: ["México"], refinar: ["junior"] };
+  const url = Generator.buildGithubPeopleUrl(state);
+  assert.ok(url.includes(encodeURIComponent("Ejecutivo de Cuentas")), `expected role text in url, got: ${url}`);
+  assert.ok(url.includes("location"));
+});
+
 test("GitHub people URL falls back gracefully when no language detected", () => {
   const state = { rol: ["Product Manager"], atributos: [], dominio: [], alcance: [], refinar: [] };
   const url = Generator.buildGithubPeopleUrl(state);

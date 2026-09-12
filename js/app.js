@@ -13,6 +13,29 @@
   const state = { rol: [], atributos: [], dominio: [], alcance: [], refinar: [] };
   let selectedNetwork = "linkedin";
 
+  // Each entry: what the search actually does, and what kind of result to expect.
+  const NETWORK_DESCRIPTIONS = {
+    linkedin:
+      "Cómo busca: arma una X-Ray con site:linkedin.com/in para que Google o Bing indexen perfiles de LinkedIn desde afuera — no hace falta Recruiter ni estar logueado. Qué trae: links a perfiles públicos de personas cuyo perfil menciona tu rol, atributos y ubicación. Sirve para cualquier rubro, técnico o no.",
+    github:
+      "Cómo busca: búsqueda nativa de GitHub (no X-Ray), con sus propios operadores (language:, location:, stars:). Qué trae: perfiles de developers con actividad pública en GitHub, o repositorios. Solo tiene sentido para roles de programación/datos — para roles no técnicos casi no va a traer nada relevante.",
+    stackoverflow:
+      "Cómo busca: X-Ray sobre site:stackoverflow.com/users. Qué trae: perfiles de gente con actividad pública respondiendo o preguntando en Stack Overflow. Solo útil para roles técnicos (dev, QA, data, DevOps) — para roles comerciales o de negocio no va a traer resultados.",
+    indeed:
+      "Cómo busca: X-Ray sobre site:indeed.com/r (la sección de CVs públicos de Indeed). Qué trae: currículums que la propia persona subió a Indeed. Sirve para cualquier rubro, pero la cobertura varía mucho según el país — fuerte en EE.UU., más floja en el resto de LATAM.",
+    xing: "Cómo busca: X-Ray sobre site:xing.com/profile. Qué trae: perfiles profesionales de Xing, equivalente a LinkedIn pero local. Solo tiene sentido si el candidato puede estar en Alemania, Austria o Suiza — en el resto del mundo casi no hay usuarios.",
+    twitter:
+      "Cómo busca: X-Ray sobre X/Twitter. Qué trae: cuentas públicas cuya bio o tuits mencionan tu rol/atributos. Sirve solo para roles con presencia pública activa (devrel, comunidad, marketing técnico, prensa) — para la mayoría de los roles no es una buena fuente.",
+    wellfound:
+      "Cómo busca: X-Ray sobre Wellfound (ex AngelList Talent). Qué trae: perfiles orientados a startups. Sirve mejor para roles de producto e ingeniería early-stage — para roles de industrias tradicionales (banca, seguros, manufactura) rinde poco.",
+    behance:
+      "Cómo busca: X-Ray sobre portfolios públicos de Behance. Qué trae: portfolios de diseño/ilustración/UX-UI. Solo tiene sentido para esos roles — para cualquier otro rubro no va a traer nada.",
+    resumes:
+      "Cómo busca: no busca en una red puntual, busca archivos PDF o Word publicados en cualquier parte de la web indexada por Google (filetype:pdf/doc/docx + palabras típicas de un CV en el título, como \"cv\" o \"curriculum\"). Qué trae: currículums sueltos publicados fuera de las redes profesionales — en un sitio personal, un blog, una carpeta pública. Sirve para cualquier rubro, pero trae menos volumen que LinkedIn.",
+    custom:
+      "Cómo busca: X-Ray sobre el dominio que definas abajo. Qué trae: lo que ese sitio tenga indexado por Google con tu rol/atributos — útil para portales de empleo locales (Bumeran, Computrabajo, InfoJobs), universidades, colegios profesionales, etc. La calidad depende de cuánto indexe Google ese sitio en particular.",
+  };
+
   const NOTES = {
     linkedin: "OR y comillas funcionan en la cuenta free; el NOT es más confiable en Recruiter / Recruiter Lite.",
     stackoverflow: "Útil para perfiles técnicos con actividad pública en preguntas y respuestas.",
@@ -36,6 +59,7 @@
   const fileInput = document.getElementById("fileInput");
   const countrySelect = document.getElementById("countrySelect");
   const networkTabsEl = document.getElementById("networkTabs");
+  const networkDescriptionEl = document.getElementById("networkDescription");
   const customSiteRow = document.getElementById("customSiteRow");
   const customSiteInput = document.getElementById("customSiteInput");
   const githubModeRow = document.getElementById("githubModeRow");
@@ -182,10 +206,12 @@
   function selectNetwork(id) {
     selectedNetwork = id;
     renderNetworkTabs();
+    networkDescriptionEl.textContent = NETWORK_DESCRIPTIONS[id] || "";
     customSiteRow.classList.toggle("hidden", id !== "custom");
     githubModeRow.classList.toggle("hidden", id !== "github");
   }
   renderNetworkTabs();
+  networkDescriptionEl.textContent = NETWORK_DESCRIPTIONS[selectedNetwork] || "";
 
   document.querySelectorAll('input[name="ghmode"]').forEach((radio) => {
     radio.addEventListener("change", () => {
