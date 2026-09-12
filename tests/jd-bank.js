@@ -286,6 +286,44 @@ const cases = [
     expectRolNotContains: ["mendoza"],
     expectCountry: "Argentina",
   },
+
+  // -----------------------------------------------------------------
+  // Perfiles no técnicos (marketing, RRHH, finanzas, legal) — el banco de
+  // skills estaba fuerte en tecnología/SAP/ciberseguridad pero vacío para
+  // el resto de las profesiones que un reclutador también busca todos los días.
+  // -----------------------------------------------------------------
+  {
+    name: "MX - Growth Marketing Manager",
+    text: "Buscamos Growth Marketing Manager con experiencia en SEO, SEM, Google Ads y Google Analytics para empresa de e-commerce en Guadalajara, México.",
+    expectRolContains: "growth marketing manager",
+    expectSkills: ["SEO", "SEM", "Google Ads", "Google Analytics"],
+    expectDominio: "e-commerce",
+    expectCountry: "México",
+  },
+  {
+    name: "AR - Recruiter / Talent Acquisition",
+    text: "Necesitamos un Recruiter con manejo de ATS y LinkedIn Recruiter para empresa de retail en Córdoba, Argentina.",
+    expectRolContains: "recruiter",
+    expectSkills: ["ATS", "LinkedIn Recruiter"],
+    expectDominio: "retail",
+    expectCountry: "Argentina",
+  },
+  {
+    name: "CO - Analista Contable Senior",
+    text: "Se busca Analista Contable Senior con conocimientos de NIIF, Excel avanzado y experiencia en Auditoría, para banco en Bogotá, Colombia.",
+    expectRolContains: "analista contable",
+    expectSkills: ["NIIF", "Excel avanzado", "Auditoría"],
+    expectDominio: "banco",
+    expectCountry: "Colombia",
+  },
+  {
+    name: "ES - Abogado Laboral / Legal Counsel",
+    text: "Buscamos Abogado especializado en Derecho Laboral y Compliance para empresa de consultoría en Madrid, España.",
+    expectRolContains: "abogado",
+    expectSkills: ["Derecho Laboral", "Compliance"],
+    expectDominio: "consultoría",
+    expectCountry: "España",
+  },
 ];
 
 let passed = 0;

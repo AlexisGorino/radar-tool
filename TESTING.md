@@ -11,7 +11,7 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-249 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+272 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -101,6 +101,23 @@ sesión (Alcance/Refinar, sugerencias, botón de LinkedIn, "Relajar
 búsqueda"): sin overflow horizontal (`scrollWidth === innerWidth`), grid
 de campos en una columna, red tabs en flex-wrap, panel de ayuda e
 historial ocupando el ancho disponible correctamente.
+
+## Cobertura de skills más allá de tecnología
+
+El banco de skills (`keywords.js`) estaba fuertemente sesgado a
+tecnología/SAP/ciberseguridad y no tenía nada para marketing, RRHH,
+finanzas o legal, a pesar de que `ROLE_SYNONYMS` ya contemplaba roles como
+"vendedor" o "reclutador". Se agregaron términos específicos para esas
+áreas (SEO/SEM/Google Ads, ATS/LinkedIn Recruiter, NIIF/Auditoría,
+Compliance/Derecho Laboral, etc.) y más lenguajes de programación para
+GitHub (Rust, Scala, Elixir, Dart, Perl, Objective-C, Haskell).
+
+Probado en vivo contra Google: "Growth Marketing Manager" con SEO/SEM/
+Google Ads en México encontró un match exacto de título y ubicación
+("Jacobo Sacal Pérez - Growth Marketing Manager, Ciudad de México").
+También se probó por primera vez el modo "buscar repositorios" de
+GitHub (nunca se había probado en vivo) con Rust + mínimo de estrellas:
+315 resultados reales y relevantes.
 
 ## Qué va en cada campo (y qué no)
 

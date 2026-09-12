@@ -27,6 +27,18 @@
     "Figma", "UX", "UI",
     "ISO 27001", "NIST", "GDPR", "NIS2", "DORA", "PCI-DSS", "CISM", "CISSP", "CISA", "CRISC",
     "PMP", "PRINCE2", "IAM", "PAM", "Zero Trust", "SIEM", "SOC", "Pentesting",
+    "Rust", "Scala", "Elixir", "Dart", "Flutter", "React Native", "Perl", "Objective-C", "Haskell", "Unity",
+    // Marketing / ventas
+    "SEO", "SEM", "Google Ads", "Meta Ads", "Google Analytics", "Marketing Digital",
+    "Email Marketing", "Copywriting", "Growth", "Inbound Marketing", "Performance Marketing",
+    // RRHH / reclutamiento
+    "ATS", "Workday", "Reclutamiento", "Employer Branding", "Compensaciones y Beneficios",
+    "LinkedIn Recruiter", "Onboarding",
+    // Finanzas / contabilidad
+    "NIIF", "IFRS", "Excel avanzado", "Contabilidad", "Auditoria", "Auditoría",
+    "Tesoreria", "Tesorería", "Presupuestos", "Costos", "US GAAP",
+    // Legal
+    "Compliance", "Derecho Laboral", "Propiedad Intelectual", "Contratos",
   ];
 
   const INDUSTRIES = [
@@ -65,7 +77,10 @@
     "devops": ["sre", "ingeniero de infraestructura", "platform engineer"],
   };
 
-  const GH_LANGUAGES = ["java", "python", "javascript", "typescript", "react", "node", "node.js", ".net", "c#", "c++", "go", "kotlin", "swift", "php", "ruby"];
+  const GH_LANGUAGES = [
+    "java", "python", "javascript", "typescript", "react", "node", "node.js", ".net", "c#", "c++", "go", "kotlin", "swift", "php", "ruby",
+    "rust", "scala", "elixir", "dart", "perl", "objective-c", "haskell",
+  ];
 
   /**
    * Returns synonym suggestions for a role phrase by matching any known key
