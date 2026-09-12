@@ -199,11 +199,33 @@
         if (candidate && !looksLikeTemplateNoise(candidate) && !isBareNonRole(candidate)) return [candidate];
       }
     }
+    // Plain-text JDs with real line breaks: the title is often just the
+    // first short line, no verb or label needed ("Analista de Datos Senior\n...").
     const firstLine = text
       .split("\n")
       .map((l) => l.trim())
       .find((l) => l.length > 3 && l.length < 60 && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)));
-    return firstLine ? [trimRolPhrase(firstLine)] : [];
+    if (firstLine) return [trimRolPhrase(firstLine)];
+
+    // PDF-extracted JDs rarely have real line breaks at all — pdf.js joins
+    // every text run on a page with a single space, so a modern JD template
+    // that opens with just the title ("Sr. Backend Developer  Ardua
+    // Solutions · Tecnología  Reporta a: ...") has no punctuation or verb
+    // to anchor on and no "\n" to split on either, so every pattern above
+    // and the firstLine check both come up empty. As a last resort, look
+    // for a title-shaped phrase — ending in a recognizable job-title noun —
+    // right at the start of the document.
+    const TITLE_NOUN =
+      "Developer|Engineer|Manager|Analyst|Consultant|Designer|Architect|Specialist|Director|Coordinator|Lead|Officer|Representative|Executive|Assistant|Technician|Recruiter|Scientist|Programmer|" +
+      "Desarrollador[a]?|Ingenier[oa]|Gerente|Analista|Consultor[a]?|Diseñador[a]?|Arquitect[oa]|Especialista|Director[a]?|Coordinador[a]?|L[íi]der|Ejecutivo[a]?|Asistente|T[ée]cnic[oa]|Responsable|Jefe[a]?|Programador[a]?";
+    const titleHeadRe = new RegExp("^((?:[A-Za-zÀ-ÿ.]+\\s+){0,6}?(?:" + TITLE_NOUN + "))\\b", "i");
+    const prefix = text.slice(0, 150).replace(LEADING_VERB_RE, "");
+    const headMatch = prefix.match(titleHeadRe);
+    if (headMatch) {
+      const candidate = trimRolPhrase(headMatch[1]);
+      if (candidate && !looksLikeTemplateNoise(candidate) && !isBareNonRole(candidate)) return [candidate];
+    }
+    return [];
   }
 
   function extractYears(text) {

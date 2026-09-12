@@ -87,6 +87,16 @@
     return found ? found.toLowerCase().replace("node.js", "javascript").replace("c#", "csharp") : null;
   }
 
+  // GitHub's user search is free-text, not a phrase match like Google/LinkedIn
+  // — a title abbreviation with a period ("Sr. Backend Developer") silently
+  // zeroes out the results (verified live: identical query without "Sr."
+  // went from 0 to 7 real matches). Strip that kind of prefix before it's
+  // used as GitHub free text; it stays untouched everywhere else (universal
+  // boolean, X-Ray), where it's wrapped in quotes and doesn't cause this.
+  function stripAbbreviatedTitlePrefix(text) {
+    return text.replace(/^(?:sr|jr|ssr|lic|ing|dr|dra)\.\s*/i, "").trim();
+  }
+
   /** Native GitHub search (people). */
   function buildGithubPeopleUrl(state) {
     const lang = detectGithubLanguage(state.atributos);
@@ -99,7 +109,8 @@
     // GitHub's free-text search still matches on rol/atributos even without a
     // recognized language qualifier — dropping them left non-technical roles
     // (sales, recruiting, etc.) with a location-only query and no real signal.
-    const freeText = (state.rol || [])[0] || (state.atributos || [])[0] || "";
+    const rawFreeText = (state.rol || [])[0] || (state.atributos || [])[0] || "";
+    const freeText = stripAbbreviatedTitlePrefix(rawFreeText);
     const q = [freeText, qualifiers.join(" ")].filter(Boolean).join(" ").trim();
     return "https://github.com/search?q=" + encodeURIComponent(q) + "&type=users";
   }
@@ -108,7 +119,7 @@
   function buildGithubRepoUrl(state, minStars) {
     const lang = detectGithubLanguage(state.atributos);
     const parts = [];
-    if (state.rol && state.rol[0]) parts.push(state.rol[0]);
+    if (state.rol && state.rol[0]) parts.push(stripAbbreviatedTitlePrefix(state.rol[0]));
     if (lang) parts.push(`language:${lang}`);
     if (minStars) parts.push(`stars:>${minStars}`);
     const q = parts.join(" ") || (state.atributos || [])[0] || "";
@@ -127,6 +138,7 @@
     bingUrl,
     linkedinSearchUrl,
     detectGithubLanguage,
+    stripAbbreviatedTitlePrefix,
     buildGithubPeopleUrl,
     buildGithubRepoUrl,
   };

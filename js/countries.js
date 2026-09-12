@@ -113,11 +113,14 @@
   // Spanish connectors that stay lowercase in a place name unless they're
   // the first word ("Ciudad de México", not "Ciudad De México").
   const TITLE_CASE_LOWERCASE_WORDS = new Set(["de", "del", "la", "las", "los", "y", "en"]);
+  // Known acronyms that are always written fully upper-case, never title-cased.
+  const TITLE_CASE_ACRONYMS = new Set(["caba", "cdmx"]);
   function titleCase(term) {
     return term
       .split(" ")
       .map((word, i) => {
         if (!word) return word;
+        if (TITLE_CASE_ACRONYMS.has(word)) return word.toUpperCase();
         if (i > 0 && TITLE_CASE_LOWERCASE_WORDS.has(word)) return word;
         return word.charAt(0).toUpperCase() + word.slice(1);
       })

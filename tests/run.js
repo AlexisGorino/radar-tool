@@ -292,6 +292,19 @@ test("GitHub people URL keeps the role text for non-technical searches (not just
   assert.ok(url.includes("location"));
 });
 
+test("GitHub people URL strips 'Sr./Jr./Ssr.' title prefixes that silently zero out GitHub's search", () => {
+  const state = { rol: ["Sr. Backend Developer"], atributos: ["Go", "AWS"], dominio: ["fintech"], alcance: ["Argentina"], refinar: [] };
+  const url = Generator.buildGithubPeopleUrl(state);
+  assert.ok(url.includes(encodeURIComponent("Backend Developer")));
+  assert.ok(!url.includes(encodeURIComponent("Sr.")), `"Sr." must not reach the GitHub query, got: ${url}`);
+});
+
+test("stripAbbreviatedTitlePrefix only strips a real abbreviation, not a normal word", () => {
+  assert.strictEqual(Generator.stripAbbreviatedTitlePrefix("Sr. Backend Developer"), "Backend Developer");
+  assert.strictEqual(Generator.stripAbbreviatedTitlePrefix("Srta. Backend Developer"), "Srta. Backend Developer");
+  assert.strictEqual(Generator.stripAbbreviatedTitlePrefix("Backend Developer"), "Backend Developer");
+});
+
 test("GitHub people URL falls back gracefully when no language detected", () => {
   const state = { rol: ["Product Manager"], atributos: [], dominio: [], alcance: [], refinar: [] };
   const url = Generator.buildGithubPeopleUrl(state);
@@ -379,6 +392,29 @@ test("SRE and SAP FICO are accepted as role titles even though they're also list
   assert.strictEqual(r1.rol[0], "SRE");
   const r2 = Extractor.analyzeJD("sap fico en brasil");
   assert.strictEqual(r2.rol[0], "sap fico");
+});
+
+test("title-shaped phrase at the very start of a JD with no line breaks or verb is still found", () => {
+  // Simulates exactly what pdf.js hands us for a modern JD template: every
+  // text run on the page joined by a single space, no real "\n" anywhere.
+  const flattened =
+    "Sr. Backend Developer  Ardua Solutions · Tecnología  Reporta a: Santiago Ahmed  Híbrido — Puerto Madero, CABA — Full Time  Sobre la Empresa  Somos una fintech...";
+  const r = Extractor.guessRol(flattened);
+  assert.strictEqual(r[0], "Sr. Backend Developer");
+});
+
+test("title-shaped phrase at doc start works in English too", () => {
+  const flattened = "Backend Engineer  CoolStartup Inc · Engineering  Remote — Full Time  About the company  We build...";
+  const r = Extractor.guessRol(flattened);
+  assert.strictEqual(r[0], "Backend Engineer");
+});
+
+test("CABA and CDMX stay fully upper-case as localities, not title-cased", () => {
+  const r1 = Extractor.analyzeJD("Puesto híbrido en CABA, Argentina.");
+  assert.ok(r1.alcance.includes("CABA"), `expected "CABA", got [${r1.alcance.join(", ")}]`);
+
+  const r2 = Extractor.analyzeJD("Vacante en CDMX, México.");
+  assert.ok(r2.alcance.includes("CDMX"), `expected "CDMX", got [${r2.alcance.join(", ")}]`);
 });
 
 test("generic methodology terms (Scrum, Kanban, Agile) rank behind specific technical/cert terms", () => {

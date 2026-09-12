@@ -12,6 +12,13 @@ const Extractor = require(path.join(__dirname, "..", "js", "extractor.js"));
 // header labels. Kept as a fixture so a future regex change can't reopen it.
 const pdfTemplateJD = fs.readFileSync(path.join(__dirname, "fixtures", "pdf-table-template-jd.txt"), "utf8");
 
+// Real JD from a different company, different (modern, prose-style) template
+// — the title sits alone at the very top of the document with no verb, no
+// label, and (once pdf.js flattens the page) no real line break to split
+// on either. This once produced an EMPTY rol. Kept as a fixture for the
+// same reason as the one above.
+const pdfModernTemplateJD = fs.readFileSync(path.join(__dirname, "fixtures", "pdf-modern-template-jd.txt"), "utf8");
+
 const cases = [
   {
     name: "ES - JD real en formato ficha/tabla (PDF de agencia, PM Ciberseguridad)",
@@ -20,6 +27,14 @@ const cases = [
     expectSkills: ["AWS", "ISO 27001"],
     expectDominio: "ciberseguridad",
     expectCountry: "España",
+  },
+  {
+    name: "AR - JD real, plantilla moderna sin verbo ni etiqueta (Sr. Backend Developer, Ardua)",
+    text: pdfModernTemplateJD,
+    expectRolContains: "backend developer",
+    expectSkills: ["Go", "AWS", "Lambda", "SQS"],
+    expectDominio: "fintech",
+    expectCountry: "Argentina",
   },
   {
     name: "AR - Backend Python banco",
