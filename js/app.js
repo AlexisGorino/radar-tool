@@ -232,8 +232,37 @@
     if (result.country) {
       countrySelect.value = result.country;
     }
+    renderRefinarSuggestions(result.refinarSuggestion || []);
   }
   document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
+
+  // ---------------------------------------------------------------
+  // Refinar suggestions (seniority/modality the JD mentions) — shown as
+  // clickable pills, never auto-added: excluding a term is a call the
+  // recruiter makes, not something a keyword match should decide alone.
+  // ---------------------------------------------------------------
+  const refinarSuggestionsRow = document.getElementById("refinarSuggestionsRow");
+  const refinarSuggestionsList = document.getElementById("refinarSuggestionsList");
+  function renderRefinarSuggestions(suggestions) {
+    const pending = suggestions.filter((s) => !state.refinar.some((r) => r.toLowerCase() === s.toLowerCase()));
+    refinarSuggestionsList.innerHTML = "";
+    if (!pending.length) {
+      refinarSuggestionsRow.classList.add("hidden");
+      return;
+    }
+    refinarSuggestionsRow.classList.remove("hidden");
+    pending.forEach((term) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "synonym-pill";
+      btn.textContent = "+ " + term;
+      btn.addEventListener("click", () => {
+        addTerm("refinar", term);
+        renderRefinarSuggestions(suggestions);
+      });
+      refinarSuggestionsList.appendChild(btn);
+    });
+  }
 
   // ---------------------------------------------------------------
   // File upload + drag & drop (.txt read directly, .pdf parsed with pdf.js
@@ -437,6 +466,7 @@
     selectNetwork("linkedin");
     resultsEl.classList.remove("show");
     Object.values(errorSlots).forEach((el) => (el.textContent = ""));
+    renderRefinarSuggestions([]);
   });
 
   // ---------------------------------------------------------------

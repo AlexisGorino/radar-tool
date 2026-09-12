@@ -2,9 +2,25 @@
 // Regression bank of real-world postings (LATAM, Spain, Europe) against
 // analyzeJD() — catches drift in role/skill/domain/location precision.
 const path = require("path");
+const fs = require("fs");
 const Extractor = require(path.join(__dirname, "..", "js", "extractor.js"));
 
+// Real JD as extracted by pdf.js from a corporate "ficha de puesto" table
+// template (label/value cells, no sentence punctuation between them once
+// flattened) — this exact shape once produced a garbled role ("CLIENTE W2M
+// - PM Ciberseguridad COD VACANTE KJRSab5BFeZS...") from the table's own
+// header labels. Kept as a fixture so a future regex change can't reopen it.
+const pdfTemplateJD = fs.readFileSync(path.join(__dirname, "fixtures", "pdf-table-template-jd.txt"), "utf8");
+
 const cases = [
+  {
+    name: "ES - JD real en formato ficha/tabla (PDF de agencia, PM Ciberseguridad)",
+    text: pdfTemplateJD,
+    expectRolContains: "pm ciberseguridad",
+    expectSkills: ["AWS", "ISO 27001"],
+    expectDominio: "ciberseguridad",
+    expectCountry: "España",
+  },
   {
     name: "AR - Backend Python banco",
     text: "Buscamos Backend Developer Python Senior para banco líder en Buenos Aires. Requisitos: Python, Django, AWS, PostgreSQL, Docker. Modalidad híbrida. 5+ años de experiencia.",

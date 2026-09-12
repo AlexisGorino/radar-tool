@@ -314,29 +314,83 @@ test("no artificial cap on number of chips a field can hold", () => {
   assert.strictEqual(out.length, 50);
 });
 
+// Alcance is país + localidad only now — seniority/modality never get
+// auto-added to it (or to refinar): they're surfaced as refinarSuggestion
+// for the recruiter to accept or ignore, never as a pre-added filter term.
+
 test("role words like 'Manager' or 'Lead' inside the title are not mistaken for a seniority signal", () => {
   const r1 = Extractor.analyzeJD("Se busca Community Manager para empresa de turismo en Mendoza, Argentina.");
-  assert.ok(!r1.alcance.some((a) => a.toLowerCase() === "manager"), `alcance should not include "manager", got [${r1.alcance.join(", ")}]`);
-  assert.strictEqual(r1.refinar.length, 0, "should not auto-exclude junior when there is no real seniority signal");
+  assert.ok(!r1.refinarSuggestion.some((a) => a.toLowerCase() === "manager"), `refinarSuggestion should not include "manager", got [${r1.refinarSuggestion.join(", ")}]`);
+  assert.strictEqual(r1.refinar.length, 0, "refinar is never auto-filled");
 
   const r2 = Extractor.analyzeJD("Buscamos Tech Lead con experiencia en microservicios para banco en Lima.");
-  assert.ok(!r2.alcance.some((a) => a.toLowerCase() === "lead"), `alcance should not include "lead" from the title, got [${r2.alcance.join(", ")}]`);
+  assert.ok(!r2.refinarSuggestion.some((a) => a.toLowerCase() === "lead"), `refinarSuggestion should not include "lead" from the title, got [${r2.refinarSuggestion.join(", ")}]`);
 });
 
 test("'empresa/banco lider' describes the company, not the candidate's seniority", () => {
   const r = Extractor.analyzeJD("Buscamos Backend Developer Python Senior para banco líder en Buenos Aires, modalidad híbrida.");
-  assert.ok(!r.alcance.some((a) => a.toLowerCase() === "líder"), `alcance should not include "líder" from "banco líder", got [${r.alcance.join(", ")}]`);
-  assert.ok(r.alcance.some((a) => a.toLowerCase() === "senior"), "expected 'senior' to still be detected");
+  assert.ok(!r.refinarSuggestion.some((a) => a.toLowerCase() === "líder"), `refinarSuggestion should not include "líder" from "banco líder", got [${r.refinarSuggestion.join(", ")}]`);
+  assert.ok(r.refinarSuggestion.some((a) => a.toLowerCase() === "senior"), "expected 'senior' to still be suggested");
+  assert.strictEqual(r.refinar.length, 0, "refinar is never auto-filled, only suggested");
 });
 
 test("a real 'líder' seniority signal is still detected when not describing the company", () => {
   const r = Extractor.analyzeJD("Se busca Analista Contable con experiencia como líder de equipo para empresa de retail en Lima.");
-  assert.ok(r.alcance.some((a) => a.toLowerCase() === "líder"), `expected "líder" to be detected as a seniority signal, got [${r.alcance.join(", ")}]`);
+  assert.ok(r.refinarSuggestion.some((a) => a.toLowerCase() === "líder"), `expected "líder" in refinarSuggestion, got [${r.refinarSuggestion.join(", ")}]`);
 });
 
 test("a real seniority signal outside the title is still detected", () => {
   const r = Extractor.analyzeJD("Buscamos Community Manager senior con 5 años de experiencia para turismo.");
-  assert.ok(r.alcance.some((a) => a.toLowerCase() === "senior"), "expected 'senior' to be detected when it appears outside the title");
+  assert.ok(r.refinarSuggestion.some((a) => a.toLowerCase() === "senior"), "expected 'senior' in refinarSuggestion when it appears outside the title");
+});
+
+test("alcance only ever holds país + localidad — never modalidad or seniority", () => {
+  const r = Extractor.analyzeJD("Buscamos Backend Developer Senior, Python, modalidad remota, para banco en Rosario, Argentina. 5+ años de experiencia.");
+  assert.deepStrictEqual(r.alcance.sort(), ["Argentina", "Rosario"].sort());
+  assert.ok(r.refinarSuggestion.includes("senior"));
+  assert.ok(r.refinarSuggestion.includes("remoto"));
+});
+
+test("locality is captured alongside country when the JD names a specific place", () => {
+  const r = Extractor.analyzeJD("Puesto híbrido en Palma, con posibilidad de residir en Mallorca, España.");
+  assert.strictEqual(r.country, "España");
+  assert.ok(r.alcance.includes("España"));
+  assert.ok(r.alcance.some((a) => a === "Palma" || a === "Mallorca"), `expected a specific locality, got [${r.alcance.join(", ")}]`);
+});
+
+test("manual short query with no explicit title splits skills/location correctly, doesn't fabricate a role", () => {
+  const r = Extractor.analyzeJD("busco java con spring que sepa cloud y viva en brasil");
+  assert.deepStrictEqual(r.rol, [], "no explicit job title was given — rol must stay empty, not 'busco java'");
+  assert.ok(r.atributos.includes("Java"));
+  assert.ok(r.atributos.includes("Spring"));
+  assert.deepStrictEqual(r.alcance, ["Brasil"]);
+});
+
+test("manual short query WITH an explicit title extracts role, skills and location separately", () => {
+  const r = Extractor.analyzeJD("busco un Backend Developer con Java y Spring que viva en Brasil");
+  assert.strictEqual(r.rol[0], "Backend Developer");
+  assert.ok(r.atributos.includes("Java"));
+  assert.ok(r.atributos.includes("Spring"));
+  assert.deepStrictEqual(r.alcance, ["Brasil"]);
+});
+
+test("SRE and SAP FICO are accepted as role titles even though they're also listed as skills", () => {
+  const r1 = Extractor.analyzeJD("busco SRE con Kubernetes en Chile");
+  assert.strictEqual(r1.rol[0], "SRE");
+  const r2 = Extractor.analyzeJD("sap fico en brasil");
+  assert.strictEqual(r2.rol[0], "sap fico");
+});
+
+test("generic methodology terms (Scrum, Kanban, Agile) rank behind specific technical/cert terms", () => {
+  const r = Extractor.analyzeJD(
+    "Buscamos PM con Scrum, Kanban, PMP, ISO 27001, NIST, GDPR, NIS2, CISM, CISSP, AWS, Azure, GCP, Zero Trust, SIEM."
+  );
+  const genericIdx = r.atributos.findIndex((a) => a.toLowerCase() === "scrum");
+  const specificIdx = r.atributos.findIndex((a) => a.toLowerCase() === "iso 27001");
+  assert.ok(specificIdx !== -1, "ISO 27001 should survive the cap");
+  if (genericIdx !== -1) {
+    assert.ok(specificIdx < genericIdx, "specific technical terms should rank ahead of generic ones like Scrum");
+  }
 });
 
 // ---------------------------------------------------------------

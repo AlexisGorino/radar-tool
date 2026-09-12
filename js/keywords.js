@@ -15,6 +15,7 @@
     "Salesforce", "HubSpot", "Dynamics 365", "CRM", "ERP",
     "Java", "Python", "JavaScript", "TypeScript", "React", "Angular", "Vue",
     "Node.js", ".NET", "C#", "C++", "Go", "Kotlin", "Swift", "PHP", "Ruby",
+    "Spring", "Spring Boot", "Django", "Flask", "FastAPI", "Laravel", "Rails",
     "AWS", "Azure", "GCP", "Kubernetes", "Docker", "Terraform", "CI/CD",
     "SQL", "NoSQL", "MongoDB", "PostgreSQL", "MySQL",
     "DevOps", "SRE", "Scrum", "Kanban", "Agile",
@@ -22,6 +23,8 @@
     "QA", "Testing", "Automation", "Selenium", "Cypress",
     "Machine Learning", "Data Science", "Power BI", "Tableau", "ETL", "Spark",
     "Figma", "UX", "UI",
+    "ISO 27001", "NIST", "GDPR", "NIS2", "DORA", "PCI-DSS", "CISM", "CISSP", "CISA", "CRISC",
+    "PMP", "PRINCE2", "IAM", "PAM", "Zero Trust", "SIEM", "SOC", "Pentesting",
   ];
 
   const INDUSTRIES = [
@@ -31,9 +34,15 @@
     "logistica", "logística", "turismo", "educacion", "educación",
     "gaming", "inmobiliario", "inmobiliaria", "real estate", "agro", "agropecuario", "mineria", "minería",
     "automotriz", "construccion", "construcción", "alimenticia", "textil",
+    "ciberseguridad", "seguridad informatica", "seguridad informática", "seguridad de la informacion", "seguridad de la información",
   ];
 
-  const SENIOR_WORDS = ["senior", "sr", "lead", "líder", "lider", "manager", "gerente", "head", "director", "principal"];
+  // Common to almost every posting in their category — real, but they don't
+  // discriminate a search the way a specific tool/framework/cert does.
+  // Ranked last in Atributos so the technical, specific terms win the cap.
+  const GENERIC_SKILLS = ["Scrum", "Kanban", "Agile", "DevOps", "QA", "Testing", "ERP", "CRM"];
+
+  const SENIOR_WORDS =["senior", "sr", "lead", "líder", "lider", "manager", "gerente", "head", "director", "principal"];
   const JUNIOR_WORDS = ["junior", "jr", "trainee", "practicante", "ssr", "semi-senior", "semi senior", "pasante", "intern"];
 
   /** Role -> extra synonyms to offer when the "sinónimos" toggle is on. */
@@ -75,5 +84,5 @@
     return out;
   }
 
-  return { SKILLS, INDUSTRIES, SENIOR_WORDS, JUNIOR_WORDS, ROLE_SYNONYMS, GH_LANGUAGES, getSynonyms };
+  return { SKILLS, INDUSTRIES, GENERIC_SKILLS, SENIOR_WORDS, JUNIOR_WORDS, ROLE_SYNONYMS, GH_LANGUAGES, getSynonyms };
 });

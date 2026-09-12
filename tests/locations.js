@@ -60,6 +60,23 @@ falsePositiveCases.forEach(([text, notExpected, label]) => {
   });
 });
 
+// detectLocationDetailed must title-case accented localities correctly —
+// a naive \b-based regex mis-capitalizes accented letters (produced
+// "NeuquÉN" and "MÉXico" instead of "Neuquén" and "México").
+const localityCasingCases = [
+  ["Vacante en Neuquén, Argentina.", "Argentina", "Neuquén"],
+  ["Puesto en Ciudad de México.", "México", "Ciudad de México"],
+  ["Rol en Jalisco, México.", "México", "Jalisco"],
+];
+
+localityCasingCases.forEach(([text, expectedCountry, expectedLocality]) => {
+  test(`detectLocationDetailed capitalizes "${expectedLocality}" correctly`, () => {
+    const { country, locality } = Countries.detectLocationDetailed(text);
+    assert.strictEqual(country, expectedCountry);
+    assert.strictEqual(locality, expectedLocality);
+  });
+});
+
 console.log(`\n${passed} passed, ${failed} failed (${passed + failed} total)\n`);
 if (failed) {
   failures.forEach((f) => console.log(`FAIL: ${f.name}\n  ${f.err.message}\n`));

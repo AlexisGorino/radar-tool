@@ -51,6 +51,7 @@
     "España": [
       "espana", "españa", "spain", "madrid", "barcelona", "valencia", "sevilla", "bilbao",
       "cataluña", "cataluna", "andalucia", "andalucía", "pais vasco", "país vasco", "galicia", "aragon", "aragón", "canarias", "murcia",
+      "mallorca", "palma", "baleares", "islas baleares",
     ],
     "Reino Unido": ["reino unido", "united kingdom", "londres", "london", "manchester", "birmingham"],
     "Alemania": [
@@ -75,6 +76,54 @@
 
   const ALL_COUNTRIES = Object.assign({}, LATAM, EUROPE, OTHER);
 
+  // The terms that just spell the country's own name (in every variant it's
+  // listed under above) — everything else in a country's list is a specific
+  // city/province/region. Used to tell "país" apart from "localidad".
+  const BARE_COUNTRY_NAMES = {
+    "Argentina": ["argentina"],
+    "Chile": ["chile"],
+    "México": ["mexico", "méxico"],
+    "Colombia": ["colombia"],
+    "Perú": ["peru", "perú"],
+    "Uruguay": ["uruguay"],
+    "Brasil": ["brasil", "brazil"],
+    "Ecuador": ["ecuador"],
+    "Bolivia": ["bolivia"],
+    "Paraguay": ["paraguay"],
+    "Venezuela": ["venezuela"],
+    "Panamá": ["panama", "panamá"],
+    "Costa Rica": ["costa rica"],
+    "República Dominicana": ["republica dominicana", "república dominicana"],
+    "España": ["espana", "españa", "spain"],
+    "Reino Unido": ["reino unido", "united kingdom"],
+    "Alemania": ["alemania", "germany"],
+    "Francia": ["francia", "france"],
+    "Italia": ["italia", "italy"],
+    "Portugal": ["portugal"],
+    "Países Bajos": ["paises bajos", "países bajos", "holanda", "netherlands"],
+    "Irlanda": ["irlanda", "ireland"],
+    "Polonia": ["polonia", "poland"],
+    "Bélgica": ["belgica", "bélgica", "belgium"],
+    "Suiza": ["suiza", "switzerland"],
+    "Rumania": ["rumania", "romania"],
+    "Estados Unidos": ["estados unidos", "united states", "usa"],
+    "Canadá": ["canada", "canadá"],
+  };
+
+  // Spanish connectors that stay lowercase in a place name unless they're
+  // the first word ("Ciudad de México", not "Ciudad De México").
+  const TITLE_CASE_LOWERCASE_WORDS = new Set(["de", "del", "la", "las", "los", "y", "en"]);
+  function titleCase(term) {
+    return term
+      .split(" ")
+      .map((word, i) => {
+        if (!word) return word;
+        if (i > 0 && TITLE_CASE_LOWERCASE_WORDS.has(word)) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(" ");
+  }
+
   const MODALITY = {
     terms: ["remoto", "remota", "remote", "hibrido", "híbrido", "hibrida", "híbrida", "hybrid", "presencial", "onsite"],
   };
@@ -98,6 +147,37 @@
       }
     }
     return null;
+  }
+
+  /**
+   * Country plus the specific city/province/region mentioned, if any (not
+   * just the bare country name). "Trabajo remoto en Argentina" -> country
+   * only; "vacante en Rosario, Argentina" -> country + locality "Rosario".
+   */
+  function detectLocationDetailed(text) {
+    for (const country of Object.keys(ALL_COUNTRIES)) {
+      const terms = ALL_COUNTRIES[country];
+      const bare = new Set(BARE_COUNTRY_NAMES[country] || [country.toLowerCase()]);
+      let matchedBare = false;
+      let locality = null;
+      let localityIndex = Infinity;
+      for (const term of terms) {
+        if (!containsWord(text, term)) continue;
+        if (bare.has(term)) {
+          matchedBare = true;
+          continue;
+        }
+        const idx = text.toLowerCase().indexOf(term);
+        if (idx !== -1 && idx < localityIndex) {
+          localityIndex = idx;
+          locality = titleCase(term);
+        }
+      }
+      if (matchedBare || locality) {
+        return { country, locality };
+      }
+    }
+    return { country: null, locality: null };
   }
 
   /** Returns matched modality words present in the text (deduped, original casing lost -> canonical). */
@@ -132,6 +212,7 @@
     OTHER,
     countryList,
     detectCountry,
+    detectLocationDetailed,
     detectModality,
     containsWord,
   };

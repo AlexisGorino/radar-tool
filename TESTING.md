@@ -11,7 +11,7 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-215 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+229 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -49,6 +49,45 @@ comportamiento de los buscadores externos. Si en el futuro Bing vuelve a
 respetar `site:`, hay que revisar esta nota y la de la UI (`xrayNote` /
 `NETWORK_DESCRIPTIONS.linkedin` en `js/app.js`).
 
+## Qué va en cada campo (y qué no)
+
+Detectado en vivo probando una JD real de una agencia (ficha en tabla,
+PDF) que devolvía el rol completamente roto ("CLIENTE W2M - PM
+Ciberseguridad COD VACANTE KJRSab5BFeZS..."). La causa: un patrón de
+regex demasiado ingenuo tomaba el encabezado de la tabla como si fuera el
+valor. Corregido (`looksLikeTemplateNoise` en `extractor.js`), pero de
+paso se redefinió qué corresponde a cada campo, porque "más términos" no
+es "mejor booleano" — cada término de más filtra candidatos, no los
+acerca:
+
+- **Rol**: el título del puesto y sus sinónimos. Nunca un nombre de skill
+  o de país suelto (`isBareNonRole` lo bloquea — "busco Java" no debe
+  devolver "Java" como rol).
+- **Atributos**: lo técnico y específico, priorizado por dónde aparece en
+  el texto (`findMatchesRanked`), no por orden del banco de palabras.
+  Términos genéricos (Scrum, Kanban, Agile, QA...) quedan al final y solo
+  entran si sobra lugar bajo el tope (`MAX_ATTRIBUTES`, hoy 6).
+- **Dominio**: como mucho 2 términos (`MAX_DOMINIO`), priorizados igual
+  que Atributos — no todo lo que matchea en el banco de industrias
+  merece estar (una carrera universitaria que menciona "Telecomunicaciones"
+  de pasada no debería competir con la industria real de la vacante).
+- **Alcance**: **solo país y localidad**. Modalidad (remoto/híbrido/
+  presencial) y seniority ya no se agregan acá ni al booleano — casi
+  nunca están escritos tal cual en un perfil público, así que ANDearlos
+  no acerca candidatos, los excluye. `detectLocationDetailed` en
+  `countries.js` devuelve país + la ciudad/provincia específica si la
+  hay (ej. "España" + "Palma").
+- **Refinar**: nunca se auto-completa (`refinar` siempre empieza vacío).
+  Lo que el JD sugiere (seniority, modalidad) aparece como pills debajo
+  del campo ("Sugerencias — click para excluir"), pero excluir algo es
+  una decisión del reclutador, no algo que un match de palabra clave deba
+  tomar solo.
+
+Fixture de regresión: `tests/fixtures/pdf-table-template-jd.txt` es el
+texto real extraído por pdf.js de esa JD (no una versión limpiada a
+mano) — si un cambio futuro vuelve a romper la extracción con este tipo
+de formato de tabla, `tests/jd-bank.js` lo va a agarrar.
+
 ## Manual (checklist previo a deploy)
 
 **Carga de JD**
@@ -73,6 +112,13 @@ respetar `site:`, hay que revisar esta nota y la de la UI (`xrayNote` /
 - [ ] Elegir un país del selector de Alcance → se agrega como chip.
 - [ ] Escribir un rol con sinónimo conocido (ej. "Desarrollador") → aparecen
       pills de sinónimos abajo del campo; click en una la agrega a Rol.
+- [ ] Analizar una JD que mencione modalidad o seniority (ej. "remoto",
+      "senior") → esos términos NO aparecen como chips en Alcance ni en
+      Refinar; aparecen como pills debajo de Refinar ("Sugerencias —
+      click para excluir") y solo se agregan como chip si se clickean.
+- [ ] Analizar una JD que mencione una ciudad/provincia además del país
+      (ej. "Rosario, Argentina") → Alcance queda con ambos chips
+      (país + localidad), con acentos y mayúsculas correctos.
 
 **Generar booleano**
 - [ ] Generar sin cargar Rol → error inline, no genera.

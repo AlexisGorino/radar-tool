@@ -97,6 +97,10 @@
         <div class="field-desc">Excluir (NOT)</div>
         <div class="chips" id="chips-refinar"></div>
         <input type="text" class="field-input" data-field="refinar" placeholder="Escribí y Enter" maxlength="80">
+        <div class="synonyms-row hidden" id="refinarSuggestionsRow">
+          <span class="synonyms-label">Sugerencias (click para excluir):</span>
+          <div class="synonyms-list" id="refinarSuggestionsList"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -195,7 +199,7 @@
       <dt>R — Rol</dt><dd>Como lo pondría el candidato en su propio perfil, no como lo llama la empresa puertas adentro.</dd>
       <dt>A — Atributos</dt><dd>2 o 3 skills que de verdad filtran, no la lista entera de la JD.</dd>
       <dt>D — Dominio</dt><dd>La industria (banca, retail, fintech...), solo si pesa tanto como el skill técnico.</dd>
-      <dt>A — Alcance</dt><dd>País, modalidad y seniority.</dd>
+      <dt>A — Alcance</dt><dd>País y localidad, nada más. Modalidad y seniority casi nunca están escritos tal cual en un perfil — meterlos en el booleano filtra buenos candidatos en vez de acercarte a ellos. Si el JD los menciona, aparecen como sugerencia en Refinar para que decidas vos.</dd>
       <dt>R — Refinar</dt><dd>Lo que querés sacar de en medio — típico: excluir "junior" cuando buscás senior.</dd>
     </dl>
     <p class="hint">Pegá la JD entera y tocá "Analizar JD": arma los cinco campos solo. No es infalible, revisalo antes de generar.</p>
