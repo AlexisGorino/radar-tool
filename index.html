@@ -7,7 +7,7 @@
 <meta name="description" content="RADAR: generador de booleanos de sourcing para reclutadores. Convertí una JD en un booleano preciso para LinkedIn, Google X-Ray, GitHub y más. Método Mindata.">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=8">
+<link rel="stylesheet" href="css/styles.css?v=9">
 </head>
 <body>
 
@@ -131,6 +131,11 @@
       <div class="boolean-box boolean-box-lg" id="out-universal">—</div>
       <p class="platform-note">AND / OR / NOT y comillas. Sirve tal cual en LinkedIn Recruiter y en la mayoría de los buscadores internos de portales y ATS.</p>
       <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
+      <label class="relaxed-toggle">
+        <input type="checkbox" id="relaxedModeCheckbox">
+        Relajar búsqueda
+      </label>
+      <p class="platform-note">Saca Dominio y Alcance del booleano, y deja solo Rol AND Atributos. Usalo si la versión completa te da cero resultados: pedirle a un buscador que un perfil combine puesto + skills + industria + ubicación, todo con las palabras exactas que detectamos, a veces es pedir de más — esto amplía el universo de gente que puede aparecer.</p>
     </div>
 
     <div class="result-secondary hidden" id="resultLinkedinNative">
@@ -243,11 +248,11 @@
 </footer>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/countries.js?v=8"></script>
-<script src="js/keywords.js?v=8"></script>
-<script src="js/networks.js?v=8"></script>
-<script src="js/extractor.js?v=8"></script>
-<script src="js/generator.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
+<script src="js/countries.js?v=9"></script>
+<script src="js/keywords.js?v=9"></script>
+<script src="js/networks.js?v=9"></script>
+<script src="js/extractor.js?v=9"></script>
+<script src="js/generator.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>

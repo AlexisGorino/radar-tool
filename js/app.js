@@ -16,18 +16,18 @@
   // Each entry: what the search actually does, and what kind of result to expect.
   const NETWORK_DESCRIPTIONS = {
     linkedin:
-      "Recomendado: usá el botón \"Buscar en LinkedIn\" — pega el booleano directo en el buscador propio de LinkedIn, que entiende AND/OR/NOT/comillas con cuenta gratis. La alternativa X-Ray (site:linkedin.com/in vía Google/Bing) depende de que el buscador externo tenga indexados los perfiles, y LinkedIn viene bloqueando cada vez más eso — probado: hoy Bing ni siquiera respeta el site: y devuelve resultados sin relación. Usala solo como respaldo.",
+      "Recomendado: usá el botón \"Buscar en LinkedIn\" — pega el booleano directo en el buscador propio de LinkedIn, que entiende AND/OR/NOT/comillas con cuenta gratis. La alternativa X-Ray funciona bien en Google (probado en vivo: trae perfiles reales), pero no en Bing — hoy Bing ni siquiera respeta el site: y devuelve resultados sin relación. Si usás X-Ray, abrí siempre en Google.",
     github:
       "Cómo busca: búsqueda nativa de GitHub (no X-Ray), con sus propios operadores (language:, location:, stars:). Qué trae: perfiles de developers con actividad pública en GitHub, o repositorios. Solo tiene sentido para roles de programación/datos — para roles no técnicos casi no va a traer nada relevante.",
     stackoverflow:
       "Cómo busca: X-Ray sobre site:stackoverflow.com/users. Qué trae: perfiles de gente con actividad pública respondiendo o preguntando en Stack Overflow. Solo útil para roles técnicos (dev, QA, data, DevOps) — para roles comerciales o de negocio no va a traer resultados.",
     indeed:
-      "Cómo busca: X-Ray sobre site:indeed.com/r (la sección de CVs públicos de Indeed). Qué trae: currículums que la propia persona subió a Indeed. Sirve para cualquier rubro, pero la cobertura varía mucho según el país — fuerte en EE.UU., más floja en el resto de LATAM.",
-    xing: "Cómo busca: X-Ray sobre site:xing.com/profile. Qué trae: perfiles profesionales de Xing, equivalente a LinkedIn pero local. Solo tiene sentido si el candidato puede estar en Alemania, Austria o Suiza — en el resto del mundo casi no hay usuarios.",
+      "Probado en vivo: Google no tiene indexada la base de CVs de Indeed (site:indeed.com/r no devuelve ni un resultado, ni siquiera con términos genéricos) — hoy Indeed exige cuenta de reclutador para ver currículums, no son públicos. Dejá esta red para el final; probá LinkedIn, Stack Overflow o CVs sueltos primero.",
+    xing: "Cómo busca: X-Ray sobre site:xing.com/profile. Qué trae: perfiles profesionales de Xing, equivalente a LinkedIn pero local — probado en vivo, trae perfiles reales. Solo tiene sentido si el candidato puede estar en Alemania, Austria o Suiza — en el resto del mundo casi no hay usuarios.",
     twitter:
-      "Cómo busca: X-Ray sobre X/Twitter. Qué trae: cuentas públicas cuya bio o tuits mencionan tu rol/atributos. Sirve solo para roles con presencia pública activa (devrel, comunidad, marketing técnico, prensa) — para la mayoría de los roles no es una buena fuente.",
+      "Cómo busca: X-Ray sobre X/Twitter. Qué trae: cuentas públicas cuya bio o tuits mencionan tu rol/atributos — probado en vivo, trae cuentas reales del rubro. Sirve solo para roles con presencia pública activa (devrel, comunidad, marketing técnico, prensa) — para la mayoría de los roles no es una buena fuente.",
     wellfound:
-      "Cómo busca: X-Ray sobre Wellfound (ex AngelList Talent). Qué trae: perfiles orientados a startups. Sirve mejor para roles de producto e ingeniería early-stage — para roles de industrias tradicionales (banca, seguros, manufactura) rinde poco.",
+      "Cómo busca: X-Ray sobre wellfound.com/u (perfiles de personas — la web sin /u está llena de avisos de trabajo, no de candidatos, y Google los prioriza). Qué trae: perfiles orientados a startups. Sirve mejor para roles de producto e ingeniería early-stage — para roles de industrias tradicionales (banca, seguros, manufactura) rinde poco.",
     behance:
       "Cómo busca: X-Ray sobre portfolios públicos de Behance. Qué trae: portfolios de diseño/ilustración/UX-UI. Solo tiene sentido para esos roles — para cualquier otro rubro no va a traer nada.",
     resumes:
@@ -42,7 +42,7 @@
     xing: "Red fuerte en Alemania, Austria y Suiza. Poco uso en LATAM.",
     twitter: "Sirve para roles con presencia pública: devrel, marketing técnico, comunidad.",
     wellfound: "Orientado a startups. Buen lugar para roles de producto y early-stage engineering.",
-    indeed: "Busca CVs públicos cargados en Indeed. Cobertura variable según país.",
+    indeed: "Probado en vivo: Google no tiene indexados los CVs de Indeed hoy. Probá otra red primero.",
     behance: "Portfolios públicos. Ideal para roles de diseño, UX/UI e ilustración.",
     resumes: "Busca archivos PDF/Word sueltos en toda la web, sin restringir a un sitio. Trae currículums publicados fuera de las redes profesionales.",
     custom: "Ajustá el dominio arriba. La sintaxis site: funciona igual en cualquier sitio indexado por Google.",
@@ -393,13 +393,14 @@
   // ---------------------------------------------------------------
   // Generate
   // ---------------------------------------------------------------
-  document.getElementById("generateBtn").addEventListener("click", () => {
-    if (!state.rol.length) {
-      showError("Completá al menos el campo Rol antes de generar.");
-      return;
-    }
+  const relaxedModeCheckbox = document.getElementById("relaxedModeCheckbox");
 
-    const universal = RadarGenerator.buildUniversalBoolean(state);
+  // Renders the universal boolean + whatever the selected network needs.
+  // Split out from the button handler so the "Relajar búsqueda" checkbox
+  // can re-render live without re-adding a history entry every toggle.
+  function renderResults() {
+    const relaxed = relaxedModeCheckbox.checked;
+    const universal = RadarGenerator.buildUniversalBoolean(state, relaxed);
     document.getElementById("out-universal").textContent = universal;
 
     const net = RadarNetworks.NETWORKS[selectedNetwork];
@@ -423,11 +424,11 @@
       resultXray.classList.remove("hidden");
       let xrayQuery, label;
       if (net.mode === "resumes") {
-        xrayQuery = RadarGenerator.buildResumesQuery(state);
+        xrayQuery = RadarGenerator.buildResumesQuery(state, relaxed);
         label = "Búsqueda — " + net.label;
       } else {
         const siteDomain = selectedNetwork === "custom" ? customSiteInput.value.trim().replace(/^https?:\/\//, "") : net.site;
-        xrayQuery = RadarGenerator.buildXRayQuery(state, siteDomain);
+        xrayQuery = RadarGenerator.buildXRayQuery(state, siteDomain, relaxed);
         label = "X-Ray — " + net.label;
       }
       document.getElementById("out-xray").textContent = xrayQuery;
@@ -438,8 +439,21 @@
     }
 
     resultsEl.classList.add("show");
+    return universal;
+  }
+
+  document.getElementById("generateBtn").addEventListener("click", () => {
+    if (!state.rol.length) {
+      showError("Completá al menos el campo Rol antes de generar.");
+      return;
+    }
+    const universal = renderResults();
     resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
     saveToHistory(universal);
+  });
+
+  relaxedModeCheckbox.addEventListener("change", () => {
+    if (resultsEl.classList.contains("show")) renderResults();
   });
 
   // ---------------------------------------------------------------
@@ -471,6 +485,7 @@
     countrySelect.value = "";
     customSiteInput.value = "";
     minStarsInput.value = "";
+    relaxedModeCheckbox.checked = false;
     selectNetwork("linkedin");
     resultsEl.classList.remove("show");
     Object.values(errorSlots).forEach((el) => (el.textContent = ""));
@@ -564,6 +579,7 @@
       state[f] = (entry[f] || []).slice();
     });
     renderAllChips();
+    relaxedModeCheckbox.checked = false;
     if (entry.network && RadarNetworks.NETWORKS[entry.network]) {
       selectNetwork(entry.network);
     }

@@ -246,6 +246,30 @@ test("empty state produces empty boolean, not a crash", () => {
   assert.strictEqual(bool, "");
 });
 
+test("relaxed mode drops Dominio and Alcance, keeps only Rol AND Atributos", () => {
+  const state = { rol: ["PM Ciberseguridad"], atributos: ["AWS", "ISO 27001"], dominio: ["ciberseguridad"], alcance: ["España", "Palma"], refinar: [] };
+  const full = Generator.buildUniversalBoolean(state, false);
+  const relaxed = Generator.buildUniversalBoolean(state, true);
+  assert.ok(full.includes("ciberseguridad") && full.includes("España"), `full version should include dominio/alcance, got: ${full}`);
+  assert.ok(!relaxed.includes("ciberseguridad") && !relaxed.includes("España"), `relaxed version must drop dominio/alcance, got: ${relaxed}`);
+  assert.strictEqual(relaxed, '"PM Ciberseguridad" AND (AWS OR "ISO 27001")');
+});
+
+test("relaxed mode still applies NOT exclusions from Refinar", () => {
+  const state = { rol: ["QA"], atributos: ["Selenium"], dominio: ["retail"], alcance: ["Argentina"], refinar: ["junior"] };
+  const relaxed = Generator.buildUniversalBoolean(state, true);
+  assert.ok(relaxed.includes("NOT junior"));
+  assert.ok(!relaxed.includes("retail"));
+});
+
+test("relaxed X-Ray and resumes queries also drop Dominio/Alcance", () => {
+  const state = { rol: ["QA"], atributos: ["Selenium"], dominio: ["retail"], alcance: ["Argentina"], refinar: [] };
+  const xray = Generator.buildXRayQuery(state, "linkedin.com/in", true);
+  assert.ok(!xray.includes("retail") && !xray.includes("Argentina"));
+  const resumes = Generator.buildResumesQuery(state, true);
+  assert.ok(!resumes.includes("retail") && !resumes.includes("Argentina"));
+});
+
 test("X-Ray query uses minus instead of NOT and includes site:", () => {
   const state = { rol: ["QA"], atributos: [], dominio: [], alcance: [], refinar: ["junior"] };
   const xray = Generator.buildXRayQuery(state, "linkedin.com/in");

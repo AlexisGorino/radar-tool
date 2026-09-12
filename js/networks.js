@@ -14,7 +14,7 @@
     stackoverflow: { id: "stackoverflow", label: "Stack Overflow", site: "stackoverflow.com/users", mode: "xray" },
     xing: { id: "xing", label: "Xing", site: "xing.com/profile", mode: "xray" },
     twitter: { id: "twitter", label: "X / Twitter", site: "x.com", mode: "xray" },
-    wellfound: { id: "wellfound", label: "Wellfound", site: "wellfound.com", mode: "xray" },
+    wellfound: { id: "wellfound", label: "Wellfound", site: "wellfound.com/u", mode: "xray" },
     indeed: { id: "indeed", label: "Indeed CVs", site: "indeed.com/r", mode: "xray" },
     behance: { id: "behance", label: "Behance", site: "behance.net", mode: "xray" },
     resumes: { id: "resumes", label: "CVs sueltos (PDF/Word)", site: "", mode: "resumes" },

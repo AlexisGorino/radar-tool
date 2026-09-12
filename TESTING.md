@@ -11,7 +11,7 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-246 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+249 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -48,6 +48,59 @@ Esto no es algo que el código de RADAR pueda arreglar — es un cambio de
 comportamiento de los buscadores externos. Si en el futuro Bing vuelve a
 respetar `site:`, hay que revisar esta nota y la de la UI (`xrayNote` /
 `NETWORK_DESCRIPTIONS.linkedin` en `js/app.js`).
+
+## Auditoría completa contra buscadores reales (todas las redes)
+
+Con Google momentáneamente sin captcha, se probaron en vivo las 10 redes
+contra Google (no Bing) con dos perfiles reales (PM Ciberseguridad y Sr.
+Backend Developer). Resultado, red por red:
+
+| Red | Funciona vía Google | Nota |
+|---|---|---|
+| LinkedIn (X-Ray) | Sí | Trae perfiles reales y relevantes |
+| LinkedIn (nativo) | Sí | Recomendado, no depende de indexación |
+| GitHub (nativo) | Sí | Probado directo contra github.com |
+| Stack Overflow | Sí | Trae perfiles técnicos reales |
+| Xing | Sí | Trae perfiles reales |
+| X / Twitter | Sí | Trae cuentas reales del rubro |
+| Behance | Sí | Trae portfolios reales |
+| CVs sueltos | Sí | Trae PDFs de CV reales |
+| Otro sitio (custom) | Sí | Probado contra bumeran.com.ar |
+| **Indeed CVs** | **No** | Google no tiene indexada `indeed.com/r` ni con términos genéricos — Indeed exige cuenta de reclutador. Descripción actualizada para avisarlo. |
+| **Wellfound** | Corregido | El dominio apuntaba a `wellfound.com` (que Google llena de *avisos de trabajo*, no candidatos); corregido a `wellfound.com/u`, la ruta real de perfiles de personas. |
+
+Conclusión operativa: Bing no sirve para X-Ray hoy (ver arriba), Google sí
+y de forma consistente en 9 de 10 redes. La UI ya recomienda Google
+primero en todos los `platform-note`.
+
+## "Relajar búsqueda"
+
+Verificado en vivo: la versión completa del booleano de PM Ciberseguridad
+(Rol AND Atributos AND Dominio AND Alcance) no encontraba a la persona
+exacta que sí tenía ese cargo en su perfil de LinkedIn — Google, ante una
+consulta sin resultados exactos, aflojaba la búsqueda por su cuenta y
+mostraba resultados más genéricos. Sacando Dominio y Alcance del AND
+(`relaxed=true` en `coreBlocks`/`buildUniversalBoolean`/`buildXRayQuery`/
+`buildResumesQuery` en `generator.js`) la misma consulta encontró
+directamente a alguien con el cargo exacto "PM Ciberseguridad" en su
+perfil. El checkbox "Relajar búsqueda" en la UI expone esto con un click,
+sin tener que borrar chips a mano.
+
+## PDF real, subida completa (no solo texto ya extraído)
+
+Verificado con los dos PDFs reales, subidos como archivo de verdad
+(`File`/`DataTransfer` sobre el `<input type="file">`, el mismo camino que
+un drag-and-drop real) para que `pdf.js` los lea dentro del navegador —
+no inyectando el texto ya extraído a mano. Ambos casos completaron Rol,
+Atributos, Dominio y Alcance correctamente y sin errores de consola.
+
+## Mobile
+
+Verificado en viewport 375×812 después de todos los cambios de esta
+sesión (Alcance/Refinar, sugerencias, botón de LinkedIn, "Relajar
+búsqueda"): sin overflow horizontal (`scrollWidth === innerWidth`), grid
+de campos en una columna, red tabs en flex-wrap, panel de ayuda e
+historial ocupando el ancho disponible correctamente.
 
 ## Qué va en cada campo (y qué no)
 

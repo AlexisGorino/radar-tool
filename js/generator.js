@@ -24,14 +24,22 @@
     return "(" + parts.join(" OR ") + ")";
   }
 
-  function coreBlocks(state) {
-    return [orGroup(state.rol), orGroup(state.atributos), orGroup(state.dominio), orGroup(state.alcance)].filter(Boolean);
+  // relaxed=true drops Dominio and Alcance from the AND chain, keeping only
+  // Rol AND Atributos. Verified live while sourcing real profiles: chaining
+  // all four blocks with AND can legitimately zero out a search (a real
+  // person rarely matches role + skills + industry + location all at once
+  // in the exact words RADAR picked) — this is the one-click way out of
+  // that without manually deleting chips.
+  function coreBlocks(state, relaxed) {
+    const blocks = [orGroup(state.rol), orGroup(state.atributos)];
+    if (!relaxed) blocks.push(orGroup(state.dominio), orGroup(state.alcance));
+    return blocks.filter(Boolean);
   }
 
   // AND/OR/NOT/quotes only, no site-specific syntax — works as typed in
   // LinkedIn Recruiter and most ATS search boxes, and is the base for X-Ray.
-  function buildUniversalBoolean(state) {
-    const blocks = coreBlocks(state);
+  function buildUniversalBoolean(state, relaxed) {
+    const blocks = coreBlocks(state, relaxed);
     if (!blocks.length) return "";
     let out = blocks.join(" AND ");
     (state.refinar || []).forEach((t) => {
@@ -41,8 +49,8 @@
   }
 
   /** Same logic, exclusions replaced with the minus operator (Google/Bing syntax). */
-  function buildXRayQuery(state, siteDomain) {
-    const blocks = coreBlocks(state);
+  function buildXRayQuery(state, siteDomain, relaxed) {
+    const blocks = coreBlocks(state, relaxed);
     let out = siteDomain ? `site:${siteDomain} ` : "";
     out += blocks.join(" ");
     (state.refinar || []).forEach((t) => {
@@ -55,8 +63,8 @@
    * "CVs sueltos" mode: finds loose resume files across the open web,
    * not tied to any one site. Restricts to PDF/Word and common CV title words.
    */
-  function buildResumesQuery(state) {
-    const blocks = coreBlocks(state);
+  function buildResumesQuery(state, relaxed) {
+    const blocks = coreBlocks(state, relaxed);
     let out = "(filetype:pdf OR filetype:doc OR filetype:docx) ";
     out += '(intitle:cv OR intitle:resume OR intitle:curriculum OR intitle:"hoja de vida") ';
     out += blocks.join(" ");
