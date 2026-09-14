@@ -126,8 +126,24 @@
   // LinkedIn's own search box parses AND/OR/NOT/quotes natively (no X-Ray
   // needed) — this stays reliable even when Google/Bing stop indexing
   // linkedin.com/in pages, which is increasingly common.
-  function linkedinSearchUrl(universalBooleanQuery) {
-    return "https://www.linkedin.com/search/results/people/?keywords=" + encodeURIComponent(universalBooleanQuery);
+  function linkedinSearchUrl(linkedinBooleanQuery) {
+    return "https://www.linkedin.com/search/results/people/?keywords=" + encodeURIComponent(linkedinBooleanQuery);
+  }
+
+  // Free LinkedIn search (not Recruiter/Sales Navigator) silently breaks
+  // down past ~3-4 boolean operators per LinkedIn's own help docs — verified
+  // live: a real query with 6 operators (1 AND + 5 OR) returned zero
+  // results on a search that Google X-Ray, run the same day, answered with
+  // 10+ real profiles. Dominio/Alcance are dropped entirely (relaxed=true),
+  // not just capped: LinkedIn's own Location/Industry filters on the
+  // results page match its geo/company database, which beats text-matching
+  // a country name inside a bio anyway — that's LinkedIn's own recommended
+  // fix for an over-long query, moving facets out of the keyword string.
+  const LINKEDIN_MAX_ATRIBUTOS = 3;
+
+  function buildLinkedinBoolean(state) {
+    const trimmed = Object.assign({}, state, { atributos: (state.atributos || []).slice(0, LINKEDIN_MAX_ATRIBUTOS) });
+    return buildUniversalBoolean(trimmed, true);
   }
 
   /** Picks the first attribute that matches a known GitHub-supported language. */
@@ -188,6 +204,7 @@
     googleUrl,
     bingUrl,
     linkedinSearchUrl,
+    buildLinkedinBoolean,
     detectGithubLanguage,
     stripAbbreviatedTitlePrefix,
     buildGithubPeopleUrl,

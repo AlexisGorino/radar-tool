@@ -429,7 +429,9 @@
 
     resultLinkedinNative.classList.toggle("hidden", selectedNetwork !== "linkedin");
     if (selectedNetwork === "linkedin") {
-      document.getElementById("openLinkedinNative").href = RadarGenerator.linkedinSearchUrl(universal);
+      const linkedinBoolean = RadarGenerator.buildLinkedinBoolean(state);
+      document.getElementById("out-linkedin").textContent = linkedinBoolean;
+      document.getElementById("openLinkedinNative").href = RadarGenerator.linkedinSearchUrl(linkedinBoolean);
     }
 
     if (net.mode === "native-github") {

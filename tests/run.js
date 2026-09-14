@@ -592,6 +592,22 @@ test("Twitter/X and Wellfound stay out of the network list — confirmed live no
   assert.ok(!Networks.NETWORK_ORDER.includes("wellfound"));
 });
 
+test("buildLinkedinBoolean stays inside LinkedIn's free-tier operator budget", () => {
+  // Real case that returned zero results on LinkedIn: 1 AND + 5 OR = 6
+  // operators, over the ~3-4 LinkedIn's own docs say free search tolerates.
+  const state = {
+    rol: ["Backend Developer"],
+    atributos: ["AWS", "Go", "Lambda", "SQS", "SNS", "API Gateway"],
+    dominio: ["fintech"],
+    alcance: ["Argentina", "CABA"],
+    refinar: [],
+  };
+  const q = Generator.buildLinkedinBoolean(state);
+  const operators = (q.match(/\b(AND|OR)\b/g) || []).length;
+  assert.ok(operators <= 4, `expected <=4 operators, got ${operators}: ${q}`);
+  assert.ok(!q.includes("fintech") && !q.includes("Argentina"), `dominio/alcance should be dropped: ${q}`);
+});
+
 // ---------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------
