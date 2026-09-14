@@ -11,16 +11,17 @@
   const NETWORKS = {
     linkedin: { id: "linkedin", label: "LinkedIn", site: "linkedin.com/in", mode: "xray" },
     github: { id: "github", label: "GitHub", site: "github.com", mode: "native-github" },
-    stackoverflow: { id: "stackoverflow", label: "Stack Overflow", site: "stackoverflow.com/users", mode: "xray" },
-    xing: { id: "xing", label: "Xing", site: "xing.com/profile", mode: "xray" },
-    twitter: { id: "twitter", label: "X / Twitter", site: "x.com", mode: "xray" },
-    wellfound: { id: "wellfound", label: "Wellfound", site: "wellfound.com/u", mode: "xray" },
+    // looseRol: la bio de Stack Overflow/Xing no lee como un currículum —
+    // nadie escribe ahí el título del puesto tal cual. Citarlo como frase
+    // exacta lo mata (verificado en vivo, ver generator.js/orGroupRaw).
+    stackoverflow: { id: "stackoverflow", label: "Stack Overflow", site: "stackoverflow.com/users", mode: "xray", looseRol: true },
+    xing: { id: "xing", label: "Xing", site: "xing.com/profile", mode: "xray", looseRol: true },
     behance: { id: "behance", label: "Behance", site: "behance.net", mode: "xray" },
     resumes: { id: "resumes", label: "CVs sueltos (PDF/Word)", site: "", mode: "resumes" },
     custom: { id: "custom", label: "Otro sitio", site: "", mode: "xray" },
   };
 
-  const NETWORK_ORDER = ["linkedin", "github", "stackoverflow", "xing", "twitter", "wellfound", "behance", "resumes", "custom"];
+  const NETWORK_ORDER = ["linkedin", "github", "stackoverflow", "xing", "behance", "resumes", "custom"];
 
   return { NETWORKS, NETWORK_ORDER };
 });

@@ -21,10 +21,12 @@ Pages o publicada como página estática en cualquier lado.
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
 - **Redes soportadas**: LinkedIn (búsqueda nativa + X-Ray), GitHub (búsqueda
-  nativa de personas o repos), Stack Overflow, Xing, X/Twitter, Wellfound,
-  Behance, búsqueda de CVs sueltos (PDF/Word en toda la web) y cualquier
-  sitio custom. Todas probadas en vivo contra Google (ver `TESTING.md`) —
-  Indeed CVs se sacó del listado porque Google no la tiene indexada.
+  nativa de personas o repos), Stack Overflow, Xing, Behance, búsqueda de
+  CVs sueltos (PDF/Word en toda la web) y cualquier sitio custom. Todas
+  probadas en vivo contra Google, con perfiles reales de desarrollo, SAP,
+  ciberseguridad, telecomunicaciones, RRHH y diseño en distintos países (ver
+  `TESTING.md`) — Indeed CVs, X/Twitter y Wellfound se sacaron del listado
+  porque, probados de verdad, no traían candidatos reales.
 - **Historial de búsquedas**: guarda las últimas 20 búsquedas en el propio
   navegador (no en un servidor) para recuperarlas con un click.
 - **Atajo de teclado**: Ctrl/Cmd + Enter arma el booleano desde cualquier campo.
@@ -69,7 +71,7 @@ node tests/jd-bank.js
 node tests/locations.js
 ```
 
-304 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
+308 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local

@@ -46,36 +46,31 @@
   const state = { rol: [], atributos: [], dominio: [], alcance: [], refinar: [] };
   let selectedNetwork = "linkedin";
 
-  // Each entry: what the search actually does, and what kind of result to expect.
+  // Qué tipo de perfil aparece en cada red y con qué confianza, según pruebas
+  // en vivo (no supuestos): ver TESTING.md, sección "Auditoría de redes".
   const NETWORK_DESCRIPTIONS = {
     linkedin:
-      "Recomendado: usá el botón \"Buscar en LinkedIn\" — pega el booleano directo en el buscador propio de LinkedIn, que entiende AND/OR/NOT/comillas con cuenta gratis. La alternativa X-Ray funciona bien en Google (probado en vivo: trae perfiles reales), pero no en Bing — hoy Bing ni siquiera respeta el site: y devuelve resultados sin relación. Si usás X-Ray, abrí siempre en Google.",
+      "Usá el botón \"Buscar en LinkedIn\" de abajo — no depende de que Google tenga nada indexado, y es donde vive la mayoría de los perfiles. El X-Ray de al lado es el plan B: anda bien en Google para cualquier rubro y país (probado con desarrollo, SAP, ciberseguridad y telecomunicaciones), pero Bing ya ni respeta el site:, no lo uses ahí.",
     github:
-      "Cómo busca: búsqueda nativa de GitHub (no X-Ray), con sus propios operadores (language:, location:, stars:). Qué trae: perfiles de developers con actividad pública en GitHub, o repositorios. Solo tiene sentido para roles de programación/datos — para roles no técnicos casi no va a traer nada relevante.",
+      "Developers y perfiles de datos con actividad pública en GitHub. Probado con Backend + Python en Argentina: más de cien resultados reales. Fuera de lo técnico no hay nada que buscar acá.",
     stackoverflow:
-      "Cómo busca: X-Ray sobre site:stackoverflow.com/users. Qué trae: perfiles de gente con actividad pública respondiendo o preguntando en Stack Overflow. Solo útil para roles técnicos (dev, QA, data, DevOps) — para roles comerciales o de negocio no va a traer resultados.",
-    xing: "Cómo busca: X-Ray sobre site:xing.com/profile. Qué trae: perfiles profesionales de Xing, equivalente a LinkedIn pero local — probado en vivo, trae perfiles reales. Solo tiene sentido si el candidato puede estar en Alemania, Austria o Suiza — en el resto del mundo casi no hay usuarios.",
-    twitter:
-      "Cómo busca: X-Ray sobre X/Twitter. Qué trae: cuentas públicas cuya bio o tuits mencionan tu rol/atributos — probado en vivo, trae cuentas reales del rubro. Sirve solo para roles con presencia pública activa (devrel, comunidad, marketing técnico, prensa) — para la mayoría de los roles no es una buena fuente.",
-    wellfound:
-      "Cómo busca: X-Ray sobre wellfound.com/u (perfiles de personas — la web sin /u está llena de avisos de trabajo, no de candidatos, y Google los prioriza). Qué trae: perfiles orientados a startups. Sirve mejor para roles de producto e ingeniería early-stage — para roles de industrias tradicionales (banca, seguros, manufactura) rinde poco.",
+      "Gente con historial real respondiendo o preguntando: dev, QA, data, DevOps. El puesto no va entre comillas — casi nadie escribe su cargo tal cual en la bio, así que se busca suelto. Para roles comerciales no sirve, ahí no hay actividad.",
+    xing: "Equivalente a LinkedIn pero en Alemania, Austria y Suiza. El país se busca en el idioma del perfil, no en español (\"Germany\", no \"Alemania\") porque así lo escriben de verdad. Fuera de esa zona apenas hay usuarios.",
     behance:
-      "Cómo busca: X-Ray sobre portfolios públicos de Behance. Qué trae: portfolios de diseño/ilustración/UX-UI. Solo tiene sentido para esos roles — para cualquier otro rubro no va a traer nada.",
+      "Portfolios de diseño, UX/UI e ilustración. Anda muy bien — algunos perfiles hasta dicen \"en búsqueda activa\". Para cualquier otro rubro no va a traer nada, ni vale la pena intentarlo.",
     resumes:
-      "Cómo busca: no busca en una red puntual, busca archivos PDF o Word publicados en cualquier parte de la web indexada por Google (filetype:pdf/doc/docx + palabras típicas de un CV en el título, como \"cv\" o \"curriculum\"). Qué trae: currículums sueltos publicados fuera de las redes profesionales — en un sitio personal, un blog, una carpeta pública. Sirve para cualquier rubro, pero trae menos volumen que LinkedIn.",
+      "CVs colgados en sitios personales o blogs, fuera de las redes profesionales — con mail y teléfono directo, a veces mejor que un perfil de LinkedIn. Sirve para cualquier rubro, con menos volumen.",
     custom:
-      "Cómo busca: X-Ray sobre el dominio que definas abajo. Qué trae: lo que ese sitio tenga indexado por Google con tu rol/atributos — útil para portales de empleo locales (Bumeran, Computrabajo, InfoJobs), universidades, colegios profesionales, etc. La calidad depende de cuánto indexe Google ese sitio en particular.",
+      "Para portales de empleo locales (Bumeran, Computrabajo, InfoJobs) o cualquier sitio propio. La calidad depende de cuánto indexe Google ese sitio puntual, no de RADAR.",
   };
 
   const NOTES = {
-    linkedin: "Este X-Ray es el respaldo. Para buscar de verdad, usá el botón \"Buscar en LinkedIn\" de arriba — es más confiable porque no depende de Google/Bing.",
-    stackoverflow: "Útil para perfiles técnicos con actividad pública en preguntas y respuestas.",
-    xing: "Red fuerte en Alemania, Austria y Suiza. Poco uso en LATAM.",
-    twitter: "Sirve para roles con presencia pública: devrel, marketing técnico, comunidad.",
-    wellfound: "Orientado a startups. Buen lugar para roles de producto y early-stage engineering.",
-    behance: "Portfolios públicos. Ideal para roles de diseño, UX/UI e ilustración.",
-    resumes: "Busca archivos PDF/Word sueltos en toda la web, sin restringir a un sitio. Trae currículums publicados fuera de las redes profesionales.",
-    custom: "Ajustá el dominio arriba. La sintaxis site: funciona igual en cualquier sitio indexado por Google.",
+    linkedin: "Este X-Ray es el respaldo — para buscar de verdad usá el botón de arriba, no depende de Google ni Bing.",
+    stackoverflow: "El puesto se busca suelto, no entre comillas — en Stack Overflow nadie escribe su cargo tal cual.",
+    xing: "Fuerte en Alemania, Austria y Suiza. El país va en inglés para que matchee con el perfil real.",
+    behance: "Portfolios públicos de diseño, UX/UI e ilustración. Fuera de ese rubro no trae nada.",
+    resumes: "Busca PDF/Word sueltos en toda la web, currículums publicados fuera de las redes profesionales.",
+    custom: "Ajustá el dominio arriba. El site: funciona igual en cualquier sitio que Google tenga indexado.",
   };
 
   const HISTORY_KEY = "radar-history-v1";
@@ -455,7 +450,7 @@
         label = "Búsqueda — " + net.label;
       } else {
         const siteDomain = selectedNetwork === "custom" ? customSiteInput.value.trim().replace(/^https?:\/\//, "") : net.site;
-        xrayQuery = RadarGenerator.buildXRayQuery(state, siteDomain, relaxed);
+        xrayQuery = RadarGenerator.buildXRayQuery(state, siteDomain, relaxed, net.looseRol);
         label = "X-Ray — " + net.label;
       }
       document.getElementById("out-xray").textContent = xrayQuery;

@@ -208,15 +208,34 @@
     return Object.keys(ALL_COUNTRIES);
   }
 
+  // A German candidate's own LinkedIn/Xing/GitHub profile says "Germany" (or
+  // nothing about the country at all) — never "Alemania". Verified live: the
+  // exact same Xing search went from zero results to real matches just by
+  // swapping "Alemania" for "Germany" (Google doesn't localize Xing's pages
+  // into Spanish the way it happens to do for LinkedIn's). Returns the
+  // English/local form from BARE_COUNTRY_NAMES so a search can widen with an
+  // OR instead of only trying the Spanish name — null when the country's own
+  // name already reads the same in English (Argentina, Chile, Perú...), so
+  // there's nothing useful to add.
+  function searchAlias(country) {
+    const names = BARE_COUNTRY_NAMES[country];
+    if (!names || names.length < 2) return null;
+    const alias = names[names.length - 1];
+    if (alias.toLowerCase() === country.toLowerCase()) return null;
+    return alias.length <= 3 ? alias.toUpperCase() : alias.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   return {
     ALL_COUNTRIES,
     LATAM,
     EUROPE,
     OTHER,
+    BARE_COUNTRY_NAMES,
     countryList,
     detectCountry,
     detectLocationDetailed,
     detectModality,
+    searchAlias,
     containsWord,
   };
 });

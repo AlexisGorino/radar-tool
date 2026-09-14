@@ -11,7 +11,7 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-304 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+308 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -62,16 +62,98 @@ Backend Developer). Resultado, red por red:
 | GitHub (nativo) | Sí | Probado directo contra github.com |
 | Stack Overflow | Sí | Trae perfiles técnicos reales |
 | Xing | Sí | Trae perfiles reales |
-| X / Twitter | Sí | Trae cuentas reales del rubro |
+| X / Twitter | Sí | Trae cuentas reales del rubro — luego sacada del todo, ver más abajo |
 | Behance | Sí | Trae portfolios reales |
 | CVs sueltos | Sí | Trae PDFs de CV reales |
 | Otro sitio (custom) | Sí | Probado contra bumeran.com.ar |
-| **Wellfound** | Corregido | El dominio apuntaba a `wellfound.com` (que Google llena de *avisos de trabajo*, no candidatos); corregido a `wellfound.com/u`, la ruta real de perfiles de personas. |
+| **Wellfound** | Corregido en ese momento | El dominio apuntaba a `wellfound.com` (que Google llena de *avisos de trabajo*, no candidatos); corregido a `wellfound.com/u`. Terminó sacada igual, ver más abajo — el sitio quedó prácticamente fuera del índice de Google. |
 | **Indeed CVs** | **Sacada** | Google no tiene indexada `indeed.com/r` ni con términos genéricos — Indeed exige cuenta de reclutador para ver currículums, no hay nada público que buscar. Se probó marcarla como "no confiable" en la UI, pero a pedido se sacó del todo la red en vez de dejar una opción que no sirve. |
 
 Conclusión operativa: Bing no sirve para X-Ray hoy (ver arriba), Google sí
 y de forma consistente en las redes restantes. La UI ya recomienda Google
 primero en todos los `platform-note`.
+
+## Segunda auditoría en vivo — booleanos rotos que la tabla anterior no agarró
+
+La tabla de arriba decía "funciona" para todas las redes, pero medía si
+Google traía *algún* resultado, no si el booleano exacto que arma RADAR
+traía los mejores resultados posibles. Probando de nuevo con más países y
+más tipos de perfil (no solo desarrollo: SAP, ciberseguridad,
+telecomunicaciones, RRHH), aparecieron tres bugs reales, todos con
+búsqueda real de por medio, no en teoría:
+
+**El límite de 4 términos por bloque cortaba chips que la UI mostraba
+como agregados.** `extractor.js` permite hasta 6 atributos y la UI dice
+"Sin límite de términos" para todo lo tipeado a mano (sinónimos de Rol
+incluidos) — pero `generator.js` cortaba cada bloque OR a 4 términos antes
+de armar el booleano, sin avisar. Con 5 sinónimos de Rol y 6 atributos
+cargados, el booleano real solo buscaba los primeros 4 de cada uno.
+Subido a 6 para que coincida con el tope real de `extractor.js`.
+
+**Stack Overflow y Xing perdían casi todos los resultados por citar el Rol
+como frase exacta.** `site:stackoverflow.com/users "Backend Developer"
+(Python OR AWS) Argentina` dio 1 resultado. La misma búsqueda sin las
+comillas en el Rol —`site:stackoverflow.com/users Backend Developer
+(Python OR AWS) Argentina backend`— dio 5 resultados reales y relevantes.
+Tiene sentido: en Stack Overflow y Xing la bio no lee como un currículum,
+nadie escribe ahí su cargo tal cual. Se agregó `looseRol` por red
+(`networks.js`) y `orGroupRaw` (`generator.js`) para que el Rol vaya suelto
+solo en esas dos redes — LinkedIn, Behance y CVs sueltos sí se benefician
+de la frase exacta, confirmado en las pruebas de abajo.
+
+**El país siempre se buscaba en español, y un perfil no hispanohablante
+casi nunca lo escribe así.** `site:xing.com/profile "Backend Developer"
+(Python OR AWS) Alemania` dio **cero** resultados. La misma búsqueda con
+"Germany" en vez de "Alemania" dio varios reales. No es un problema de
+LinkedIn (Google sí localiza esas páginas al español, por eso ahí
+"Alemania" funcionaba) pero sí de Xing y probablemente de cualquier otra
+red que no reciba ese mismo trato de Google. `countries.js` ya tenía el
+alias en inglés de cada país cargado (`BARE_COUNTRY_NAMES`, usado hasta
+ahora solo para *detectar* el país en una JD pegada) — `searchAlias()`
+reutiliza ese mismo dato para *buscar*, ensanchando con un OR
+(`Alemania OR Germany`) en vez de reemplazar, así nunca se pierde el caso
+donde el nombre en español ya funcionaba.
+
+### Perfiles probados, por rubro y país (todo contra Google, hoy sin captcha)
+
+| Rol | Skills | País | Red | Resultado |
+|---|---|---|---|---|
+| Backend Developer | Python, AWS | Argentina | LinkedIn X-Ray | 10+ reales, con paginación |
+| Backend Developer | Python, AWS | Argentina | GitHub nativo | 118 resultados reales |
+| Backend Developer | Python, AWS | Argentina | Stack Overflow | 1 con comillas → 5 sin comillas |
+| Backend Developer | Python, AWS | Alemania | Xing | 0 con "Alemania" → 7+ con "Germany" |
+| Consultor SAP FICO | — | México | LinkedIn X-Ray | Varios reales, títulos exactos |
+| Ingeniero de Ciberseguridad | SIEM, ISO 27001 | España | LinkedIn X-Ray | Varios reales, perfiles senior |
+| Ingeniero de Telecomunicaciones | GPON, Cisco | Colombia | LinkedIn X-Ray | Varios reales, con stack detallado |
+| Talent Acquisition | Reclutamiento, LinkedIn Recruiter | Chile | LinkedIn X-Ray | Varios reales |
+| UX Designer | Figma, UI | Argentina | Behance | Varios reales, uno "en búsqueda activa" |
+| Backend Developer | Python, AWS | Argentina | CVs sueltos | Varios CVs reales con mail/teléfono |
+| Growth Marketing | SEO, Google Ads | México | X/Twitter | Mayoría cuentas de agencia, no personas |
+| Developer Advocate | React, JavaScript | Argentina | X/Twitter | Ninguno en Argentina de verdad |
+| — (genérico) | — | — | Wellfound | 1 solo resultado en todo el sitio, sin contenido |
+
+**X/Twitter y Wellfound se sacaron del todo.** Twitter/X ignoró la
+ubicación en las dos pruebas (trajo menciones de eventos/conferencias de
+otros países, no candidatos) y mezcla cuentas de agencias/marcas con
+personas reales — señal débil, ruido alto, mismo criterio que ya se usó
+para sacar Indeed CVs. Wellfound quedó prácticamente fuera del índice de
+Google (un solo resultado en todo `wellfound.com/u`, sin extracto de
+contenido) — mismo diagnóstico que tuvo Indeed CVs antes de sacarla.
+
+### Nota sobre uso simultáneo del equipo
+
+RADAR no tiene backend ni sesión compartida: cada persona que abre el link
+corre la herramienta enteramente en su propio navegador, y lo único que
+"sale" de esa sesión es el clic en "Abrir en Google/LinkedIn/GitHub", que
+abre una pestaña nueva en la cuenta y la red de esa misma persona. No hay
+ningún límite de RADAR para que 3, 4 o 40 personas del equipo lo usen al
+mismo tiempo desde cualquier país — no hay servidor propio que se sature,
+ni cuota compartida. El único límite que puede aparecer es el de cada
+buscador externo sobre la sesión de *esa* persona en particular (por
+ejemplo, Google marcando una IP como sospechosa si ve un volumen de
+búsquedas anormal en poco tiempo, como pasó en esta misma sesión de
+pruebas automatizadas) — eso es ajeno a RADAR y no se comparte entre
+compañeros ni entre búsquedas.
 
 ## "Relajar búsqueda"
 

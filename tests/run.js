@@ -6,6 +6,7 @@ const Countries = require(path.join(__dirname, "..", "js", "countries.js"));
 const Keywords = require(path.join(__dirname, "..", "js", "keywords.js"));
 const Extractor = require(path.join(__dirname, "..", "js", "extractor.js"));
 const Generator = require(path.join(__dirname, "..", "js", "generator.js"));
+const Networks = require(path.join(__dirname, "..", "js", "networks.js"));
 
 let passed = 0;
 let failed = 0;
@@ -207,7 +208,7 @@ test("HTML-like text in JD never gets executed or specially parsed — it is jus
 // 4. Generator — conciseness, correctness, URL safety
 // ---------------------------------------------------------------
 
-test("universal boolean stays short even with many attributes (caps at 4 per group)", () => {
+test("universal boolean caps a group at 6 terms — matching extractor's own MAX_ATTRIBUTES, not a smaller hidden limit", () => {
   const state = {
     rol: ["Desarrollador Backend"],
     atributos: ["Java", "Python", "Go", "Kotlin", "Swift", "PHP", "Ruby"],
@@ -216,9 +217,14 @@ test("universal boolean stays short even with many attributes (caps at 4 per gro
     refinar: ["junior"],
   };
   const bool = Generator.buildUniversalBoolean(state);
+  // 7 atributos chips in, only the 7th ("Ruby") should be dropped — a
+  // smaller cap here used to silently drop chips still visible on screen
+  // (verified live: 4 was cutting real skills/synonyms the UI showed as
+  // "sin límite de términos") without telling the user anything was cut.
   const orMatches = bool.match(/OR/g) || [];
-  assert.ok(orMatches.length <= 3, `expected at most 3 OR joins (4 terms), got ${orMatches.length}: ${bool}`);
-  assert.ok(bool.length < 220, `boolean too long (${bool.length} chars): ${bool}`);
+  assert.strictEqual(orMatches.length, 5, `expected exactly 5 OR joins (6 terms), got ${orMatches.length}: ${bool}`);
+  assert.ok(bool.includes("Swift"), `6th atributo should survive the cap: ${bool}`);
+  assert.ok(!bool.includes("Ruby"), `7th atributo should be the one dropped: ${bool}`);
 });
 
 test("universal boolean quotes multi-word terms only", () => {
@@ -543,6 +549,47 @@ test("buildResumesQuery applies exclusions with minus operator", () => {
   const state = { rol: ["QA"], atributos: [], dominio: [], alcance: [], refinar: ["junior"] };
   const q = Generator.buildResumesQuery(state);
   assert.ok(q.includes("-junior"));
+});
+
+test("looseRol drops the exact-phrase quoting on Rol without touching Atributos", () => {
+  // Verified live: "Backend Developer" quoted gave 1 result on Stack
+  // Overflow, the same word unquoted gave 5 — a job title just isn't how
+  // people write a Stack Overflow/Xing bio. Multi-word skills still need
+  // to stay an exact phrase everywhere, so only Rol changes here.
+  const state = { rol: ["Backend Developer"], atributos: ["Machine Learning"], dominio: [], alcance: [], refinar: [] };
+  const strict = Generator.buildXRayQuery(state, "stackoverflow.com/users", false, false);
+  const loose = Generator.buildXRayQuery(state, "stackoverflow.com/users", false, true);
+  assert.ok(strict.includes('"Backend Developer"'), `expected quoted rol in strict mode: ${strict}`);
+  assert.ok(loose.includes("Backend Developer") && !loose.includes('"Backend Developer"'), `expected unquoted rol in loose mode: ${loose}`);
+  assert.ok(loose.includes('"Machine Learning"'), `atributos should stay quoted regardless: ${loose}`);
+});
+
+test("a non-Spanish-speaking country widens the query with its English/local name", () => {
+  // Verified live: the exact same Xing search went from zero results to
+  // several real ones just by adding "Germany" — Xing's pages aren't
+  // localized into Spanish by Google the way LinkedIn's happen to be.
+  const state = { rol: ["Backend Developer"], atributos: [], dominio: [], alcance: ["Alemania"], refinar: [] };
+  const q = Generator.buildXRayQuery(state, "xing.com/profile", false, true);
+  assert.ok(q.includes("Alemania"), `should keep the Spanish name too: ${q}`);
+  assert.ok(q.includes("Germany"), `should widen with the English name: ${q}`);
+});
+
+test("a Spanish-speaking country's alcance is left alone — nothing to widen", () => {
+  const state = { rol: ["Backend Developer"], atributos: [], dominio: [], alcance: ["Argentina"], refinar: [] };
+  const q = Generator.buildXRayQuery(state, "linkedin.com/in", false, false);
+  assert.strictEqual((q.match(/Argentina/g) || []).length, 1, `expected Argentina exactly once: ${q}`);
+});
+
+test("Twitter/X and Wellfound stay out of the network list — confirmed live not to deliver real candidates", () => {
+  // Twitter/X: 2/2 live searches ignored the location entirely (event/
+  // conference mentions from other countries, not candidates) and mixed in
+  // company/agency accounts instead of people. Wellfound: barely indexed by
+  // Google at all anymore (a single, content-less hit for a generic term) —
+  // same fate as Indeed CVs before it. See TESTING.md for the searches.
+  assert.ok(!("twitter" in Networks.NETWORKS));
+  assert.ok(!("wellfound" in Networks.NETWORKS));
+  assert.ok(!Networks.NETWORK_ORDER.includes("twitter"));
+  assert.ok(!Networks.NETWORK_ORDER.includes("wellfound"));
 });
 
 // ---------------------------------------------------------------
