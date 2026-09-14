@@ -11,8 +11,8 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=12">
-<script src="js/gate.js?v=12"></script>
+<link rel="stylesheet" href="css/styles.css?v=13">
+<script src="js/gate.js?v=13"></script>
 </head>
 <body>
 
@@ -162,10 +162,8 @@
         <button class="btn btn-copy" data-copy="out-linkedin" type="button">Copiar</button>
       </div>
       <div class="boolean-box" id="out-linkedin">—</div>
-      <div class="engine-buttons">
-        <a class="btn btn-engine btn-engine-primary" id="openLinkedinNative" href="#" target="_blank" rel="noopener noreferrer">Buscar en LinkedIn</a>
-      </div>
-      <p class="platform-note">Más corto que el booleano universal a propósito: LinkedIn con cuenta gratis (no Recruiter) rompe la búsqueda a partir de 3-4 operadores AND/OR — probado en vivo, un booleano más largo dio cero resultados. Dominio y Alcance no van acá: aplicalos con los filtros de Ubicación/Sector de LinkedIn en la página de resultados, son más precisos que buscar el país como texto suelto.</p>
+      <div class="engine-buttons" id="linkedinTiers"></div>
+      <p class="platform-note">Más corto que el booleano universal a propósito: LinkedIn con cuenta gratis (no Recruiter) rompe la búsqueda a partir de 3-4 operadores AND/OR — probado en vivo, un booleano más largo dio cero resultados. Si la primera no trae a nadie, probá las otras: van sacando atributos hasta quedarse solo con el puesto. Dominio y Alcance no van acá: aplicalos con los filtros de Ubicación/Sector de LinkedIn en la página de resultados, son más precisos que buscar el país como texto suelto.</p>
     </div>
 
     <div class="result-secondary" id="resultXray">
@@ -271,11 +269,11 @@
 </div>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/countries.js?v=12"></script>
-<script src="js/keywords.js?v=12"></script>
-<script src="js/networks.js?v=12"></script>
-<script src="js/extractor.js?v=12"></script>
-<script src="js/generator.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
+<script src="js/countries.js?v=13"></script>
+<script src="js/keywords.js?v=13"></script>
+<script src="js/networks.js?v=13"></script>
+<script src="js/extractor.js?v=13"></script>
+<script src="js/generator.js?v=13"></script>
+<script src="js/app.js?v=13"></script>
 </body>
 </html>

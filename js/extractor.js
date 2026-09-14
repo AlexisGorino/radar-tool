@@ -65,6 +65,22 @@
     return typeof limit === "number" ? ranked.slice(0, limit) : ranked;
   }
 
+  // Real JDs commonly split skills into "Excluyentes/Requisitos" (dealbreakers)
+  // and "Deseables/Plus/Nice to have" (bonus) — see the Ardua fixture. A skill
+  // that only shows up after that marker is optional, not a filter you want
+  // eating one of the few slots the boolean has room for. A skill mentioned
+  // on BOTH sides (required, and repeated as a "plus") stays a real requirement.
+  const OPTIONAL_SECTION_RE = /\b(deseables?|plus|nice to have|valorable|opcionales?|a favor|suma(?:n)? puntos)\b/i;
+
+  function optionalOnlySkills(text, bank) {
+    const marker = text.match(OPTIONAL_SECTION_RE);
+    if (!marker) return [];
+    const before = text.slice(0, marker.index);
+    const after = text.slice(marker.index);
+    const requiredElsewhere = new Set(findMatches(before, bank).map((t) => t.toLowerCase()));
+    return findMatches(after, bank).filter((t) => !requiredElsewhere.has(t.toLowerCase()));
+  }
+
   function stripTags(text) {
     return text.replace(/<[^>]*>/g, " ").replace(/\s{2,}/g, " ").trim();
   }
@@ -277,14 +293,30 @@
   // has 2 signals (rol + país) and must still be accepted.
   const MIN_JOB_POSTING_SIGNALS = 2;
 
+  // A résumé almost always leads with the candidate's own contact info —
+  // email, "Curriculum Vitae" — a JD almost never does. This fires even when
+  // the text also has enough generic JD-shaped signals to otherwise pass
+  // isJobPosting (a résumé's own "Experience"/skills section does): it's a
+  // narrower, specific check that overrides the general one, not a stricter
+  // version of it. Verified live: a real candidate CV (name, phone, email,
+  // "Professional Experience") passed isJobPosting on its own JD-like
+  // vocabulary and produced a nonsense Rol out of "Seeking challenging
+  // backend projects...".
+  const RESUME_HEAD_CHARS = 200;
+  function looksLikeResume(text) {
+    const head = text.slice(0, RESUME_HEAD_CHARS);
+    return /[\w.+-]+@[\w.-]+\.\w{2,}/.test(head) || /curriculum\s*vitae/i.test(head);
+  }
+
   function analyzeJD(rawText) {
     const text = String(rawText || "").slice(0, MAX_INPUT_LENGTH);
     if (!text.trim()) {
-      return { rol: [], atributos: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false };
+      return { rol: [], atributos: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false, isResume: false };
     }
 
     const rol = dedupe(guessRol(text));
-    const atributos = dedupe(findMatchesRanked(text, Keywords.SKILLS, MAX_ATTRIBUTES, Keywords.GENERIC_SKILLS));
+    const deprioritizeSkills = [...Keywords.GENERIC_SKILLS, ...optionalOnlySkills(text, Keywords.SKILLS)];
+    const atributos = dedupe(findMatchesRanked(text, Keywords.SKILLS, MAX_ATTRIBUTES, deprioritizeSkills));
     const dominio = dedupe(findMatchesRanked(text, Keywords.INDUSTRIES, MAX_DOMINIO));
 
     // Alcance is país + localidad only. Modalidad (remoto/híbrido/presencial)
@@ -314,7 +346,10 @@
     const refinarSuggestion = dedupe([...seniorFound, ...juniorFound, ...modality]);
 
     const analyzed = { rol, atributos, dominio, alcance, refinar: [], refinarSuggestion, country };
-    analyzed.isJobPosting = countJobPostingSignals(text, analyzed) >= MIN_JOB_POSTING_SIGNALS;
+    analyzed.isResume = looksLikeResume(text);
+    // A résumé never counts as a job posting, no matter how many generic
+    // signals it also trips — see looksLikeResume above.
+    analyzed.isJobPosting = !analyzed.isResume && countJobPostingSignals(text, analyzed) >= MIN_JOB_POSTING_SIGNALS;
     return analyzed;
   }
 
@@ -327,6 +362,8 @@
     findMatches,
     findMatchesRanked,
     looksLikeTemplateNoise,
+    optionalOnlySkills,
+    looksLikeResume,
     countJobPostingSignals,
     guessRol,
     trimRolPhrase,

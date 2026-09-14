@@ -141,9 +141,31 @@
   // fix for an over-long query, moving facets out of the keyword string.
   const LINKEDIN_MAX_ATRIBUTOS = 3;
 
-  function buildLinkedinBoolean(state) {
-    const trimmed = Object.assign({}, state, { atributos: (state.atributos || []).slice(0, LINKEDIN_MAX_ATRIBUTOS) });
+  function buildLinkedinBooleanTier(state, maxAtributos) {
+    const trimmed = Object.assign({}, state, { atributos: (state.atributos || []).slice(0, maxAtributos) });
     return buildUniversalBoolean(trimmed, true);
+  }
+
+  function buildLinkedinBoolean(state) {
+    return buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS);
+  }
+
+  // Three progressively broader tries instead of one shot: if the specific
+  // one comes up empty, LinkedIn's own filters (or a Google captcha) aren't
+  // always the reason — sometimes the query is just too narrow for how
+  // little a real profile spells out. Atributos is already ranked
+  // excluyente-first (see optionalOnlySkills in extractor.js), so trimming
+  // it down keeps the sharpest requirement and drops the rest, tier by tier.
+  // Query strings that end up identical (little to trim in the first place)
+  // are deduped — no point showing the same button three times.
+  function buildLinkedinBooleanTiers(state) {
+    const tiers = [
+      { label: "Específica", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS) },
+      { label: "Media", query: buildLinkedinBooleanTier(state, 1) },
+      { label: "Amplia (solo rol)", query: buildLinkedinBooleanTier(state, 0) },
+    ];
+    const seen = new Set();
+    return tiers.filter((t) => t.query && !seen.has(t.query) && seen.add(t.query));
   }
 
   /** Picks the first attribute that matches a known GitHub-supported language. */
@@ -205,6 +227,7 @@
     bingUrl,
     linkedinSearchUrl,
     buildLinkedinBoolean,
+    buildLinkedinBooleanTiers,
     detectGithubLanguage,
     stripAbbreviatedTitlePrefix,
     buildGithubPeopleUrl,

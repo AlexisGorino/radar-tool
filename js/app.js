@@ -255,6 +255,10 @@
       return;
     }
     const result = RadarExtractor.analyzeJD(text);
+    if (result.isResume) {
+      showError("Esto parece un CV (nombre, teléfono y mail al principio), no una descripción de puesto — subí la JD de la vacante, no el currículum de un candidato.", "file");
+      return;
+    }
     if (!result.isJobPosting) {
       showError("Esto no parece una descripción de puesto — no encontramos rol, ubicación, skills ni palabras típicas de una JD (\"requisitos\", \"responsabilidades\"...). Completá los campos a mano.", "file");
       return;
@@ -429,9 +433,19 @@
 
     resultLinkedinNative.classList.toggle("hidden", selectedNetwork !== "linkedin");
     if (selectedNetwork === "linkedin") {
-      const linkedinBoolean = RadarGenerator.buildLinkedinBoolean(state);
-      document.getElementById("out-linkedin").textContent = linkedinBoolean;
-      document.getElementById("openLinkedinNative").href = RadarGenerator.linkedinSearchUrl(linkedinBoolean);
+      const tiers = RadarGenerator.buildLinkedinBooleanTiers(state);
+      document.getElementById("out-linkedin").textContent = tiers[0] ? tiers[0].query : "—";
+      const tiersWrap = document.getElementById("linkedinTiers");
+      tiersWrap.innerHTML = "";
+      tiers.forEach((tier, i) => {
+        const a = document.createElement("a");
+        a.className = "btn btn-engine" + (i === 0 ? " btn-engine-primary" : "");
+        a.href = RadarGenerator.linkedinSearchUrl(tier.query);
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = tiers.length > 1 ? `Buscar en LinkedIn — ${tier.label}` : "Buscar en LinkedIn";
+        tiersWrap.appendChild(a);
+      });
     }
 
     if (net.mode === "native-github") {

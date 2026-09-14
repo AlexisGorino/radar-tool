@@ -608,6 +608,60 @@ test("buildLinkedinBoolean stays inside LinkedIn's free-tier operator budget", (
   assert.ok(!q.includes("fintech") && !q.includes("Argentina"), `dominio/alcance should be dropped: ${q}`);
 });
 
+test("buildLinkedinBooleanTiers gives three progressively broader tries, deduped", () => {
+  const state = {
+    rol: ["Backend Developer"],
+    atributos: ["AWS", "Go", "Lambda", "SQS", "SNS", "API Gateway"],
+    dominio: [],
+    alcance: [],
+    refinar: [],
+  };
+  const tiers = Generator.buildLinkedinBooleanTiers(state);
+  assert.strictEqual(tiers.length, 3);
+  assert.ok(tiers[2].query === '"Backend Developer"', `broadest tier should be rol only: ${tiers[2].query}`);
+  const uniqueQueries = new Set(tiers.map((t) => t.query));
+  assert.strictEqual(uniqueQueries.size, tiers.length, "tiers should all be distinct");
+});
+
+test("buildLinkedinBooleanTiers drops duplicate tiers when there's little to trim", () => {
+  const state = { rol: ["QA"], atributos: [], dominio: [], alcance: [], refinar: [] };
+  const tiers = Generator.buildLinkedinBooleanTiers(state);
+  assert.strictEqual(tiers.length, 1, `all three tiers collapse to the same query: ${JSON.stringify(tiers)}`);
+});
+
+test("a skill mentioned only in the JD's Deseables/Plus section ranks behind skills from Excluyentes", () => {
+  const jd =
+    "Buscamos Backend Developer. Requisitos Excluyentes: AWS, Lambda, SQS, SNS, API Gateway. " +
+    "Deseables / Plus: experiencia en fintech, conocimiento de Java como lenguaje complementario.";
+  const r = Extractor.analyzeJD(jd);
+  assert.strictEqual(r.atributos[r.atributos.length - 1], "Java", `Java (deseable-only) should rank last: ${r.atributos}`);
+});
+
+test("a skill repeated in both Excluyentes and Deseables still ranks as required", () => {
+  const jd = "Buscamos Backend Developer. Excluyente: AWS. Deseable: AWS avanzado, Java.";
+  const r = Extractor.analyzeJD(jd);
+  assert.ok(r.atributos.indexOf("AWS") < r.atributos.indexOf("Java"), `AWS appears in both sections, shouldn't be deprioritized: ${r.atributos}`);
+});
+
+test("a résumé (name, phone, email up top) is never treated as a job posting, however JD-like its vocabulary reads", () => {
+  const resume =
+    "Luiz Lima\n\nBack-End Developer\n\nPhone: +55 (11) 9 9265-3070\n\nEmail: lima.luizgo@gmail.com\n\n" +
+    "Summary\nBack-end developer with 3.5 years of experience in Java, Spring and Go, seeking challenging backend projects.";
+  const r = Extractor.analyzeJD(resume);
+  assert.strictEqual(r.isResume, true);
+  assert.strictEqual(r.isJobPosting, false);
+});
+
+test("a real JD stays a JD even with a contact email, as long as it's not in the opening lines", () => {
+  // Matches the real Ardua fixture's own shape: "Postulaciones: jsarti@..."
+  // sits at the very end of the document, not in the header like a résumé's.
+  const jd =
+    "Buscamos Backend Developer con experiencia en AWS y Go para banco en Argentina. ".repeat(4) +
+    "Postulaciones: rrhh@banco.com";
+  const r = Extractor.analyzeJD(jd);
+  assert.strictEqual(r.isResume, false);
+});
+
 // ---------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------
