@@ -605,20 +605,37 @@ test("buildLinkedinBoolean stays inside LinkedIn's free-tier operator budget", (
   const q = Generator.buildLinkedinBoolean(state);
   const operators = (q.match(/\b(AND|OR)\b/g) || []).length;
   assert.ok(operators <= 4, `expected <=4 operators, got ${operators}: ${q}`);
-  assert.ok(!q.includes("fintech") && !q.includes("Argentina"), `dominio/alcance should be dropped: ${q}`);
+  assert.ok(!q.includes("fintech"), `dominio should stay out: ${q}`);
 });
 
-test("buildLinkedinBooleanTiers gives three progressively broader tries, deduped", () => {
+test("buildLinkedinBoolean keeps location — a real JD for Santiago de Compostela must not lose the city", () => {
+  // Verified live: dropping Alcance entirely from the LinkedIn tiers (the
+  // original version of this function) meant a JD for a specific city
+  // searched the whole platform with no location constraint at all.
+  const state = {
+    rol: ["Auditor"],
+    atributos: ["Ekahau"],
+    dominio: [],
+    alcance: ["España", "Santiago de Compostela"],
+    refinar: [],
+  };
+  const q = Generator.buildLinkedinBoolean(state);
+  assert.ok(q.includes("Santiago de Compostela"), `expected the city (the most specific term) in the query: ${q}`);
+  assert.ok(!q.includes("España"), `only one location term — the country would just add an operator with no gain over the city: ${q}`);
+});
+
+test("buildLinkedinBooleanTiers gives three progressively broader tries, all keeping location, deduped", () => {
   const state = {
     rol: ["Backend Developer"],
     atributos: ["AWS", "Go", "Lambda", "SQS", "SNS", "API Gateway"],
     dominio: [],
-    alcance: [],
+    alcance: ["Argentina"],
     refinar: [],
   };
   const tiers = Generator.buildLinkedinBooleanTiers(state);
   assert.strictEqual(tiers.length, 3);
-  assert.ok(tiers[2].query === '"Backend Developer"', `broadest tier should be rol only: ${tiers[2].query}`);
+  tiers.forEach((t) => assert.ok(t.query.includes("Argentina"), `every tier should keep location: ${t.query}`));
+  assert.strictEqual(tiers[2].query, '"Backend Developer" AND Argentina', `broadest tier should be rol + location only: ${tiers[2].query}`);
   const uniqueQueries = new Set(tiers.map((t) => t.query));
   assert.strictEqual(uniqueQueries.size, tiers.length, "tiers should all be distinct");
 });

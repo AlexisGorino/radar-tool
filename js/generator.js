@@ -134,20 +134,43 @@
   // down past ~3-4 boolean operators per LinkedIn's own help docs — verified
   // live: a real query with 6 operators (1 AND + 5 OR) returned zero
   // results on a search that Google X-Ray, run the same day, answered with
-  // 10+ real profiles. Dominio/Alcance are dropped entirely (relaxed=true),
-  // not just capped: LinkedIn's own Location/Industry filters on the
-  // results page match its geo/company database, which beats text-matching
-  // a country name inside a bio anyway — that's LinkedIn's own recommended
-  // fix for an over-long query, moving facets out of the keyword string.
-  const LINKEDIN_MAX_ATRIBUTOS = 3;
+  // 10+ real profiles. Atributos gets capped, not dropped, tier by tier.
+  //
+  // Alcance stays IN every tier on purpose (not just capped like Atributos):
+  // location is usually the one hard constraint a recruiter can't relax —
+  // dropping it entirely (the original version of this function did, betting
+  // on LinkedIn's own Location filter as a better substitute) meant a JD for
+  // "Santiago de Compostela" searched the whole platform with no city at
+  // all. Only ONE location term is used, though, and never widened with
+  // expandLocationTerm's country alias (fine for Google, where there's no
+  // operator ceiling to blow) — the most specific term already detected
+  // (city over country, see extractor.js's alcance order) is what actually
+  // narrows a LinkedIn search, and it alone already costs an AND.
+  const LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA = 2;
+  const LINKEDIN_MAX_ATRIBUTOS_MEDIA = 1;
+
+  function linkedinLocationTerm(state) {
+    const alcance = state.alcance || [];
+    return alcance.length ? [alcance[alcance.length - 1]] : [];
+  }
 
   function buildLinkedinBooleanTier(state, maxAtributos) {
-    const trimmed = Object.assign({}, state, { atributos: (state.atributos || []).slice(0, maxAtributos) });
-    return buildUniversalBoolean(trimmed, true);
+    const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix);
+    const blocks = [
+      orGroup(rol),
+      orGroup((state.atributos || []).slice(0, maxAtributos)),
+      orGroup(linkedinLocationTerm(state)),
+    ].filter(Boolean);
+    if (!blocks.length) return "";
+    let out = blocks.join(" AND ");
+    (state.refinar || []).forEach((t) => {
+      out += ` NOT ${quoteIfPhrase(t)}`;
+    });
+    return out;
   }
 
   function buildLinkedinBoolean(state) {
-    return buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS);
+    return buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA);
   }
 
   // Three progressively broader tries instead of one shot: if the specific
@@ -155,14 +178,15 @@
   // always the reason — sometimes the query is just too narrow for how
   // little a real profile spells out. Atributos is already ranked
   // excluyente-first (see optionalOnlySkills in extractor.js), so trimming
-  // it down keeps the sharpest requirement and drops the rest, tier by tier.
-  // Query strings that end up identical (little to trim in the first place)
-  // are deduped — no point showing the same button three times.
+  // it down keeps the sharpest requirement and drops the rest, tier by tier
+  // — Alcance never gets trimmed away, see above. Query strings that end up
+  // identical (little to trim in the first place) are deduped — no point
+  // showing the same button three times.
   function buildLinkedinBooleanTiers(state) {
     const tiers = [
-      { label: "Específica", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS) },
-      { label: "Media", query: buildLinkedinBooleanTier(state, 1) },
-      { label: "Amplia (solo rol)", query: buildLinkedinBooleanTier(state, 0) },
+      { label: "Específica", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA) },
+      { label: "Media", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_MEDIA) },
+      { label: "Amplia (rol + ubicación)", query: buildLinkedinBooleanTier(state, 0) },
     ];
     const seen = new Set();
     return tiers.filter((t) => t.query && !seen.has(t.query) && seen.add(t.query));
