@@ -662,6 +662,33 @@ test("a real JD stays a JD even with a contact email, as long as it's not in the
   assert.strictEqual(r.isResume, false);
 });
 
+test("a Rol responsibility verb doesn't survive even when it's the only match — Rol stays empty over guessing wrong", () => {
+  const jd = "Rol: Gestionar proyectos estratégicos de seguridad de la información a cargo del CISO.";
+  assert.deepStrictEqual(Extractor.guessRol(jd), []);
+});
+
+test("a corporate ficha's job CODE label doesn't win over the real title label further down", () => {
+  // Real JD shape (Mindata's own template): "Código de Puesto: <CODE>" is a
+  // job-code label, not a title — "Denominación Oficial:" right after it is.
+  const jd =
+    "Código de Puesto: MD-COM-IR-SR Denominación Oficial: Comercial Senior de Infraestructura y Redes " +
+    "Unidad Orgánica: Comercial / Ventas.";
+  assert.strictEqual(Extractor.guessRol(jd)[0], "Comercial");
+});
+
+test("a 3-segment ficha header (empresa - área - título) salvages just the title, not the whole header", () => {
+  const jd = "PUESTO - CLIENTE Mindata - Financiero - Tesorería Junior COD VACANTE rdeJpArDVEOb DEPARTAMENTO/ Administración";
+  assert.strictEqual(Extractor.guessRol(jd)[0], "Tesorería");
+});
+
+test("Cancún and Quintana Roo are recognized as México", () => {
+  const r1 = Countries.detectLocationDetailed("Puesto híbrido en Cancún.");
+  assert.strictEqual(r1.country, "México");
+  assert.strictEqual(r1.locality, "Cancún");
+  const r2 = Countries.detectLocationDetailed("Disponibilidad para viajar por Quintana Roo.");
+  assert.strictEqual(r2.country, "México");
+});
+
 // ---------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------

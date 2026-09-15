@@ -77,6 +77,24 @@ localityCasingCases.forEach(([text, expectedCountry, expectedLocality]) => {
   });
 });
 
+// A locality can belong to more than one country's list — "Santiago" is
+// both Chile's capital and half of "Santiago de Compostela" (Spain), "Lima"
+// is both Perú's capital and a common surname. Verified live: a real JD for
+// "Santiago de Compostela, España" came back as Chile, because Chile's
+// locality list got checked before España's bare name ever got a chance —
+// even though "España" was sitting right there. The country actually named
+// in the text must always win over an ambiguous locality guess.
+test("an explicit country name outranks an ambiguous locality match from a different, earlier-checked country", () => {
+  const { country, locality } = Countries.detectLocationDetailed("100% presencial en Santiago de Compostela, España.");
+  assert.strictEqual(country, "España");
+  assert.strictEqual(locality, "Santiago de Compostela");
+});
+
+test("with no country named outright, an ambiguous locality still resolves via the old fallback order", () => {
+  const { country } = Countries.detectLocationDetailed("Vacante en Santiago, modalidad híbrida.");
+  assert.strictEqual(country, "Chile"); // LATAM checked before Europe when nothing disambiguates it
+});
+
 console.log(`\n${passed} passed, ${failed} failed (${passed + failed} total)\n`);
 if (failed) {
   failures.forEach((f) => console.log(`FAIL: ${f.name}\n  ${f.err.message}\n`));

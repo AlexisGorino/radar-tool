@@ -11,7 +11,7 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 ```
 
-308 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+321 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -318,11 +318,69 @@ vacíos en silencio (`isJobPosting` en `extractor.js`, umbral en
 consulta corta manual como "busco un Backend Developer" sigue
 aceptándose aunque no tenga ubicación ni skills.
 
-Límite conocido y aceptado: esto no distingue de forma confiable una JD
-de un CV — ambos son documentos profesionales que comparten vocabulario
-("experiencia", skills, a veces hasta una industria). Sí rechaza con
-confianza texto claramente no relacionado (una noticia, una receta, un
-párrafo al azar), que era el caso que importaba resolver.
+**Actualizado:** ahora sí distingue un CV de una JD. Un currículum de
+verdad casi siempre arranca con el nombre, teléfono y mail del candidato —
+una JD casi nunca. `looksLikeResume` en `extractor.js` busca un mail (o
+"curriculum vitae") en los primeros 200 caracteres del texto; si aparece,
+`isJobPosting` se fuerza a `false` **aunque el texto tenga de sobra
+"señales de JD"** (un CV real tiene rol, skills y hasta una industria
+propia, así que sin este chequeo aparte pasaba igual). Verificado en vivo
+subiendo el CV real de un candidato: sin este chequeo, RADAR le sacaba un
+Rol sin sentido ("challenging backend projects to apply and further
+expand my") y un país inventado (ver más abajo, mismo bug que "Santiago").
+Mensaje distinto en la UI ("Esto parece un CV...") en vez del genérico
+"no parece una descripción de puesto".
+
+## Auditoría con 4 JDs reales más — rol, país y skills
+
+Probando con cuatro vacantes reales (QA en España, Auditor de
+telecomunicaciones, Comercial de Infraestructura y Redes en Cancún,
+Tesorería Junior), aparecieron más bugs reales de extracción, ninguno
+inventado:
+
+- **El label "Puesto:"/"Cargo:" se rendía después del primer intento.**
+  Si la primera ocurrencia era la cabecera de la ficha ("Puesto - Cliente
+  X"), antes se aceptaba esa basura en vez de seguir buscando una
+  etiqueta limpia más abajo en el mismo documento. Ahora reintenta con
+  cada ocurrencia de la etiqueta hasta encontrar una que pase los filtros.
+- **La cabecera "Puesto - Cliente" a veces sobrevivía con un solo indicio
+  de ruido**, no dos, porque el propio recorte de frase (`trimRolPhrase`)
+  se comía "COD VACANTE" antes de que el detector de ruido lo viera. Se
+  agregó `startsWithTemplateLabel` (mira la captura cruda, antes de
+  recortar) + `salvageTemplateHeaderTitle`, que en vez de descartar toda
+  la cabecera rescata el último segmento entre guiones — el título real —
+  y le corta el ruido que sigue.
+- **Un "Rol:" que introduce una oración de responsabilidades** ("Rol:
+  Gestionar proyectos estratégicos...") no es un título — es una
+  descripción de tareas. `looksLikeResponsibilityBullet` descarta
+  cualquier candidato que arranque con un verbo en infinitivo típico de
+  una viñeta de funciones.
+- **"Código de Puesto: MD-COM-IR-SR"** (el código interno de la vacante)
+  ganaba la etiqueta antes que "Denominación Oficial:" (donde vivía el
+  título real), porque "puesto" matcheaba ahí primero. Ahora "código de/
+  del puesto" queda excluido de esa etiqueta, y "denominación (oficial)"
+  se sumó como disparador válido.
+- **Mismo bug de "Lima" (ver más abajo), esta vez con "Santiago":** una
+  JD para "Santiago de Compostela, España" venía como **Chile**, porque
+  Chile se revisa antes que España en la lista de países y "Santiago" es
+  también su capital. `detectLocationDetailed` ahora hace dos pasadas: si
+  el nombre de un país aparece explícito en el texto, gana siempre sobre
+  una localidad ambigua de otro país revisado antes. Sin ningún país
+  nombrado, sigue el orden de siempre.
+- **Cancún y Quintana Roo no existían** en la lista de México, a pesar de
+  ser justo la zona de la vacante ("sureste mexicano"). Agregados, junto
+  con Campeche, Tabasco y Mérida.
+- **Banco de skills ampliado** con lo que la propia vacante mencionaba y
+  no estaba cubierto: Fortinet, Palo Alto Networks, Check Point, Juniper,
+  Aruba, Meraki, SD-WAN, MPLS (infraestructura/redes) y Excel (suelto,
+  no solo "Excel avanzado"), SEPA, Kyriba, Cash Management (tesorería).
+
+Límite real, no arreglado: un PDF con el espaciado de palabras roto por
+su propia fuente (visto en la JD de Auditores — "E stetrabajador" en vez
+de "Este trabajador") derrota tanto la extracción como los propios
+filtros anti-ruido, que tampoco reconocen las palabras rotas. No es algo
+que valga la pena parchear de forma genérica — es un problema del PDF de
+origen, no del extractor.
 
 ## Manual (checklist previo a deploy)
 

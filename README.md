@@ -71,7 +71,7 @@ node tests/jd-bank.js
 node tests/locations.js
 ```
 
-308 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
+321 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local

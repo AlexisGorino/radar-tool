@@ -180,6 +180,37 @@
     return false;
   }
 
+  // The 2-hits rule above only sees whatever survives trimRolPhrase — and a
+  // stray "Senior" or similar stopword right after the second label can cut
+  // the candidate down to just one surviving noise word ("PUESTO - CLIENTE
+  // Sogeti España - Senior QA Engineer..." trims to "CLIENTE Sogeti España -"
+  // once "Senior" triggers the cut, losing "COD VACANTE" before the noise
+  // check ever runs). A "ficha de puesto" header is really "label directly
+  // followed by ANOTHER label" ("Puesto - Cliente", "Puesto - Cod Vacante")
+  // — checking the raw, untrimmed capture's first word catches that shape
+  // regardless of what gets trimmed away afterward.
+  function startsWithTemplateLabel(rawCapture) {
+    const firstWord = (rawCapture || "").trim().split(/\s+/)[0] || "";
+    return TEMPLATE_NOISE_WORDS.some((w) => w.toLowerCase() === firstWord.toLowerCase());
+  }
+
+  // Mindata's own recurring "ficha de puesto" header reads "Cliente <empresa>
+  // [- <área>] - <título real> COD VACANTE ...", flattened by pdf.js into one
+  // run. The real title is whatever sits in the LAST hyphen-separated
+  // segment, right before trailing noise fields (COD VACANTE, DEPARTAMENTO...)
+  // pick back up — recovered here instead of just discarding the whole match,
+  // since a short JD may have no other clean label anywhere else to fall
+  // back on. Verified live against two real fichas: one 2-segment ("Cliente
+  // W2M - PM Ciberseguridad"), one 3-segment ("Cliente Mindata - Financiero -
+  // Tesorería Junior") — both resolve to just the trailing title.
+  function salvageTemplateHeaderTitle(rawCapture) {
+    const segments = rawCapture.split(/\s+-\s+/).map((s) => s.trim());
+    const last = segments[segments.length - 1];
+    if (!last) return null;
+    const trailingNoiseRe = new RegExp("\\s+(?:" + TEMPLATE_NOISE_WORDS.join("|") + ")\\b[\\s\\S]*", "i");
+    return last.replace(trailingNoiseRe, "").trim();
+  }
+
   // A bare programming language, cloud provider or framework name is never a
   // job title on its own ("busco Java" names a skill, not a role) — but an
   // acronym like "SRE" or "SAP FICO" genuinely doubles as informal shorthand
@@ -206,25 +237,67 @@
     return placeMatch;
   }
 
+  // A responsibility bullet ("Rol: Gestionar proyectos estratégicos...",
+  // "Funciones: Liderar el equipo...") starts with an infinitive verb
+  // describing an action — a real job title is a noun phrase ("PM
+  // Ciberseguridad", "Senior QA Engineer"), never a verb. Verified live: a
+  // real JD's "Rol:" label introduced a full responsibility sentence, not a
+  // title, and it would otherwise win the retry loop below on its own merit
+  // (passes every other filter — it's not template noise, not a bare skill).
+  const RESPONSIBILITY_VERBS = new Set([
+    "gestionar", "liderar", "definir", "diseñar", "disenar", "coordinar", "ejecutar",
+    "analizar", "desarrollar", "administrar", "supervisar", "colaborar", "participar",
+    "contribuir", "mantener", "dar", "brindar", "realizar", "apoyar", "garantizar",
+    "identificar", "elaborar", "revisar", "controlar", "planificar", "organizar",
+    "negociar", "asegurar", "monitorizar", "validar", "construir", "implementar",
+    "documentar", "reportar", "responder", "atender", "asistir", "capacitar",
+  ]);
+  function looksLikeResponsibilityBullet(candidate) {
+    const firstWord = candidate.trim().toLowerCase().split(/\s+/)[0] || "";
+    return RESPONSIBILITY_VERBS.has(firstWord);
+  }
+
   function guessRol(rawText) {
     const text = stripTags(rawText);
     const patterns = [
       // explicit label wins over a generic "busca" phrased elsewhere in the text
       // (e.g. "Posición: Product Manager. ... busca perfil con experiencia..." must not extract "perfil")
-      /(?:puesto|posici[oó]n|cargo|rol|vacante)\s*[:\-]\s*([^.\n]{3,90})/i,
+      // "cargo" excludes a leading "a " on purpose: "3 personas a cargo" / "posiciones
+      // a cargo" is an org-chart idiom (who reports to this role), never a title label —
+      // a real label reads "Cargo: X" with nothing in front of it. "puesto" excludes
+      // "código de/del puesto" — a corporate JD's internal job CODE label ("Código de
+      // Puesto: MD-COM-IR-SR"), not the title; "denominación (oficial)" is the label
+      // that template actually uses for the real title, right after the code.
+      /(?<!a )(?:(?<!c[oó]digo de )(?<!c[oó]digo del )puesto|posici[oó]n|cargo|rol|vacante|denominaci[oó]n(?:\s+oficial)?)\s*[:\-]\s*([^.\n]{3,90})/gi,
       // Spanish: "buscamos un X", "se busca X", "empresa X busca Y", "queremos incorporar X",
       // "busco X" / "necesito X" / "quiero X" (recruiter typing for themselves, first person)...
-      /(?:buscamos|se busca|se necesita|necesitamos|estamos buscando|queremos incorporar|queremos sumar|busca incorporar|busco|necesito|quiero|busca)\s+(?:un[ao]?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un[ao]?\s+)?(?:\d+\s+)?([^.\n,]{3,90})/i,
+      /(?:buscamos|se busca|se necesita|necesitamos|estamos buscando|queremos incorporar|queremos sumar|busca incorporar|busco|necesito|quiero|busca)\s+(?:un[ao]?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un[ao]?\s+)?(?:\d+\s+)?([^.\n,]{3,90})/gi,
       // English: "looking for a X", "seeking X", "hiring a X"
-      /(?:looking for|seeking|hiring)\s+(?:an?\s+)?([^.\n,]{3,90})/i,
+      /(?:looking for|seeking|hiring)\s+(?:an?\s+)?([^.\n,]{3,90})/gi,
       // English: "X Developer with Y" / "X Engineer needed for..." — role phrase leads the sentence
       /^([A-Za-z][A-Za-z0-9À-ÿ\/\-\s]{2,60}?)\s+(?:with|needed|required)\b/i,
     ];
     for (const p of patterns) {
-      const m = text.match(p);
-      if (m) {
-        const candidate = trimRolPhrase(m[1]);
-        if (candidate && !looksLikeTemplateNoise(candidate) && !isBareNonRole(candidate)) return [candidate];
+      // A "ficha de puesto" template's own header ("PUESTO - CLIENTE X - Y")
+      // is often the FIRST thing a label pattern matches, and it's noise —
+      // verified live, a real "Puesto: Senior QA Engineer" label sitting
+      // cleanly further down the same JD never got a chance because the for
+      // loop gave up on the whole pattern after just its first (bad) match.
+      // Global + a manual loop tries every match of a pattern in turn before
+      // moving on to the next pattern.
+      let m;
+      p.lastIndex = 0;
+      while ((m = p.exec(text)) !== null) {
+        const raw = startsWithTemplateLabel(m[1]) ? salvageTemplateHeaderTitle(m[1]) : m[1];
+        const candidate = raw ? trimRolPhrase(raw) : "";
+        if (
+          candidate &&
+          !looksLikeTemplateNoise(candidate) &&
+          !isBareNonRole(candidate) &&
+          !looksLikeResponsibilityBullet(candidate)
+        )
+          return [candidate];
+        if (!p.global) break; // patterns without /g (the English lead-sentence one) only ever get one shot
       }
     }
     // Plain-text JDs with real line breaks: the title is often just the
@@ -232,7 +305,7 @@
     const firstLine = text
       .split("\n")
       .map((l) => l.trim())
-      .find((l) => l.length > 3 && l.length < 60 && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)));
+      .find((l) => l.length > 3 && l.length < 60 && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)));
     if (firstLine) return [trimRolPhrase(firstLine)];
 
     // PDF-extracted JDs rarely have real line breaks at all — pdf.js joins
@@ -245,13 +318,20 @@
     // right at the start of the document.
     const TITLE_NOUN =
       "Developer|Engineer|Manager|Analyst|Consultant|Designer|Architect|Specialist|Director|Coordinator|Lead|Officer|Representative|Executive|Assistant|Technician|Recruiter|Scientist|Programmer|" +
-      "Desarrollador[a]?|Ingenier[oa]|Gerente|Analista|Consultor[a]?|Diseñador[a]?|Arquitect[oa]|Especialista|Director[a]?|Coordinador[a]?|L[íi]der|Ejecutivo[a]?|Asistente|T[ée]cnic[oa]|Responsable|Jefe[a]?|Programador[a]?";
+      "Desarrollador[a]?|Ingenier[oa]|Gerente|Analista|Consultor[a]?|Diseñador[a]?|Arquitect[oa]|Especialista|Director[a]?|Coordinador[a]?|L[íi]der|Ejecutivo[a]?|Asistente|T[ée]cnic[oa]|Responsable|Jefe[a]?|Programador[a]?|Comercial|Vendedor[a]?|Auditor[a]?";
     const titleHeadRe = new RegExp("^((?:[A-Za-zÀ-ÿ.]+\\s+){0,6}?(?:" + TITLE_NOUN + "))\\b", "i");
     const prefix = text.slice(0, 150).replace(LEADING_VERB_RE, "");
     const headMatch = prefix.match(titleHeadRe);
     if (headMatch) {
       const candidate = trimRolPhrase(headMatch[1]);
-      if (candidate && !looksLikeTemplateNoise(candidate) && !isBareNonRole(candidate)) return [candidate];
+      if (
+        candidate &&
+        !startsWithTemplateLabel(headMatch[1]) &&
+        !looksLikeTemplateNoise(candidate) &&
+        !isBareNonRole(candidate) &&
+        !looksLikeResponsibilityBullet(candidate)
+      )
+        return [candidate];
     }
     return [];
   }

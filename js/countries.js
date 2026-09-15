@@ -27,6 +27,7 @@
     "México": [
       "mexico", "méxico", "cdmx", "ciudad de mexico", "ciudad de méxico", "guadalajara", "monterrey", "queretaro", "querétaro",
       "jalisco", "nuevo leon", "nuevo león", "puebla", "yucatan", "yucatán", "chihuahua", "baja california", "veracruz", "michoacan", "michoacán", "oaxaca", "chiapas",
+      "cancun", "cancún", "quintana roo", "campeche", "tabasco", "merida", "mérida",
     ],
     "Colombia": [
       "colombia", "bogota", "bogotá", "medellin", "medellín", "cali", "barranquilla",
@@ -51,7 +52,7 @@
     "España": [
       "espana", "españa", "spain", "madrid", "barcelona", "valencia", "sevilla", "bilbao",
       "cataluña", "cataluna", "andalucia", "andalucía", "pais vasco", "país vasco", "galicia", "aragon", "aragón", "canarias", "murcia",
-      "mallorca", "palma", "baleares", "islas baleares",
+      "mallorca", "palma", "baleares", "islas baleares", "santiago de compostela",
     ],
     "Reino Unido": ["reino unido", "united kingdom", "londres", "london", "manchester", "birmingham"],
     "Alemania": [
@@ -152,33 +153,50 @@
     return null;
   }
 
+  /** Earliest-mentioned locality term for a country, title-cased, or null. */
+  function earliestLocality(text, country) {
+    const terms = ALL_COUNTRIES[country];
+    const bare = new Set(BARE_COUNTRY_NAMES[country] || [country.toLowerCase()]);
+    let locality = null;
+    let localityIndex = Infinity;
+    for (const term of terms) {
+      if (bare.has(term) || !containsWord(text, term)) continue;
+      const idx = text.toLowerCase().indexOf(term);
+      if (idx !== -1 && idx < localityIndex) {
+        localityIndex = idx;
+        locality = titleCase(term);
+      }
+    }
+    return locality;
+  }
+
   /**
    * Country plus the specific city/province/region mentioned, if any (not
    * just the bare country name). "Trabajo remoto en Argentina" -> country
    * only; "vacante en Rosario, Argentina" -> country + locality "Rosario".
    */
   function detectLocationDetailed(text) {
+    // Pass 1: the country's own name, checked across ALL countries first.
+    // A bare country name is unambiguous by construction; a locality is not
+    // — "Santiago" is both Chile's capital and half of "Santiago de
+    // Compostela" (Spain), "Lima" is both Peru's capital and a common
+    // surname. Verified live: a JD for "Santiago de Compostela, España"
+    // was coming back as Chile, because Chile's locality list happened to
+    // get checked before España's bare name ever got a chance — even
+    // though "España" was sitting right there in the same sentence. Nobody
+    // writes a country's real name by mistake, so it always outranks a
+    // locality guess from a different, earlier-checked country.
     for (const country of Object.keys(ALL_COUNTRIES)) {
-      const terms = ALL_COUNTRIES[country];
-      const bare = new Set(BARE_COUNTRY_NAMES[country] || [country.toLowerCase()]);
-      let matchedBare = false;
-      let locality = null;
-      let localityIndex = Infinity;
-      for (const term of terms) {
-        if (!containsWord(text, term)) continue;
-        if (bare.has(term)) {
-          matchedBare = true;
-          continue;
-        }
-        const idx = text.toLowerCase().indexOf(term);
-        if (idx !== -1 && idx < localityIndex) {
-          localityIndex = idx;
-          locality = titleCase(term);
-        }
+      const bare = BARE_COUNTRY_NAMES[country] || [country.toLowerCase()];
+      if (bare.some((term) => containsWord(text, term))) {
+        return { country, locality: earliestLocality(text, country) };
       }
-      if (matchedBare || locality) {
-        return { country, locality };
-      }
+    }
+    // Pass 2: no country named outright anywhere — fall back to the first
+    // locality match, same list order as before (LATAM before Europe).
+    for (const country of Object.keys(ALL_COUNTRIES)) {
+      const locality = earliestLocality(text, country);
+      if (locality) return { country, locality };
     }
     return { country: null, locality: null };
   }

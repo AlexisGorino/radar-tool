@@ -22,6 +22,7 @@
     "SQL", "NoSQL", "MongoDB", "PostgreSQL", "MySQL", "Redis", "DynamoDB",
     "DevOps", "SRE", "Scrum", "Kanban", "Agile",
     "GPON", "RF", "Networking", "Cisco", "Telecomunicaciones",
+    "Fortinet", "Palo Alto Networks", "Check Point", "Juniper", "Aruba", "Meraki", "SD-WAN", "MPLS",
     "QA", "Testing", "Automation", "Selenium", "Cypress",
     "Machine Learning", "Data Science", "Power BI", "Tableau", "ETL", "Spark",
     "Kafka", "Airflow", "dbt", "Snowflake", "Databricks", "Redshift", "BigQuery",
@@ -37,8 +38,8 @@
     "ATS", "Workday", "Reclutamiento", "Employer Branding", "Compensaciones y Beneficios",
     "LinkedIn Recruiter", "Onboarding",
     // Finanzas / contabilidad
-    "NIIF", "IFRS", "Excel avanzado", "Contabilidad", "Auditoria", "Auditoría",
-    "Tesoreria", "Tesorería", "Presupuestos", "Costos", "US GAAP",
+    "NIIF", "IFRS", "Excel", "Excel avanzado", "Contabilidad", "Auditoria", "Auditoría",
+    "Tesoreria", "Tesorería", "Presupuestos", "Costos", "US GAAP", "SEPA", "Kyriba", "Cash Management",
     // Legal
     "Compliance", "Derecho Laboral", "Propiedad Intelectual", "Contratos",
     // IA / Machine Learning (más allá de "Machine Learning" / "Data Science")
