@@ -510,13 +510,20 @@
     btn.addEventListener("click", () => {
       const targetId = btn.dataset.copy;
       const text = document.getElementById(targetId).textContent;
-      navigator.clipboard.writeText(text).then(() => {
-        const original = btn.textContent;
-        btn.textContent = "Copiado";
-        setTimeout(() => {
-          btn.textContent = original;
-        }, 1400);
-      });
+      const original = btn.textContent;
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          btn.textContent = "Copiado";
+        })
+        .catch(() => {
+          btn.textContent = "No se pudo copiar";
+        })
+        .finally(() => {
+          setTimeout(() => {
+            btn.textContent = original;
+          }, 1400);
+        });
     });
   });
 
