@@ -99,6 +99,8 @@
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
   const feedbackPanel = document.getElementById("feedbackPanel");
+  const jdWarningPanel = document.getElementById("jdWarningPanel");
+  const jdWarningMessage = document.getElementById("jdWarningMessage");
   const sidePanelBackdrop = document.getElementById("sidePanelBackdrop");
   const historyList = document.getElementById("historyList");
 
@@ -256,11 +258,11 @@
     }
     const result = RadarExtractor.analyzeJD(text);
     if (result.isResume) {
-      showError("Esto parece un CV (nombre, teléfono y mail al principio), no una descripción de puesto — subí la JD de la vacante, no el currículum de un candidato.", "file");
+      openJdWarning("Esto parece un CV (nombre, teléfono y mail al principio), no una descripción de puesto — subí la JD de la vacante, no el currículum de un candidato.");
       return;
     }
     if (!result.isJobPosting) {
-      showError("Esto no parece una descripción de puesto — no encontramos rol, ubicación, skills ni palabras típicas de una JD (\"requisitos\", \"responsabilidades\"...). Completá los campos a mano.", "file");
+      openJdWarning("No encontramos rol, ubicación, skills ni palabras típicas de una JD (\"requisitos\", \"responsabilidades\"...) — esto no parece una descripción de puesto.");
       return;
     }
     FIELDS.forEach((f) => {
@@ -270,6 +272,13 @@
       countrySelect.value = result.country;
     }
     renderRefinarSuggestions(result.refinarSuggestion || []);
+    // La JD pasó el chequeo general (tiene país/skills/palabras de JD de sobra)
+    // pero el propio Rol quedó vacío — pasa con PDFs que llegan con el texto
+    // mal extraído (espaciado roto, columnas). Mejor avisar que dejar el campo
+    // más importante en blanco sin decir nada.
+    if (!result.rol || !result.rol.length) {
+      openJdWarning("Analizamos la JD pero no pudimos identificar el título del puesto con confianza — completá el campo Rol a mano abajo. El resto de los campos sí se completaron.");
+    }
   }
   document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
 
@@ -636,7 +645,7 @@
   // panel with Tab while it's open, and returns to whatever triggered it
   // on close, so a keyboard/screen-reader user never loses their place.
   // ---------------------------------------------------------------
-  const ALL_SIDE_PANELS = [historyPanel, helpPanel, feedbackPanel];
+  const ALL_SIDE_PANELS = [historyPanel, helpPanel, feedbackPanel, jdWarningPanel];
   let sidePanelOpenerEl = null;
 
   function focusableIn(panel) {
@@ -690,7 +699,14 @@
   document.getElementById("closeHistoryBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeHelpBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeFeedbackBtn").addEventListener("click", closeSidePanels);
+  document.getElementById("closeJdWarningBtn").addEventListener("click", closeSidePanels);
+  document.getElementById("closeJdWarningBtnBottom").addEventListener("click", closeSidePanels);
   sidePanelBackdrop.addEventListener("click", closeSidePanels);
+
+  function openJdWarning(message, openerEl) {
+    jdWarningMessage.textContent = message;
+    openSidePanel(jdWarningPanel, openerEl);
+  }
 
   function feedbackTargets(to) {
     if (to === "ambos") return [FEEDBACK_EMAILS.alexis, FEEDBACK_EMAILS.franco];
