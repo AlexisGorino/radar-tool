@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'self' https://formsubmit.co; base-uri 'none'; form-action 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'self' https://formsubmit.co https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none';">
 <meta name="description" content="RADAR: generador de booleanos de sourcing para reclutadores. Convertí una JD en un booleano preciso para LinkedIn, Google X-Ray, GitHub y más. Método Mindata.">
 <meta property="og:title" content="RADAR — Generador de booleanos | Mindata">
 <meta property="og:description" content="Convertí una JD en un booleano de sourcing preciso para LinkedIn, Google X-Ray, GitHub y más. Herramienta interna del equipo de Mindata.">
@@ -11,8 +11,8 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=19">
-<script src="js/gate.js?v=19"></script>
+<link rel="stylesheet" href="css/styles.css?v=20">
+<script src="js/gate.js?v=20"></script>
 </head>
 <body>
 
@@ -40,6 +40,7 @@
     </div>
     <div class="brand-right">
       <button class="btn btn-ghost btn-small" id="historyToggleBtn" type="button">Historial</button>
+      <button class="btn btn-ghost btn-small" id="aiSettingsBtn" type="button">IA (opcional)</button>
       <button class="btn btn-ghost btn-small" id="helpBtn" type="button">¿Cómo se usa?</button>
     </div>
   </div>
@@ -82,6 +83,10 @@
           <span class="synonyms-label">+ sinónimos:</span>
           <div class="synonyms-list" id="synonymsList"></div>
         </div>
+        <div class="ai-suggest-row hidden" id="aiRoleSuggestRow">
+          <button class="btn btn-ghost btn-small" type="button" id="aiSuggestBtn">✨ Sugerir con IA</button>
+          <span class="hint" id="aiSuggestHint"></span>
+        </div>
       </div>
       <div class="field field-alt">
         <div class="field-letter">A</div>
@@ -89,6 +94,10 @@
         <div class="field-desc">Skills, herramientas</div>
         <div class="chips" id="chips-atributos"></div>
         <input type="text" class="field-input" data-field="atributos" placeholder="Escribí y Enter" maxlength="80">
+        <div class="synonyms-row hidden" id="aiAtributosRow">
+          <span class="synonyms-label">+ sugeridos por IA:</span>
+          <div class="synonyms-list" id="aiAtributosList"></div>
+        </div>
       </div>
       <div class="field">
         <div class="field-letter">D</div>
@@ -192,7 +201,7 @@
 
   </section>
 
-  <p class="privacy-note">Todo corre en tu navegador. Ningún dato de la JD sale de esta página ni se guarda en ningún servidor. El historial (si lo usás) se guarda solo en este navegador, nunca se envía a ningún lado. Lo único que sale es lo que escribas en "¿Sugerencias o encontraste un bug?", y solo cuando tocás Enviar.</p>
+  <p class="privacy-note">Todo corre en tu navegador. Ningún dato de la JD sale de esta página ni se guarda en ningún servidor. El historial (si lo usás) se guarda solo en este navegador, nunca se envía a ningún lado. Las únicas excepciones: lo que escribas en "¿Sugerencias o encontraste un bug?" (solo al tocar Enviar), y el Rol + un extracto de la JD si activaste "Sugerir con IA" con tu propia key — en ese caso va directo a Gemini, nunca pasa por un servidor de Mindata.</p>
 
   <div class="feedback-row">
     <button class="btn btn-ghost btn-small" id="feedbackBtn" type="button">¿Sugerencias o encontraste un bug?</button>
@@ -231,6 +240,22 @@
   </div>
 </aside>
 
+<aside class="side-panel hidden" id="aiPanel" role="dialog" aria-modal="true" aria-labelledby="aiPanelTitle">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3 id="aiPanelTitle">IA para sugerencias (opcional)</h3>
+      <button class="btn-close" id="closeAiBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <p class="hint">Sumá una key propia de <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> (gratis) para que RADAR sugiera sinónimos de rol y atributos de nicho con Gemini. La key se guarda solo en este navegador (<code>localStorage</code>), nunca en el código ni en ningún servidor de Mindata — la única llamada de red va directo de tu navegador a Gemini.</p>
+    <div class="feedback-form">
+      <label class="feedback-label" for="aiKeyInput">Tu key de AI Studio</label>
+      <input type="password" id="aiKeyInput" autocomplete="off" placeholder="Pegá tu key acá">
+      <button class="btn btn-primary" id="saveAiKeyBtn" type="button">Guardar</button>
+      <button class="btn btn-ghost" id="clearAiKeyBtn" type="button">Borrar key guardada</button>
+      <p class="hint" id="aiKeyHint"></p>
+    </div>
+  </div>
+</aside>
 <aside class="side-panel hidden" id="feedbackPanel" role="dialog" aria-modal="true" aria-labelledby="feedbackPanelTitle">
   <div class="side-panel-inner">
     <div class="side-panel-head">
@@ -280,11 +305,12 @@
 </div>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/countries.js?v=19"></script>
-<script src="js/keywords.js?v=19"></script>
-<script src="js/networks.js?v=19"></script>
-<script src="js/extractor.js?v=19"></script>
-<script src="js/generator.js?v=19"></script>
-<script src="js/app.js?v=19"></script>
+<script src="js/countries.js?v=20"></script>
+<script src="js/keywords.js?v=20"></script>
+<script src="js/networks.js?v=20"></script>
+<script src="js/extractor.js?v=20"></script>
+<script src="js/generator.js?v=20"></script>
+<script src="js/ai.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
 </body>
 </html>

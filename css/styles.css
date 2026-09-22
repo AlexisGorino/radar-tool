@@ -151,6 +151,9 @@ textarea:focus{outline:2px solid var(--red);outline-offset:1px;}
 }
 .synonym-pill:hover{border-color:var(--red);color:var(--red);}
 
+.ai-suggest-row{margin-top:10px;display:flex;align-items:center;gap:10px;}
+.ai-suggest-row .hint{margin:0;}
+
 /* ---------- networks ---------- */
 .network-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
 .network-tab{

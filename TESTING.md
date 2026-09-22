@@ -9,9 +9,10 @@ Dos capas: automatizada (lógica pura, corre en cada cambio) y manual
 node tests/run.js        # tests unitarios: extractor, generator, seguridad
 node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
+node tests/ai.js         # prompt y parseo de ai.js (sin red real)
 ```
 
-322 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+329 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -22,11 +23,14 @@ antes de que lleguen a producción. `tests/locations.js` prueba que además
 de capitales y ciudades grandes se detecten provincias/estados/regiones
 (Neuquén, Jalisco, Cataluña, Baviera...) y que palabras comunes que se
 parecen a un nombre de provincia (ej. "salta" como verbo) no disparen un
-falso positivo.
+falso positivo. `tests/ai.js` cubre `buildPrompt` y `parseSuggestions` de
+`js/ai.js` con datos mockeados — no llama a la API real de Gemini, ni acá
+ni en CI, porque `suggestTerms` requiere una key que no existe en ese
+entorno.
 
-Correr los tres antes de cualquier cambio a `extractor.js`, `generator.js`,
-`keywords.js` o `countries.js` — son los módulos donde un cambio chico
-rompe casos que no se ven a simple vista.
+Correr los tres primeros antes de cualquier cambio a `extractor.js`,
+`generator.js`, `keywords.js` o `countries.js` — son los módulos donde un
+cambio chico rompe casos que no se ven a simple vista.
 
 ## Hallazgo importante: `site:` en Bing dejó de ser confiable
 
@@ -462,6 +466,21 @@ origen, no del extractor.
 - Nota: la primera vez que se usa una dirección nueva, FormSubmit le pide
   a esa dirección confirmar con un click antes de reenviar de verdad —
   hay que hacerlo una vez por cada mail (Alexis y Franco).
+
+**IA (opcional) — requiere una key real de AI Studio, no cubierto por Claude**
+- [ ] Sin key guardada → el botón "Sugerir con IA" no aparece aunque haya
+      un Rol cargado.
+- [ ] Guardar una key inválida → "Sugerir con IA" muestra "Key de Gemini
+      inválida o sin permiso." (verificado con una key falsa: el error se
+      ve, lo único que falta probar es con una key real).
+- [ ] Guardar una key válida, cargar un Rol + pegar una JD, tocar "Sugerir
+      con IA" → aparecen pills nuevas en Rol y, si corresponde, en
+      Atributos; click en una la agrega como chip igual que un sinónimo
+      estático.
+- [ ] "Borrar key guardada" → el botón "Sugerir con IA" desaparece de
+      nuevo.
+- [ ] Cerrar la pestaña y volver a abrir → la key sigue guardada (es
+      `localStorage`, no depende de la sesión).
 
 **Consola**
 - [ ] Sin errores en la consola del navegador durante todo el flujo de

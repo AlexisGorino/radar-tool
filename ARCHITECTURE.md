@@ -15,6 +15,8 @@ que el deploy sea arrastrar una carpeta a un hosting estático.
 ├─────────────────────────────────────────┤
 │  extractor.js   generator.js             │  núcleo: funciones puras
 ├─────────────────────────────────────────┤
+│  ai.js                                   │  capa opcional: prompt + red a Gemini
+├─────────────────────────────────────────┤
 │  countries.js  keywords.js  networks.js  │  datos estáticos
 └─────────────────────────────────────────┘
 ```
@@ -45,6 +47,14 @@ Modalidad y seniority se detectan pero nunca se agregan solos al booleano
 público, así que ANDearlos filtra candidatos buenos en vez de acercar a
 ellos. Se ofrecen como sugerencia clickeable en la UI, nunca como chip
 puesto de entrada.
+
+**IA opcional** (`ai.js`): arma el prompt para Gemini y parsea la respuesta
+como funciones puras — sin DOM. La única función con efecto (`suggestTerms`)
+hace `fetch` directo a la API de Gemini, pero sólo cuando `app.js` la llama
+explícitamente y sólo si hay una key guardada en `localStorage`; sin key, el
+módulo entero es inerte. No participa del núcleo determinístico: sus
+sugerencias son pills que el usuario elige sumar a mano a Rol/Atributos,
+igual que los sinónimos estáticos de `keywords.js` — nunca se auto-agregan.
 
 **UI** (`app.js`): la única capa que conoce el DOM. Lee inputs, llama al
 núcleo, pinta el resultado. Mantiene un objeto `state` en memoria (los cinco

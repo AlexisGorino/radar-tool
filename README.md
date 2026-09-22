@@ -20,6 +20,12 @@ Pages o publicada como página estática en cualquier lado.
   los cinco campos solo (rol, skills, industria, país, modalidad, seniority).
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
+- **Sugerencias con IA (opcional)**: cargando tu propia key gratuita de
+  [Google AI Studio](https://aistudio.google.com/apikey) (botón "IA
+  (opcional)" en la topbar), RADAR le pide a Gemini sinónimos de rol y
+  atributos de nicho adicionales a los del diccionario estático. La key
+  vive solo en el `localStorage` de tu navegador; sin key, la función
+  directamente no aparece.
 - **Redes soportadas**: LinkedIn (búsqueda nativa + X-Ray), GitHub (búsqueda
   nativa de personas o repos), Stack Overflow, Xing, Behance, búsqueda de
   CVs sueltos (PDF/Word en toda la web) y cualquier sitio custom. Todas
@@ -47,7 +53,8 @@ radar-tool/
     networks.js           datos: redes soportadas
     extractor.js            parsing de la JD → campos RADAR (funciones puras)
     generator.js              construcción de booleanos y URLs (funciones puras)
-    app.js                      conecta el motor con el DOM
+    ai.js                       capa opcional de sugerencias con Gemini (prompt + parseo, funciones puras)
+    app.js                        conecta el motor con el DOM
   assets/
     mindata-logo.png
     favicon.svg
@@ -57,6 +64,7 @@ radar-tool/
   tests/
     run.js               suite unitaria (node tests/run.js, sin dependencias)
     jd-bank.js            banco de regresion con JDs reales (node tests/jd-bank.js)
+    ai.js                   tests de ai.js (node tests/ai.js)
 ```
 
 `extractor.js` y `generator.js` no tocan el DOM ni hacen llamadas de red:
@@ -69,9 +77,10 @@ levantar un navegador. `app.js` es la única capa que conoce el HTML.
 node tests/run.js
 node tests/jd-bank.js
 node tests/locations.js
+node tests/ai.js
 ```
 
-322 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
+329 casos entre los cuatro. Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local
@@ -93,9 +102,12 @@ y abrir `http://localhost:8080` (o el puerto que corresponda).
 
 ## Seguridad y privacidad
 
-- Todo corre en el navegador. No hay llamadas de red salientes: el `Content-
-  Security-Policy` del `index.html` incluye `connect-src 'none'`.
-- Ningún texto de la JD se envía a ningún servidor ni se guarda ahí.
+- Todo corre en el navegador. El `Content-Security-Policy` del `index.html`
+  restringe `connect-src` al propio origen más dos excepciones puntuales:
+  FormSubmit (botón de feedback) y la API de Gemini (solo si activaste
+  "Sugerir con IA" con tu propia key).
+- Ningún texto de la JD se envía a ningún servidor ni se guarda ahí, salvo
+  el extracto que vos mandás a Gemini a propósito con "Sugerir con IA".
 - El historial de búsquedas (opcional) se guarda solo en `localStorage` del
   propio navegador — nunca sale de la máquina del usuario.
 - El texto ingresado por el usuario siempre se inserta en la página con

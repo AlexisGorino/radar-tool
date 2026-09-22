@@ -8,12 +8,15 @@ que se trata siempre como texto plano, nunca como markup.
 
 ## Controles implementados
 
-**Sin red, salvo una excepción explícita y acotada.** `connect-src` en la
-CSP sólo permite el propio origen y `https://formsubmit.co` — este segundo
-únicamente lo usa el botón de feedback (ver más abajo). Ningún otro flujo
-del sitio hace `fetch`/`XMLHttpRequest`: se puede confirmar con
-`grep -rn "fetch(" js/app.js` y el único resultado es `sendFeedbackTo`. El
-texto de la JD nunca sale del navegador por ningún otro camino.
+**Sin red, salvo dos excepciones explícitas y acotadas.** `connect-src` en
+la CSP sólo permite el propio origen, `https://formsubmit.co` (botón de
+feedback, ver más abajo) y `https://generativelanguage.googleapis.com`
+(sugerencias con IA, ver "La excepción opcional: IA con Gemini"). Ningún
+otro flujo del sitio hace `fetch`/`XMLHttpRequest`: se puede confirmar con
+`grep -rn "fetch(" js/*.js`, y los únicos resultados son `sendFeedbackTo`
+(`app.js`) y `suggestTerms` (`ai.js`). El texto de la JD nunca sale del
+navegador por ningún otro camino, y `suggestTerms` sólo se ejecuta si el
+usuario tocó "Sugerir con IA" a propósito, con su propia key cargada.
 
 **Sin `innerHTML` sobre input de usuario.** Todo lo que viene del usuario
 (términos de los chips, texto de la JD, nombre de archivo) se inserta con
@@ -82,6 +85,33 @@ Nota operativa: la primera vez que se le manda algo
 a una dirección nueva, FormSubmit le exige a esa dirección confirmar con
 un click en un mail de activación antes de empezar a reenviar de verdad —
 tanto Alexis como Franco necesitan hacer ese click una vez cada uno.
+
+## La excepción opcional: IA con Gemini (`js/ai.js`)
+
+Función opt-in, apagada por defecto. El botón "IA (opcional)" de la topbar
+abre un panel donde cada usuario carga su **propia** key de [Google AI
+Studio](https://aistudio.google.com/apikey) (nivel gratuito). Esa key:
+
+- se guarda únicamente en el `localStorage` de ese navegador
+  (`radar-gemini-key-v1`) — nunca en el código, nunca en un commit, nunca en
+  un servidor de Mindata;
+- nunca se comparte entre usuarios ni entre navegadores;
+- es visible sólo enmascarada (últimos 4 caracteres) una vez guardada.
+
+Con una key cargada, el botón "Sugerir con IA" (al lado de los sinónimos de
+Rol) manda el Rol elegido más un extracto de la JD (primeros 4.000
+caracteres) directo desde el navegador a la API de Gemini —
+`generativelanguage.googleapis.com`, nunca pasa por infraestructura de
+Mindata — y recibe de vuelta sinónimos de rol y atributos de nicho, que se
+muestran como pills clickeables: nada se agrega al booleano sin que la
+persona lo elija a mano, igual que los sinónimos estáticos de
+`keywords.js`. Sin key guardada, el botón directamente no aparece y
+`js/ai.js` no hace ninguna llamada.
+
+Si una key de Gemini se expone por error (pegada en un lugar público,
+commiteada por accidente), hay que rotarla desde AI Studio — no hay forma
+de invalidarla desde RADAR mismo, porque RADAR no tiene backend que la
+custodie.
 
 ## Qué NO se guarda en ningún lado
 

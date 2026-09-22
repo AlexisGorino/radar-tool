@@ -96,8 +96,14 @@
   const resultLinkedinNative = document.getElementById("resultLinkedinNative");
   const synonymsRow = document.getElementById("synonymsRow");
   const synonymsList = document.getElementById("synonymsList");
+  const aiRoleSuggestRow = document.getElementById("aiRoleSuggestRow");
+  const aiSuggestBtn = document.getElementById("aiSuggestBtn");
+  const aiSuggestHint = document.getElementById("aiSuggestHint");
+  const aiAtributosRow = document.getElementById("aiAtributosRow");
+  const aiAtributosList = document.getElementById("aiAtributosList");
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
+  const aiPanel = document.getElementById("aiPanel");
   const feedbackPanel = document.getElementById("feedbackPanel");
   const jdWarningPanel = document.getElementById("jdWarningPanel");
   const jdWarningMessage = document.getElementById("jdWarningMessage");
@@ -152,20 +158,69 @@
     synonymsList.innerHTML = "";
     if (!synonyms.length) {
       synonymsRow.classList.add("hidden");
-      return;
-    }
-    synonymsRow.classList.remove("hidden");
-    synonyms.forEach((syn) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "synonym-pill";
-      btn.textContent = "+ " + syn;
-      btn.addEventListener("click", () => {
-        addTerm("rol", syn);
+    } else {
+      synonymsRow.classList.remove("hidden");
+      synonyms.forEach((syn) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "synonym-pill";
+        btn.textContent = "+ " + syn;
+        btn.addEventListener("click", () => {
+          addTerm("rol", syn);
+        });
+        synonymsList.appendChild(btn);
       });
-      synonymsList.appendChild(btn);
-    });
+    }
+
+    aiRoleSuggestRow.classList.toggle("hidden", !RadarAI.getKey() || !rolText.trim());
+    aiSuggestHint.textContent = "";
+    aiAtributosRow.classList.add("hidden");
+    aiAtributosList.innerHTML = "";
   }
+
+  // ---------------------------------------------------------------
+  // AI suggestions (opt-in, ver aiPanel más abajo)
+  // ---------------------------------------------------------------
+  function renderAiPill(list, field, term) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "synonym-pill";
+    btn.textContent = "+ " + term;
+    btn.addEventListener("click", () => addTerm(field, term));
+    list.appendChild(btn);
+  }
+
+  aiSuggestBtn.addEventListener("click", () => {
+    const rolText = state.rol.join(" ");
+    aiSuggestBtn.disabled = true;
+    aiSuggestHint.classList.remove("hint-error");
+    aiSuggestHint.textContent = "Pensando…";
+    aiAtributosRow.classList.add("hidden");
+    aiAtributosList.innerHTML = "";
+
+    RadarAI.suggestTerms(rolText, jdInput.value)
+      .then((suggestions) => {
+        const roles = suggestions.roles.filter(
+          (s) => !state.rol.some((r) => r.toLowerCase() === s.toLowerCase())
+        );
+        const atributos = suggestions.atributos.filter(
+          (s) => !state.atributos.some((a) => a.toLowerCase() === s.toLowerCase())
+        );
+        roles.forEach((term) => renderAiPill(synonymsList, "rol", term));
+        if (atributos.length) {
+          aiAtributosRow.classList.remove("hidden");
+          atributos.forEach((term) => renderAiPill(aiAtributosList, "atributos", term));
+        }
+        aiSuggestHint.textContent = roles.length || atributos.length ? "" : "Gemini no sumó nada nuevo para este rol.";
+      })
+      .catch((err) => {
+        aiSuggestHint.classList.add("hint-error");
+        aiSuggestHint.textContent = err.message;
+      })
+      .finally(() => {
+        aiSuggestBtn.disabled = false;
+      });
+  });
 
   function addTerm(field, rawValue) {
     const value = rawValue.trim().replace(/,$/, "");
@@ -652,7 +707,7 @@
   // panel with Tab while it's open, and returns to whatever triggered it
   // on close, so a keyboard/screen-reader user never loses their place.
   // ---------------------------------------------------------------
-  const ALL_SIDE_PANELS = [historyPanel, helpPanel, feedbackPanel, jdWarningPanel];
+  const ALL_SIDE_PANELS = [historyPanel, helpPanel, aiPanel, feedbackPanel, jdWarningPanel];
   let sidePanelOpenerEl = null;
 
   function focusableIn(panel) {
@@ -709,6 +764,43 @@
   document.getElementById("closeJdWarningBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeJdWarningBtnBottom").addEventListener("click", closeSidePanels);
   sidePanelBackdrop.addEventListener("click", closeSidePanels);
+
+  // ---------------------------------------------------------------
+  // AI settings panel
+  // ---------------------------------------------------------------
+  const aiKeyInput = document.getElementById("aiKeyInput");
+  const aiKeyHint = document.getElementById("aiKeyHint");
+
+  function refreshAiKeyHint() {
+    const key = RadarAI.getKey();
+    aiKeyHint.classList.remove("hint-error");
+    aiKeyHint.textContent = key ? "Key guardada, termina en ****" + key.slice(-4) + "." : "Sin key guardada todavía.";
+  }
+
+  document.getElementById("aiSettingsBtn").addEventListener("click", (e) => {
+    aiKeyInput.value = "";
+    refreshAiKeyHint();
+    openSidePanel(aiPanel, e.currentTarget);
+  });
+  document.getElementById("closeAiBtn").addEventListener("click", closeSidePanels);
+  document.getElementById("saveAiKeyBtn").addEventListener("click", () => {
+    const key = aiKeyInput.value.trim();
+    if (!key) {
+      aiKeyHint.classList.add("hint-error");
+      aiKeyHint.textContent = "Pegá una key antes de guardar.";
+      return;
+    }
+    RadarAI.setKey(key);
+    aiKeyInput.value = "";
+    refreshAiKeyHint();
+    renderSynonyms();
+  });
+  document.getElementById("clearAiKeyBtn").addEventListener("click", () => {
+    RadarAI.setKey("");
+    aiKeyInput.value = "";
+    refreshAiKeyHint();
+    renderSynonyms();
+  });
 
   function openJdWarning(message, openerEl) {
     jdWarningMessage.textContent = message;
