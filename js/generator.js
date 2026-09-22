@@ -16,8 +16,8 @@
   // anything typed by hand (synonym pills included — clicking a 5th one is
   // one click away). A smaller cap here silently drops chips the user can
   // see on screen from the boolean that actually gets searched, with no
-  // indication anything was cut. Verified live: with 5 rol synonyms and 6
-  // atributos chips, this used to search only the first 4 of each.
+  // indication anything was cut — caught with 5 rol synonyms and 6 atributos
+  // chips loaded, where only the first 4 of each were making it into the query.
   const MAX_TERMS_PER_GROUP = 6;
 
   function quoteIfPhrase(term) {
@@ -35,10 +35,10 @@
 
   // Same grouping, but never quotes a multi-word term as an exact phrase.
   // Only used for the Rol block on networks where profiles don't read like a
-  // résumé (Stack Overflow, Xing): verified live, "Backend Developer" quoted
-  // gave 1 result on Stack Overflow, the same word unquoted gave 5. Atributos
-  // still goes through the normal orGroup on every network — a multi-word
-  // skill ("Machine Learning") is worth keeping as an exact phrase everywhere.
+  // résumé (Stack Overflow, Xing). "Backend Developer" quoted returned 1 hit
+  // on Stack Overflow; the same word unquoted returned 5. Atributos still
+  // goes through the normal orGroup on every network — a multi-word skill
+  // ("Machine Learning") is worth keeping as an exact phrase everywhere.
   function orGroupRaw(terms) {
     const trimmed = (terms || []).filter(Boolean).slice(0, MAX_TERMS_PER_GROUP);
     if (trimmed.length === 0) return "";
@@ -47,23 +47,21 @@
   }
 
   // A candidate's own profile almost never has the country in Spanish unless
-  // the country itself is Spanish-speaking ("Germany", not "Alemania").
-  // Verified live: the same Xing search went from zero results to several
-  // real ones just by adding "Germany" to the query — Google doesn't
-  // localize Xing's pages into Spanish the way it happens to do for
-  // LinkedIn's. Widens with an OR instead of replacing, so it never costs a
-  // match on a site that does localize.
+  // the country itself is Spanish-speaking ("Germany", not "Alemania") —
+  // adding "Germany" to a Xing search that returned nothing brought back
+  // several real profiles, because Google doesn't localize Xing's pages
+  // into Spanish the way it happens to do for LinkedIn's. Widens with an OR
+  // instead of replacing, so it never costs a match on a site that does localize.
   function expandLocationTerm(term) {
     const alias = Countries.searchAlias(term);
     return alias ? [term, alias] : [term];
   }
 
   // relaxed=true drops Dominio and Alcance from the AND chain, keeping only
-  // Rol AND Atributos. Verified live while sourcing real profiles: chaining
-  // all four blocks with AND can legitimately zero out a search (a real
-  // person rarely matches role + skills + industry + location all at once
-  // in the exact words RADAR picked) — this is the one-click way out of
-  // that without manually deleting chips.
+  // Rol AND Atributos. Chaining all four blocks with AND can legitimately
+  // zero out a search — a real person rarely matches role + skills +
+  // industry + location all at once in the exact words RADAR picked — so
+  // this is the one-click way out of that without manually deleting chips.
   function coreBlocks(state, relaxed, looseRol) {
     // Same cleanup GitHub's free text already gets (see stripAbbreviatedTitlePrefix
     // below) applied here too, so a chip typed by hand ("Sr. Backend Developer")
@@ -200,8 +198,8 @@
 
   // GitHub's user search is free-text, not a phrase match like Google/LinkedIn
   // — a title abbreviation with a period ("Sr. Backend Developer") silently
-  // zeroes out the results (verified live: identical query without "Sr."
-  // went from 0 to 7 real matches). Strip that kind of prefix before it's
+  // zeroes out the results. Dropping "Sr." from an otherwise identical query
+  // took it from 0 to 7 real matches. Strip that kind of prefix before it's
   // used as GitHub free text; it stays untouched everywhere else (universal
   // boolean, X-Ray), where it's wrapped in quotes and doesn't cause this.
   function stripAbbreviatedTitlePrefix(text) {

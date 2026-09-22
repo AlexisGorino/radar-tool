@@ -111,13 +111,13 @@
   // A JD names its own opening ("Sr. Backend Developer", "Ssr. QA Analyst")
   // with the internal seniority shorthand, but almost nobody spells their
   // own profile title that way — quoting it whole turns a normal boolean
-  // into one that matches almost nobody (verified live: this exact prefix
-  // zeroed out LinkedIn, Google X-Ray and Bing on a real Rol AND Atributos
-  // AND Dominio AND Alcance search). Strip it before it ever reaches a
-  // chip, the same way it's already stripped for GitHub's free text in
-  // generator.js — the seniority itself still surfaces, but as a Refinar
-  // suggestion (SENIOR_WORDS/JUNIOR_WORDS below), never as a dead-weight
-  // literal baked into the one field every network ANDs against.
+  // into one that matches almost nobody. This exact prefix zeroed out
+  // LinkedIn, Google X-Ray and Bing on a real Rol AND Atributos AND Dominio
+  // AND Alcance search that had no other problem. Strip it before it ever
+  // reaches a chip, the same way it's already stripped for GitHub's free
+  // text in generator.js — the seniority itself still surfaces, but as a
+  // Refinar suggestion (SENIOR_WORDS/JUNIOR_WORDS below), never as a
+  // dead-weight literal baked into the one field every network ANDs against.
   const LEADING_SENIORITY_ABBREV_RE = /^(?:sr|ssr|jr)\.?\s+/i;
 
   function trimRolPhrase(raw) {
@@ -200,9 +200,9 @@
   // segment, right before trailing noise fields (COD VACANTE, DEPARTAMENTO...)
   // pick back up — recovered here instead of just discarding the whole match,
   // since a short JD may have no other clean label anywhere else to fall
-  // back on. Verified live against two real fichas: one 2-segment ("Cliente
-  // W2M - PM Ciberseguridad"), one 3-segment ("Cliente Mindata - Financiero -
-  // Tesorería Junior") — both resolve to just the trailing title.
+  // back on. Tested against two real fichas — one 2-segment ("Cliente W2M -
+  // PM Ciberseguridad"), one 3-segment ("Cliente Mindata - Financiero -
+  // Tesorería Junior") — and both resolve to just the trailing title.
   function salvageTemplateHeaderTitle(rawCapture) {
     const segments = rawCapture.split(/\s+-\s+/).map((s) => s.trim());
     const last = segments[segments.length - 1];
@@ -240,10 +240,10 @@
   // A responsibility bullet ("Rol: Gestionar proyectos estratégicos...",
   // "Funciones: Liderar el equipo...") starts with an infinitive verb
   // describing an action — a real job title is a noun phrase ("PM
-  // Ciberseguridad", "Senior QA Engineer"), never a verb. Verified live: a
-  // real JD's "Rol:" label introduced a full responsibility sentence, not a
-  // title, and it would otherwise win the retry loop below on its own merit
-  // (passes every other filter — it's not template noise, not a bare skill).
+  // Ciberseguridad", "Senior QA Engineer"), never a verb. One real JD's
+  // "Rol:" label introduced a full responsibility sentence instead of a
+  // title, and it would have won the retry loop below on its own merit —
+  // it's not template noise, it's not a bare skill, nothing else catches it.
   const RESPONSIBILITY_VERBS = new Set([
     "gestionar", "liderar", "definir", "diseñar", "disenar", "coordinar", "ejecutar",
     "analizar", "desarrollar", "administrar", "supervisar", "colaborar", "participar",
@@ -279,10 +279,10 @@
     ];
     for (const p of patterns) {
       // A "ficha de puesto" template's own header ("PUESTO - CLIENTE X - Y")
-      // is often the FIRST thing a label pattern matches, and it's noise —
-      // verified live, a real "Puesto: Senior QA Engineer" label sitting
-      // cleanly further down the same JD never got a chance because the for
-      // loop gave up on the whole pattern after just its first (bad) match.
+      // is often the FIRST thing a label pattern matches, and it's noise. A
+      // real JD had a clean "Puesto: Senior QA Engineer" label sitting
+      // further down that never got a chance, because this loop used to
+      // give up on the whole pattern after just its first, bad match.
       // Global + a manual loop tries every match of a pattern in turn before
       // moving on to the next pattern.
       let m;
@@ -378,10 +378,10 @@
   // the text also has enough generic JD-shaped signals to otherwise pass
   // isJobPosting (a résumé's own "Experience"/skills section does): it's a
   // narrower, specific check that overrides the general one, not a stricter
-  // version of it. Verified live: a real candidate CV (name, phone, email,
-  // "Professional Experience") passed isJobPosting on its own JD-like
-  // vocabulary and produced a nonsense Rol out of "Seeking challenging
-  // backend projects...".
+  // version of it. A real candidate's CV (name, phone, email, "Professional
+  // Experience") passed isJobPosting on its own JD-like vocabulary alone and
+  // came out with a nonsense Rol pulled from "Seeking challenging backend
+  // projects...".
   const RESUME_HEAD_CHARS = 200;
   function looksLikeResume(text) {
     const head = text.slice(0, RESUME_HEAD_CHARS);

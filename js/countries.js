@@ -177,15 +177,14 @@
    */
   function detectLocationDetailed(text) {
     // Pass 1: the country's own name, checked across ALL countries first.
-    // A bare country name is unambiguous by construction; a locality is not
+    // A bare country name is unambiguous by construction; a locality isn't
     // — "Santiago" is both Chile's capital and half of "Santiago de
     // Compostela" (Spain), "Lima" is both Peru's capital and a common
-    // surname. Verified live: a JD for "Santiago de Compostela, España"
-    // was coming back as Chile, because Chile's locality list happened to
-    // get checked before España's bare name ever got a chance — even
-    // though "España" was sitting right there in the same sentence. Nobody
-    // writes a country's real name by mistake, so it always outranks a
-    // locality guess from a different, earlier-checked country.
+    // surname. A real JD for "Santiago de Compostela, España" was coming
+    // back as Chile because Chile's locality list happened to get checked
+    // first, even with "España" sitting right there in the same sentence.
+    // Nobody writes a country's real name by mistake, so it always outranks
+    // a locality guess from a different, earlier-checked country.
     for (const country of Object.keys(ALL_COUNTRIES)) {
       const bare = BARE_COUNTRY_NAMES[country] || [country.toLowerCase()];
       if (bare.some((term) => containsWord(text, term))) {
@@ -227,10 +226,10 @@
   }
 
   // A German candidate's own LinkedIn/Xing/GitHub profile says "Germany" (or
-  // nothing about the country at all) — never "Alemania". Verified live: the
-  // exact same Xing search went from zero results to real matches just by
-  // swapping "Alemania" for "Germany" (Google doesn't localize Xing's pages
-  // into Spanish the way it happens to do for LinkedIn's). Returns the
+  // nothing about the country at all) — never "Alemania". Swapping one for
+  // the other on a Xing search took it from zero results to real matches;
+  // Google doesn't localize Xing's pages into Spanish the way it happens to
+  // do for LinkedIn's. Returns the
   // English/local form from BARE_COUNTRY_NAMES so a search can widen with an
   // OR instead of only trying the Spanish name — null when the country's own
   // name already reads the same in English (Argentina, Chile, Perú...), so
