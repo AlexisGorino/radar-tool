@@ -11,8 +11,8 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=20">
-<script src="js/gate.js?v=20"></script>
+<link rel="stylesheet" href="css/styles.css?v=21">
+<script src="js/gate.js?v=21"></script>
 </head>
 <body>
 
@@ -246,7 +246,14 @@
       <h3 id="aiPanelTitle">IA para sugerencias (opcional)</h3>
       <button class="btn-close" id="closeAiBtn" type="button" aria-label="Cerrar">×</button>
     </div>
-    <p class="hint">Sumá una key propia de <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> (gratis) para que RADAR sugiera sinónimos de rol y atributos de nicho con Gemini. La key se guarda solo en este navegador (<code>localStorage</code>), nunca en el código ni en ningún servidor de Mindata — la única llamada de red va directo de tu navegador a Gemini.</p>
+    <p class="ai-panel-question">¿Querés cargar una API gratuita para mejorar el RADAR?</p>
+    <p class="hint">Con una key propia de Gemini, RADAR sugiere sinónimos de rol y atributos de nicho. Es gratuita, no pide tarjeta:</p>
+    <ol class="ai-steps">
+      <li>Entrá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> y tocá "Create API key".</li>
+      <li>Copiá la key que te genera (algo como <code>AIzaSy...</code>).</li>
+      <li>Pegala en el campo de abajo y tocá "Guardar".</li>
+    </ol>
+    <p class="hint">La key se guarda solo en este navegador (<code>localStorage</code>), nunca en el código ni en ningún servidor de Mindata — la única llamada de red va directo de tu navegador a Gemini.</p>
     <div class="feedback-form">
       <label class="feedback-label" for="aiKeyInput">Tu key de AI Studio</label>
       <input type="password" id="aiKeyInput" autocomplete="off" placeholder="Pegá tu key acá">
@@ -305,12 +312,12 @@
 </div>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/countries.js?v=20"></script>
-<script src="js/keywords.js?v=20"></script>
-<script src="js/networks.js?v=20"></script>
-<script src="js/extractor.js?v=20"></script>
-<script src="js/generator.js?v=20"></script>
-<script src="js/ai.js?v=20"></script>
-<script src="js/app.js?v=20"></script>
+<script src="js/countries.js?v=21"></script>
+<script src="js/keywords.js?v=21"></script>
+<script src="js/networks.js?v=21"></script>
+<script src="js/extractor.js?v=21"></script>
+<script src="js/generator.js?v=21"></script>
+<script src="js/ai.js?v=21"></script>
+<script src="js/app.js?v=21"></script>
 </body>
 </html>
