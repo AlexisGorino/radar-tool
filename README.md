@@ -2,7 +2,7 @@
 
 **En vivo: https://alexisgorino.github.io/radar-tool/**
 
-Herramienta de sourcing de Mindata, creada por **Ale Gorino** y **Franco Velazco**.
+Herramienta de sourcing de Mindata, creada por **Ale Gorino**.
 Convierte una JD en un booleano preciso y en variantes listas para LinkedIn,
 Google/Bing (X-Ray), GitHub, Behance, CVs sueltos en PDF/Word y otras redes.
 
@@ -71,7 +71,7 @@ node tests/jd-bank.js
 node tests/locations.js
 ```
 
-321 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
+322 casos entre los tres. Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local
@@ -161,4 +161,4 @@ compartir con el equipo. Netlify Drop es la que menos pasos tiene.
 ## Créditos
 
 © Mindata. Todos los derechos reservados.
-Creado por Ale Gorino y Franco Velazco.
+Creado por Ale Gorino.

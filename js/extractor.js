@@ -336,11 +336,6 @@
     return [];
   }
 
-  function extractYears(text) {
-    const m = text.match(/(\d{1,2})\s*\+?\s*(?:a[nñ]os|years)/i);
-    return m ? [m[0].trim()] : [];
-  }
-
   // Words that show up in an actual job posting (any section: intro,
   // responsibilities, requirements, benefits...) but essentially never in
   // unrelated text pasted by mistake (a CV, a news article, a random
@@ -447,7 +442,6 @@
     countJobPostingSignals,
     guessRol,
     trimRolPhrase,
-    extractYears,
     analyzeJD,
   };
 });

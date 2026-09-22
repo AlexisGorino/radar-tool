@@ -1,8 +1,8 @@
 # RADAR — Estado del proyecto (handoff completo)
 
 Documento para retomar el proyecto en una sesión nueva sin perder contexto.
-Escrito el 2026-09-12, después de una sesión larga de desarrollo + testing
-intensivo en vivo contra buscadores reales.
+Escrito el 2026-09-12, actualizado el 2026-09-22 después de una segunda
+ronda de testing en vivo con JDs reales de clientes de Mindata.
 
 ## 1. Qué es esto y dónde vive
 
@@ -16,7 +16,7 @@ LinkedIn, GitHub y otras redes.
 - **GitHub**: https://github.com/AlexisGorino/radar-tool (público, tu cuenta)
 - **En vivo**: https://alexisgorino.github.io/radar-tool/ (GitHub Pages,
   rama `main`, se redespliega solo ~30-60s después de cada push)
-- **CI**: `.github/workflows/tests.yml` corre los 303 tests en cada push/PR
+- **CI**: `.github/workflows/tests.yml` corre los 322 tests en cada push/PR
 - También existe una versión más vieja como Claude Artifact
   (`https://claude.ai/code/artifact/8b5c64a6-4577-4036-a090-ee0b917511cf`)
   — **no es la versión vigente**, GitHub Pages es la fuente de verdad.
@@ -38,23 +38,36 @@ Método RADAR: **R**ol, **A**tributos, **D**ominio, **A**lcance, **R**efinar.
 ## 3. Qué hace hoy (funcionalidad completa)
 
 - Analiza JD pegada o subida (`.txt`/`.pdf`, se lee en el navegador con
-  pdf.js, nunca sale de la máquina) y completa los 5 campos solo.
+  pdf.js, nunca sale de la máquina) y completa los 5 campos solo. Si el
+  texto es un currículum en vez de una JD, o si no se pudo identificar el
+  rol con confianza, avisa con un mensaje en pantalla en vez de generar
+  campos con datos inventados.
 - También entiende consultas manuales cortas ("busco un Backend Developer
   con Java y Spring que viva en Brasil").
+- Cuando la JD separa requisitos excluyentes de deseables, los excluyentes
+  ganan prioridad en Atributos — un skill que solo figura como "deseable"
+  es el primero que se descarta si hay que acortar.
 - Sugiere sinónimos de rol con un click.
-- **Redes**: LinkedIn (botón nativo, recomendado, + X-Ray de respaldo),
-  GitHub (personas o repos), Stack Overflow, Xing, X/Twitter, Wellfound,
-  Behance, CVs sueltos (PDF/Word en toda la web), Otro sitio (dominio
-  custom). **Indeed CVs se sacó** — Google no lo indexa, no servía.
+- **Redes**: LinkedIn (botón nativo en tres variantes — específica, media,
+  amplia — porque el plan gratuito de LinkedIn rompe la búsqueda pasados
+  3-4 operadores AND/OR; más X-Ray de respaldo), GitHub (personas o
+  repos), Stack Overflow, Xing, Behance, CVs sueltos (PDF/Word en toda la
+  web), Otro sitio (dominio custom). **Indeed CVs, X/Twitter y Wellfound
+  se sacaron del listado** — los tres se probaron en vivo y ninguno traía
+  candidatos reales.
 - **"Relajar búsqueda"**: un checkbox que saca Dominio/Alcance del AND
   (deja solo Rol AND Atributos) para cuando la versión completa da cero
-  resultados — verificado en vivo que esto realmente rescata candidatos
+  resultados — confirmado en vivo que esto realmente rescata candidatos
   reales que la versión estricta no encontraba.
 - Historial de búsquedas en `localStorage` (privado por navegador, nunca
   se sincroniza ni se sube a ningún lado).
 - Formulario de feedback → manda por FormSubmit.co a
   `alexis.gorino@mindata.es` y/o `franco.velazco@mindata.es`. **Nunca se
   probó un envío real** (ver pendientes).
+- Pantalla de contraseña compartida del equipo ("MinDataTeam") antes de
+  entrar — es una puerta de recepción, no seguridad real: el repo es
+  público, así que esa contraseña está a la vista de cualquiera que abra
+  el código. Ver `SECURITY.md` para el detalle.
 - Accesibilidad: contraste de color WCAG AA corregido, paneles laterales
   con foco atrapado y devuelto correctamente.
 
@@ -97,11 +110,20 @@ GitHub, no adivinando. Detalle completo en `TESTING.md`.
 14. Contraste de color por debajo del mínimo WCAG AA → colores de marca
     ajustados (visualmente iguales).
 
+En la ronda del 2026-09-22, probando con JDs reales de clientes distintos
+(QA en España, auditor de telecomunicaciones, comercial en México,
+tesorería en Galicia), aparecieron varios más: el booleano de LinkedIn
+excedía el límite de operadores del plan gratuito y daba cero resultados,
+una ciudad ambigua entre dos países ("Santiago" — Chile o España) se le
+asignaba al país equivocado, y el extractor de Rol se rendía con la
+primera etiqueta que encontraba en vez de seguir buscando una limpia.
+Detalle completo, con la evidencia de cada uno, en `TESTING.md`.
+
 ## 5. Testing (ver `TESTING.md` para el detalle completo)
 
-- **303 tests automáticos** (`node tests/run.js`, `tests/jd-bank.js`,
+- **322 tests automáticos** (`node tests/run.js`, `tests/jd-bank.js`,
   `tests/locations.js`), corriendo solos en cada push vía GitHub Actions.
-- Dos JDs reales tuyas guardadas como fixture de regresión permanente
+- Varias JDs reales tuyas guardadas como fixture de regresión permanente
   (`tests/fixtures/`).
 - Probado en vivo contra **Google** (funciona bien para X-Ray, con
   resultados reales confirmados en decenas de búsquedas), **Bing**
@@ -120,11 +142,10 @@ GitHub, no adivinando. Detalle completo en `TESTING.md`.
   herramienta de este asistente solo maneja un navegador tipo Chrome). El
   código fue auditado y no usa nada exclusivo de Chrome, pero sería bueno
   que alguien lo abra en Firefox/Safari y confirme que se ve bien.
-- Las categorías de skills más nuevas (RRHH, legal, hotelería) no se
-  re-confirmaron en vivo contra Google en la última ronda porque Google
-  bloqueó la sesión automatizada con captcha — la mecánica es idéntica a
-  la ya validada en docenas de búsquedas previas, pero no está 100%
-  re-confirmada con esos términos puntuales.
+- Las categorías de skills más nuevas (RRHH, SAP, ciberseguridad,
+  telecomunicaciones) ya se re-confirmaron en vivo en la segunda ronda de
+  testing (2026-09-22) contra Google real, con JDs de clientes reales de
+  Mindata — quedan documentadas en `TESTING.md`.
 - El banco de skills (`js/keywords.js`) es, por naturaleza, una lista
   que nunca puede estar "100% completa" — es fácil seguir agregando
   términos ahí mismo si aparece un rubro nuevo sin cobertura.

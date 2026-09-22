@@ -143,14 +143,14 @@
   }
 
   /** Returns the first country whose terms match the given text, or null. */
+  // Country only, no locality — thin wrapper around detectLocationDetailed
+  // so there's exactly one place that resolves an ambiguous locality
+  // ("Santiago" is Chile's capital and half of "Santiago de Compostela" in
+  // Spain) against an explicit country name in the text. This used to be
+  // its own scan in bare list order, drifted out of sync with the real fix,
+  // and quietly kept giving Chile for a Spanish address.
   function detectCountry(text) {
-    for (const country of Object.keys(ALL_COUNTRIES)) {
-      const terms = ALL_COUNTRIES[country];
-      for (const term of terms) {
-        if (containsWord(text, term)) return country;
-      }
-    }
-    return null;
+    return detectLocationDetailed(text).country;
   }
 
   /** Earliest-mentioned locality term for a country, title-cased, or null. */
