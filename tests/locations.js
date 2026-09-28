@@ -95,6 +95,28 @@ test("with no country named outright, an ambiguous locality still resolves via t
   assert.strictEqual(country, "Chile"); // LATAM checked before Europe when nothing disambiguates it
 });
 
+// Same ambiguity as above, but with no country name AND no comma-separated
+// hint — just the bare locality. Chile's "santiago" is a whole-word match
+// sitting inside España's own "santiago de compostela" at the exact same
+// starting position, so it's not really a separate mention, it's a shorter
+// read of the same words. The longer, more specific one wins.
+test("a locality that's a strict prefix of a longer, more specific locality resolves to the longer one", () => {
+  const { country, locality } = Countries.detectLocationDetailed("Buscamos alguien para trabajar en Santiago de Compostela.");
+  assert.strictEqual(country, "España");
+  assert.strictEqual(locality, "Santiago de Compostela");
+});
+
+// The prefix-collision override above must NOT fire for two unrelated
+// mentions that just happen to share a word — a person's first name
+// ("Santiago Ahmed") earlier in the text must not steal the country from
+// a real, later locality ("CABA") just because "Santiago" alone is longer
+// than "caba". Real JD, see tests/fixtures/pdf-modern-template-jd.txt.
+test("an unrelated earlier name match doesn't override a real locality mentioned later", () => {
+  const { country, locality } = Countries.detectLocationDetailed("Reporta a: Santiago Ahmed. Híbrido — Puerto Madero, CABA — Full Time.");
+  assert.strictEqual(country, "Argentina");
+  assert.strictEqual(locality, "CABA");
+});
+
 console.log(`\n${passed} passed, ${failed} failed (${passed + failed} total)\n`);
 if (failed) {
   failures.forEach((f) => console.log(`FAIL: ${f.name}\n  ${f.err.message}\n`));

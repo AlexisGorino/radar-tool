@@ -153,21 +153,25 @@
     return detectLocationDetailed(text).country;
   }
 
-  /** Earliest-mentioned locality term for a country, title-cased, or null. */
-  function earliestLocality(text, country) {
+  /** Earliest-mentioned locality term for a country: { term, index, locality }, or null. */
+  function earliestLocalityMatch(text, country) {
     const terms = ALL_COUNTRIES[country];
     const bare = new Set(BARE_COUNTRY_NAMES[country] || [country.toLowerCase()]);
-    let locality = null;
-    let localityIndex = Infinity;
+    let best = null;
     for (const term of terms) {
       if (bare.has(term) || !containsWord(text, term)) continue;
       const idx = text.toLowerCase().indexOf(term);
-      if (idx !== -1 && idx < localityIndex) {
-        localityIndex = idx;
-        locality = titleCase(term);
+      if (idx !== -1 && (!best || idx < best.index)) {
+        best = { term, index: idx, locality: titleCase(term) };
       }
     }
-    return locality;
+    return best;
+  }
+
+  /** Earliest-mentioned locality term for a country, title-cased, or null. */
+  function earliestLocality(text, country) {
+    const match = earliestLocalityMatch(text, country);
+    return match ? match.locality : null;
   }
 
   /**
@@ -191,13 +195,28 @@
         return { country, locality: earliestLocality(text, country) };
       }
     }
-    // Pass 2: no country named outright anywhere — fall back to the first
-    // locality match, same list order as before (LATAM before Europe).
+    // Pass 2: no country named outright anywhere — default is still the
+    // first country-list match in LATAM-before-Europe order, same as
+    // always. The one override: when a later country's match starts at
+    // that exact same character (not just "somewhere in the text", the
+    // identical position), it's not a separate mention — it's a longer,
+    // more specific reading of the same words, like Spain's "santiago de
+    // compostela" completely swallowing Chile's "santiago" match inside
+    // it. That earns the swap. Two unrelated matches at different spots
+    // — Chile's "santiago" as a stray first name next to Argentina's real
+    // "caba" later in the same JD — don't collide this way, so the
+    // original list-order pick stands.
+    let best = null;
     for (const country of Object.keys(ALL_COUNTRIES)) {
-      const locality = earliestLocality(text, country);
-      if (locality) return { country, locality };
+      const match = earliestLocalityMatch(text, country);
+      if (!match) continue;
+      if (!best) {
+        best = { country, index: match.index, term: match.term, locality: match.locality };
+      } else if (match.index === best.index && match.term.length > best.term.length) {
+        best = { country, index: match.index, term: match.term, locality: match.locality };
+      }
     }
-    return { country: null, locality: null };
+    return best ? { country: best.country, locality: best.locality } : { country: null, locality: null };
   }
 
   /** Returns matched modality words present in the text (deduped, original casing lost -> canonical). */
