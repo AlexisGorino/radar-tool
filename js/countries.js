@@ -153,13 +153,13 @@
     return detectLocationDetailed(text).country;
   }
 
-  /** Earliest-mentioned locality term for a country: { term, index, locality }, or null. */
-  function earliestLocalityMatch(text, country) {
+  /** Earliest-mentioned locality term for a country: { term, index, locality }, or null. Pass excludeTerm to find the next one after an already-found match. */
+  function earliestLocalityMatch(text, country, excludeTerm) {
     const terms = ALL_COUNTRIES[country];
     const bare = new Set(BARE_COUNTRY_NAMES[country] || [country.toLowerCase()]);
     let best = null;
     for (const term of terms) {
-      if (bare.has(term) || !containsWord(text, term)) continue;
+      if (bare.has(term) || term === excludeTerm || !containsWord(text, term)) continue;
       const idx = text.toLowerCase().indexOf(term);
       if (idx !== -1 && (!best || idx < best.index)) {
         best = { term, index: idx, locality: titleCase(term) };
@@ -172,6 +172,21 @@
   function earliestLocality(text, country) {
     const match = earliestLocalityMatch(text, country);
     return match ? match.locality : null;
+  }
+
+  // A recruiter template listing two acceptable cities back to back ("Madrid
+  // y Barcelona", or "MADRID"/"BARCELONA" on consecutive table rows once a
+  // PDF flattens the layout) means "either of these", same as an explicit
+  // OR — dropping the second one silently loses half the real candidate
+  // pool. Only fires within a short window right after the first match, so
+  // two unrelated city mentions pages apart in a long JD don't get paired.
+  const NEARBY_LOCALITY_CHARS = 40;
+  function nearbyLocality(text, country, first) {
+    if (!first) return null;
+    const second = earliestLocalityMatch(text, country, first.term);
+    if (!second) return null;
+    const gap = second.index - (first.index + first.term.length);
+    return gap >= 0 && gap <= NEARBY_LOCALITY_CHARS ? second.locality : null;
   }
 
   /**
@@ -192,7 +207,8 @@
     for (const country of Object.keys(ALL_COUNTRIES)) {
       const bare = BARE_COUNTRY_NAMES[country] || [country.toLowerCase()];
       if (bare.some((term) => containsWord(text, term))) {
-        return { country, locality: earliestLocality(text, country) };
+        const first = earliestLocalityMatch(text, country);
+        return { country, locality: first ? first.locality : null, secondLocality: nearbyLocality(text, country, first) };
       }
     }
     // Pass 2: no country named outright anywhere — default is still the
@@ -216,7 +232,9 @@
         best = { country, index: match.index, term: match.term, locality: match.locality };
       }
     }
-    return best ? { country: best.country, locality: best.locality } : { country: null, locality: null };
+    return best
+      ? { country: best.country, locality: best.locality, secondLocality: nearbyLocality(text, best.country, best) }
+      : { country: null, locality: null, secondLocality: null };
   }
 
   /** Returns matched modality words present in the text (deduped, original casing lost -> canonical). */

@@ -88,7 +88,7 @@ node tests/ai.js
 node tests/tracking.js
 ```
 
-336 casos entre los cinco. Ver [`TESTING.md`](TESTING.md) para el detalle y
+339 casos entre los cinco. Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local

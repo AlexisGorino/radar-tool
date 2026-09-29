@@ -13,7 +13,7 @@ node tests/ai.js         # prompt y parseo de ai.js (sin red real)
 node tests/tracking.js   # payload y manejo de localStorage de tracking.js (sin red real)
 ```
 
-336 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+339 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,

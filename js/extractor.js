@@ -48,19 +48,28 @@
    * field like Dominio stays "lo justo y necesario" instead of collecting
    * every incidental match (a degree name mentioning "Telecomunicaciones"
    * shouldn't dilute the JD's actual industry).
+   *
+   * Two separate deprioritize tiers, not one: a skill that's specific but
+   * only mentioned in a "deseable/valorable" section (tier 1) still beats a
+   * buzzword like "QA"/"Agile" mentioned in the required section (tier 2) —
+   * the buzzword never discriminates a search either way, while the "nice
+   * to have" skill is often the single most distinctive term in the whole
+   * JD ("Playwright" on a QA posting). Collapsing both into one bucket let
+   * early-appearing buzzwords crowd a real skill out of the cap entirely.
    */
-  function findMatchesRanked(text, bank, limit, deprioritize) {
+  function findMatchesRanked(text, bank, limit, optionalOnly, generic) {
     const lowerText = text.toLowerCase();
     const found = findMatches(text, bank);
-    const deprioritizeSet = new Set((deprioritize || []).map((t) => t.toLowerCase()));
+    const optionalSet = new Set((optionalOnly || []).map((t) => t.toLowerCase()));
+    const genericSet = new Set((generic || []).map((t) => t.toLowerCase()));
     const withIndex = found.map((term) => {
       const re = new RegExp("(^|[^a-záéíóúñü0-9])" + term.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^a-záéíóúñü0-9])", "i");
       const m = lowerText.match(re);
-      return { term, index: m ? m.index : Infinity, generic: deprioritizeSet.has(term.toLowerCase()) };
+      const lower = term.toLowerCase();
+      const tier = genericSet.has(lower) ? 2 : optionalSet.has(lower) ? 1 : 0;
+      return { term, index: m ? m.index : Infinity, tier };
     });
-    // specific/technical terms first (by where they appear), generic ones
-    // (Scrum, Agile, QA...) only fill whatever room is left under the cap
-    withIndex.sort((a, b) => (a.generic === b.generic ? a.index - b.index : a.generic ? 1 : -1));
+    withIndex.sort((a, b) => (a.tier === b.tier ? a.index - b.index : a.tier - b.tier));
     const ranked = withIndex.map((x) => x.term);
     return typeof limit === "number" ? ranked.slice(0, limit) : ranked;
   }
@@ -390,8 +399,9 @@
     }
 
     const rol = dedupe(guessRol(text));
-    const deprioritizeSkills = [...Keywords.GENERIC_SKILLS, ...optionalOnlySkills(text, Keywords.SKILLS)];
-    const atributos = dedupe(findMatchesRanked(text, Keywords.SKILLS, MAX_ATTRIBUTES, deprioritizeSkills));
+    const atributos = dedupe(
+      findMatchesRanked(text, Keywords.SKILLS, MAX_ATTRIBUTES, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS)
+    );
     const dominio = dedupe(findMatchesRanked(text, Keywords.INDUSTRIES, MAX_DOMINIO));
 
     // Alcance is país + localidad only. Modalidad (remoto/híbrido/presencial)
@@ -400,8 +410,8 @@
     // ANDing them into the boolean filters out good matches instead of
     // narrowing toward better ones. They're detected below only so the UI
     // can offer them as an editable suggestion, never as an auto-added term.
-    const { country, locality } = Countries.detectLocationDetailed(text);
-    const alcance = dedupe([...(country ? [country] : []), ...(locality ? [locality] : [])]);
+    const { country, locality, secondLocality } = Countries.detectLocationDetailed(text);
+    const alcance = dedupe([...(country ? [country] : []), ...(locality ? [locality] : []), ...(secondLocality ? [secondLocality] : [])]);
 
     const modality = Countries.detectModality(text);
     const rolText = rol.join(" ");

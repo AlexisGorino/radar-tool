@@ -706,6 +706,19 @@ test("Cancún and Quintana Roo are recognized as México", () => {
   assert.strictEqual(r2.country, "México");
 });
 
+// A skill only mentioned in the "deseable/valorable" section is still a
+// stronger signal than a pure buzzword ("QA", "Agile") mentioned in the
+// required section — the buzzword never discriminates a search either way.
+// Real JD (Sogeti España QA) where "Playwright" only appears after
+// "VALORABLE" and was losing its cap slot to "QA"/"Testing"/"Agile".
+test("a specific optional-section skill outranks a generic required-section buzzword", () => {
+  const jd =
+    "IMPRESCINDIBLE: 7+ años de experiencia en QA/Testing de software. Postman/SoapUI. " +
+    "Entornos Agile/Scrum. SQL intermedio. VALORABLE: Automatización con Playwright + TypeScript.";
+  const atributos = Extractor.analyzeJD(jd).atributos;
+  assert.ok(atributos.includes("Playwright"), "Playwright debería estar en atributos: " + atributos.join(", "));
+});
+
 // ---------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------

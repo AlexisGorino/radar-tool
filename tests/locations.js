@@ -117,6 +117,26 @@ test("an unrelated earlier name match doesn't override a real locality mentioned
   assert.strictEqual(locality, "CABA");
 });
 
+// Two cities the recruiter listed as equally valid options ("X y Y", or
+// consecutive rows in a table once a PDF flattens the layout) must both
+// come through — dropping the second one silently lost half the real
+// candidate pool. Real JD (Sogeti España QA), see tests/jd-bank.js.
+test("two cities mentioned right next to each other both come through as locality + secondLocality", () => {
+  const r1 = Countries.detectLocationDetailed("UBICACIÓN CANDIDATO\nMADRID\nBARCELONA\nMODALIDAD");
+  assert.strictEqual(r1.country, "España");
+  assert.strictEqual(r1.locality, "Madrid");
+  assert.strictEqual(r1.secondLocality, "Barcelona");
+
+  const r2 = Countries.detectLocationDetailed("Localización: Madrid y Barcelona.");
+  assert.strictEqual(r2.secondLocality, "Barcelona");
+});
+
+test("two cities mentioned far apart in the same JD do NOT get paired as secondLocality", () => {
+  const farText = "Oficina central en Madrid. " + "x".repeat(200) + " También hay equipo en Barcelona.";
+  const { secondLocality } = Countries.detectLocationDetailed(farText);
+  assert.strictEqual(secondLocality, null);
+});
+
 console.log(`\n${passed} passed, ${failed} failed (${passed + failed} total)\n`);
 if (failed) {
   failures.forEach((f) => console.log(`FAIL: ${f.name}\n  ${f.err.message}\n`));
