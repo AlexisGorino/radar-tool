@@ -15,7 +15,7 @@ que el deploy sea arrastrar una carpeta a un hosting estático.
 ├─────────────────────────────────────────┤
 │  extractor.js   generator.js             │  núcleo: funciones puras
 ├─────────────────────────────────────────┤
-│  ai.js                                   │  capa opcional: prompt + red a Gemini
+│  ai.js         tracking.js               │  capas opcionales: red a Gemini / registro de uso
 ├─────────────────────────────────────────┤
 │  countries.js  keywords.js  networks.js  │  datos estáticos
 └─────────────────────────────────────────┘
@@ -55,6 +55,13 @@ explícitamente y sólo si hay una key guardada en `localStorage`; sin key, el
 módulo entero es inerte. No participa del núcleo determinístico: sus
 sugerencias son pills que el usuario elige sumar a mano a Rol/Atributos,
 igual que los sinónimos estáticos de `keywords.js` — nunca se auto-agregan.
+
+**Registro de uso** (`tracking.js`): igual patrón — funciones puras
+(armado de payload) más una función con efecto (`logEvent`, `fetch`
+fire-and-forget a un Apps Script propio). No es opcional como `ai.js`: es
+parte del gate de acceso (`app.js` la llama al hacer check-in y al generar
+un booleano). Nunca participa del núcleo determinístico ni ve los campos
+RADAR — solo identidad + evento + cuándo.
 
 **UI** (`app.js`): la única capa que conoce el DOM. Lee inputs, llama al
 núcleo, pinta el resultado. Mantiene un objeto `state` en memoria (los cinco

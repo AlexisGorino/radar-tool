@@ -14,25 +14,33 @@
   const AUTH_KEY = "radar-auth-v1";
   const AUTH_PASSWORD = "MinDataTeam";
   const authGateForm = document.getElementById("authGateForm");
+  const authGateNombre = document.getElementById("authGateNombre");
+  const authGateApellido = document.getElementById("authGateApellido");
   const authGatePassword = document.getElementById("authGatePassword");
   const authGateError = document.getElementById("authGateError");
 
   authGateForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    if (authGatePassword.value === AUTH_PASSWORD) {
-      try {
-        localStorage.setItem(AUTH_KEY, "ok");
-      } catch (err) {
-        // private browsing / storage disabled — still unlocks this load,
-        // just won't be remembered next time
-      }
-      document.documentElement.classList.add("authed");
-      authGateError.textContent = "";
-    } else {
+    if (!authGateNombre.value.trim() || !authGateApellido.value.trim()) {
+      authGateError.textContent = "Completá tu nombre y apellido antes de entrar.";
+      return;
+    }
+    if (authGatePassword.value !== AUTH_PASSWORD) {
       authGateError.textContent = "Contraseña incorrecta.";
       authGatePassword.value = "";
       authGatePassword.focus();
+      return;
     }
+    try {
+      localStorage.setItem(AUTH_KEY, "ok");
+    } catch (err) {
+      // private browsing / storage disabled — still unlocks this load,
+      // just won't be remembered next time
+    }
+    RadarTracking.setUser(authGateNombre.value, authGateApellido.value);
+    RadarTracking.logEvent("check_in");
+    document.documentElement.classList.add("authed");
+    authGateError.textContent = "";
   });
 
   const FIELDS = ["rol", "atributos", "dominio", "alcance", "refinar"];
@@ -552,6 +560,7 @@
     const universal = renderResults();
     resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
     saveToHistory(universal);
+    RadarTracking.logEvent("generar_booleano", { red: selectedNetwork });
   });
 
   relaxedModeCheckbox.addEventListener("change", () => {

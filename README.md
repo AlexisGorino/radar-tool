@@ -35,6 +35,11 @@ Pages o publicada como página estática en cualquier lado.
   porque, probados de verdad, no traían candidatos reales.
 - **Historial de búsquedas**: guarda las últimas 20 búsquedas en el propio
   navegador (no en un servidor) para recuperarlas con un click.
+- **Registro de uso por nombre**: al entrar por primera vez en un navegador,
+  además de la contraseña de equipo pide nombre y apellido. Sirve para que
+  el equipo sepa quién usa la herramienta y con qué frecuencia — nunca
+  registra qué buscó cada persona, solo el hecho de que entró o generó un
+  booleano. Ver `SECURITY.md`.
 - **Atajo de teclado**: Ctrl/Cmd + Enter arma el booleano desde cualquier campo.
 - **Ayuda integrada**: panel con la explicación del método RADAR.
 - **Reportar bug/sugerencia**: botón al pie que arma un mail precargado a
@@ -54,7 +59,8 @@ radar-tool/
     extractor.js            parsing de la JD → campos RADAR (funciones puras)
     generator.js              construcción de booleanos y URLs (funciones puras)
     ai.js                       capa opcional de sugerencias con Gemini (prompt + parseo, funciones puras)
-    app.js                        conecta el motor con el DOM
+    tracking.js                   registro de uso por nombre (payload + fetch, funciones puras)
+    app.js                          conecta el motor con el DOM
   assets/
     mindata-logo.png
     favicon.svg
@@ -65,6 +71,7 @@ radar-tool/
     run.js               suite unitaria (node tests/run.js, sin dependencias)
     jd-bank.js            banco de regresion con JDs reales (node tests/jd-bank.js)
     ai.js                   tests de ai.js (node tests/ai.js)
+    tracking.js                tests de tracking.js (node tests/tracking.js)
 ```
 
 `extractor.js` y `generator.js` no tocan el DOM ni hacen llamadas de red:
@@ -78,9 +85,10 @@ node tests/run.js
 node tests/jd-bank.js
 node tests/locations.js
 node tests/ai.js
+node tests/tracking.js
 ```
 
-329 casos entre los cuatro. Ver [`TESTING.md`](TESTING.md) para el detalle y
+336 casos entre los cinco. Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local
@@ -103,11 +111,14 @@ y abrir `http://localhost:8080` (o el puerto que corresponda).
 ## Seguridad y privacidad
 
 - Todo corre en el navegador. El `Content-Security-Policy` del `index.html`
-  restringe `connect-src` al propio origen más dos excepciones puntuales:
-  FormSubmit (botón de feedback) y la API de Gemini (solo si activaste
-  "Sugerir con IA" con tu propia key).
+  restringe `connect-src` al propio origen más tres excepciones puntuales:
+  FormSubmit (botón de feedback), la API de Gemini (solo si activaste
+  "Sugerir con IA" con tu propia key) y un Apps Script propio de Mindata
+  (registro de uso por nombre, ver más abajo).
 - Ningún texto de la JD se envía a ningún servidor ni se guarda ahí, salvo
   el extracto que vos mandás a Gemini a propósito con "Sugerir con IA".
+- El registro de uso manda nombre, apellido, qué acción se hizo y cuándo —
+  nunca el contenido de una búsqueda.
 - El historial de búsquedas (opcional) se guarda solo en `localStorage` del
   propio navegador — nunca sale de la máquina del usuario.
 - El texto ingresado por el usuario siempre se inserta en la página con

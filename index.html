@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'self' https://formsubmit.co https://generativelanguage.googleapis.com; base-uri 'none'; form-action 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'self' https://formsubmit.co https://generativelanguage.googleapis.com https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none';">
 <meta name="description" content="RADAR: generador de booleanos de sourcing para reclutadores. Convertí una JD en un booleano preciso para LinkedIn, Google X-Ray, GitHub y más. Método Mindata.">
 <meta property="og:title" content="RADAR — Generador de booleanos | Mindata">
 <meta property="og:description" content="Convertí una JD en un booleano de sourcing preciso para LinkedIn, Google X-Ray, GitHub y más. Herramienta interna del equipo de Mindata.">
@@ -11,8 +11,8 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=22">
-<script src="js/gate.js?v=22"></script>
+<link rel="stylesheet" href="css/styles.css?v=23">
+<script src="js/gate.js?v=23"></script>
 </head>
 <body>
 
@@ -20,7 +20,11 @@
   <form class="auth-gate-box" id="authGateForm">
     <img src="assets/mindata-logo.png" alt="Mindata" class="auth-gate-logo">
     <h2 id="authGateTitle">Acceso del equipo</h2>
-    <p class="hint">RADAR es de uso interno de Mindata. Ingresá la contraseña del equipo para entrar.</p>
+    <p class="hint">RADAR es de uso interno de Mindata. Contanos quién sos e ingresá la contraseña del equipo para entrar.</p>
+    <label class="auth-gate-label" for="authGateNombre">Nombre</label>
+    <input type="text" id="authGateNombre" autocomplete="given-name" placeholder="Tu nombre">
+    <label class="auth-gate-label" for="authGateApellido">Apellido</label>
+    <input type="text" id="authGateApellido" autocomplete="family-name" placeholder="Tu apellido">
     <label class="auth-gate-label" for="authGatePassword">Contraseña</label>
     <input type="password" id="authGatePassword" autocomplete="current-password" placeholder="Contraseña del equipo">
     <button class="btn btn-primary" id="authGateSubmit" type="submit">Entrar</button>
@@ -312,12 +316,13 @@
 </div>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/countries.js?v=22"></script>
-<script src="js/keywords.js?v=22"></script>
-<script src="js/networks.js?v=22"></script>
-<script src="js/extractor.js?v=22"></script>
-<script src="js/generator.js?v=22"></script>
-<script src="js/ai.js?v=22"></script>
-<script src="js/app.js?v=22"></script>
+<script src="js/countries.js?v=23"></script>
+<script src="js/keywords.js?v=23"></script>
+<script src="js/networks.js?v=23"></script>
+<script src="js/extractor.js?v=23"></script>
+<script src="js/generator.js?v=23"></script>
+<script src="js/ai.js?v=23"></script>
+<script src="js/tracking.js?v=23"></script>
+<script src="js/app.js?v=23"></script>
 </body>
 </html>

@@ -7,7 +7,10 @@
 (function () {
   "use strict";
   try {
-    if (localStorage.getItem("radar-auth-v1") === "ok") {
+    // Requiere las dos cosas: quien ya entró antes de que existiera el
+    // campo de nombre (radar-user-v1) tiene que volver a pasar por el
+    // gate una vez más para completarlo — si no, nunca queda registrado.
+    if (localStorage.getItem("radar-auth-v1") === "ok" && localStorage.getItem("radar-user-v1")) {
       document.documentElement.classList.add("authed");
     }
   } catch (e) {

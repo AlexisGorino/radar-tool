@@ -10,9 +10,10 @@ node tests/run.js        # tests unitarios: extractor, generator, seguridad
 node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 node tests/ai.js         # prompt y parseo de ai.js (sin red real)
+node tests/tracking.js   # payload y manejo de localStorage de tracking.js (sin red real)
 ```
 
-329 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+336 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -481,6 +482,19 @@ origen, no del extractor.
       nuevo.
 - [ ] Cerrar la pestaña y volver a abrir → la key sigue guardada (es
       `localStorage`, no depende de la sesión).
+
+**Registro de uso — verificado en vivo contra el Apps Script real de Mindata**
+- [x] Gate sin nombre/apellido → error inline, no entra.
+- [x] Gate completo (nombre + apellido + contraseña) → entra, y llega una
+      fila `check_in` a la Sheet "RADAR — Uso".
+- [x] "Armar booleano" → llega una fila `generar_booleano` con la red
+      elegida.
+- [x] Un navegador que ya tenía `radar-auth-v1` de **antes** de este
+      cambio (sin `radar-user-v1`) → vuelve a mostrar el gate para pedir
+      nombre y apellido una sola vez, no queda afuera para siempre.
+- [ ] Cortar la red antes de tocar "Armar booleano" → el booleano se
+      genera igual, sin error visible; el evento de uso simplemente no
+      llega (fire-and-forget).
 
 **Consola**
 - [ ] Sin errores en la consola del navegador durante todo el flujo de

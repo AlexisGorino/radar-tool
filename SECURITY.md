@@ -8,14 +8,16 @@ que se trata siempre como texto plano, nunca como markup.
 
 ## Controles implementados
 
-**Sin red, salvo dos excepciones explícitas y acotadas.** `connect-src` en
+**Sin red, salvo tres excepciones explícitas y acotadas.** `connect-src` en
 la CSP sólo permite el propio origen, `https://formsubmit.co` (botón de
-feedback, ver más abajo) y `https://generativelanguage.googleapis.com`
-(sugerencias con IA, ver "La excepción opcional: IA con Gemini"). Ningún
+feedback, ver más abajo), `https://generativelanguage.googleapis.com`
+(sugerencias con IA, ver "La excepción opcional: IA con Gemini") y
+`https://script.google.com` + `https://script.googleusercontent.com`
+(registro de uso, ver "Excepción: registro de uso por nombre"). Ningún
 otro flujo del sitio hace `fetch`/`XMLHttpRequest`: se puede confirmar con
 `grep -rn "fetch(" js/*.js`, y los únicos resultados son `sendFeedbackTo`
-(`app.js`) y `suggestTerms` (`ai.js`). El texto de la JD nunca sale del
-navegador por ningún otro camino, y `suggestTerms` sólo se ejecuta si el
+(`app.js`), `suggestTerms` (`ai.js`) y `logEvent` (`tracking.js`). El texto
+de la JD nunca sale del navegador por ningún otro camino, y `suggestTerms` sólo se ejecuta si el
 usuario tocó "Sugerir con IA" a propósito, con su propia key cargada.
 
 **Sin `innerHTML` sobre input de usuario.** Todo lo que viene del usuario
@@ -67,9 +69,9 @@ datos sensibles), esto hay que reemplazarlo por autenticación real del lado
 del servidor — un password compartido en JS del lado del cliente nunca
 puede serlo, sin importar cuánto se lo ofusque.
 
-## La única excepción intencional
+## Excepción: feedback por mail (`sendFeedbackTo`)
 
-El botón "¿Sugerencias o encontraste un bug?" es la única función del
+El botón "¿Sugerencias o encontraste un bug?" es la primera función del
 sitio que hace una llamada de red. Manda lo que la persona escribió a
 [FormSubmit](https://formsubmit.co) (`POST` a `formsubmit.co/ajax/<email>`),
 que lo reenvía por mail a Alexis, a Franco o a ambos según lo que elija
@@ -112,6 +114,29 @@ Si una key de Gemini se expone por error (pegada en un lugar público,
 commiteada por accidente), hay que rotarla desde AI Studio — no hay forma
 de invalidarla desde RADAR mismo, porque RADAR no tiene backend que la
 custodie.
+
+## Excepción: registro de uso por nombre (`js/tracking.js`)
+
+A diferencia de las dos excepciones anteriores, ésta **no es opt-in**: es
+parte del gate de acceso. La primera vez que alguien entra a RADAR en un
+navegador, además de la contraseña de equipo tiene que poner su nombre y
+apellido — eso queda guardado en `localStorage` (`radar-user-v1`) y no se
+vuelve a pedir en ese navegador.
+
+Con esa identidad guardada, `RadarTracking.logEvent(...)` manda un `POST`
+a un Apps Script propio de Mindata (Google Sheet "RADAR — Uso", cuenta
+`mindata.es`) en dos momentos: al hacer el check-in (`evento: "check_in"`)
+y cada vez que se toca "Armar booleano" (`evento: "generar_booleano"`, con
+la red elegida). El payload es **siempre** `{ nombre, apellido, evento,
+timestamp, red? }` — nunca el texto de la JD, nunca los campos Rol/
+Atributos/Dominio/Alcance/Refinar, nunca el booleano generado. Esto es
+intencional: sirve para saber quién usa la herramienta y con qué
+frecuencia, no para auditar qué buscó cada quien.
+
+Es **fire-and-forget**: la llamada va después de que el booleano ya se
+generó y se ve en pantalla, envuelta en un `catch` silencioso — si Sheets
+no responde (sin conexión, cuota agotada, endpoint caído), no afecta en
+nada al resto de RADAR, simplemente se pierde ese evento. Ver `js/tracking.js`.
 
 ## Qué NO se guarda en ningún lado
 
