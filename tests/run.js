@@ -256,7 +256,7 @@ test("relaxed mode drops Dominio and Alcance, keeps only Rol AND Atributos", () 
   const state = { rol: ["PM Ciberseguridad"], atributos: ["AWS", "ISO 27001"], dominio: ["ciberseguridad"], alcance: ["España", "Palma"], refinar: [] };
   const full = Generator.buildUniversalBoolean(state, false);
   const relaxed = Generator.buildUniversalBoolean(state, true);
-  assert.ok(full.includes("ciberseguridad") && full.includes("España"), `full version should include dominio/alcance, got: ${full}`);
+  assert.ok(full.includes("ciberseguridad") && full.includes("Palma") && !full.includes("España OR"), `full version should keep the most specific location, got: ${full}`);
   assert.ok(!relaxed.includes("ciberseguridad") && !relaxed.includes("España"), `relaxed version must drop dominio/alcance, got: ${relaxed}`);
   assert.strictEqual(relaxed, '"PM Ciberseguridad" AND (AWS OR "ISO 27001")');
 });
@@ -374,6 +374,46 @@ test("a short manual query with role + location is accepted", () => {
   assert.strictEqual(r.isJobPosting, true);
 });
 
+test("telecom tier is context, compound field title and Canary Islands survive JD parsing", () => {
+  const r = Extractor.analyzeJD(
+    "Tier I - Técnico/a instalador/a de telecomunicaciones. Requisitos excluyentes: FTTH, OTDR y fibra óptica. Deseable Excel. Ubicación: Islas Canarias, España."
+  );
+  assert.deepStrictEqual(r.rol, ["Técnico/a instalador/a de telecomunicaciones"]);
+  assert.ok(!r.rol[0].includes("Tier I"));
+  assert.deepStrictEqual(r.alcance, ["España", "Islas Canarias"]);
+  assert.ok(r.atributos.includes("OTDR") && r.atributos.includes("FTTH"));
+  assert.ok(!r.atributos.includes("Excel"), "generic desirable skill must not be a hard filter");
+  assert.ok(r.atributosDeseables.includes("Excel"));
+  assert.deepStrictEqual(r.refinar, [], "seniority and service tier are never auto-exclusions");
+  assert.ok(Generator.buildLinkedinBooleanTiers(r)[0].label.includes("sin título"), "un título con barra de género no debe dominar la primera búsqueda");
+  assert.ok(Generator.buildXRayTiers(r, "linkedin.com/in")[0].label.includes("sin título"), "X-Ray también debe priorizar señales concretas");
+});
+
+test("a valid search can omit the title when required skills and location are explicit", () => {
+  const r = Extractor.analyzeJD("Requisitos excluyentes: FTTH, OTDR y fibra óptica. Se trabajará en Islas Canarias, España. Atención de incidencias de telecomunicaciones en campo.");
+  assert.deepStrictEqual(r.rol, []);
+  assert.strictEqual(r.isJobPosting, true);
+  assert.ok(r.atributos.length > 0);
+  const tiers = Generator.buildLinkedinBooleanTiers({ ...r, refinar: [] });
+  assert.ok(tiers.length > 0);
+  assert.ok(tiers.every((tier) => !tier.query.includes("Técnico")));
+  assert.ok(tiers.every((tier) => tier.query.includes("Islas Canarias")));
+  assert.ok(!tiers.some((tier) => tier.query === '"Islas Canarias"'), "never leave only the location as the whole search");
+});
+
+test("a titleless search can use explicit domain signals when the JD omits locality", () => {
+  const state = { rol: [], atributos: [], dominio: ["ciberseguridad"], alcance: [], refinar: [] };
+  assert.strictEqual(Generator.buildUniversalBoolean(state), "ciberseguridad");
+  const tiers = Generator.buildLinkedinBooleanTiers(state);
+  assert.strictEqual(tiers.length, 1);
+  assert.strictEqual(tiers[0].query, "ciberseguridad");
+});
+
+test("common preposition 'para' does not create a false positive for Pará, Brazil", () => {
+  assert.strictEqual(Countries.detectCountry("Buscamos un perfil para viajar a España"), "España");
+  assert.strictEqual(Countries.detectCountry("Se requiere disponibilidad para viajar"), null);
+});
+
 test("a full real JD (with no explicit role match) is still accepted via combined signals", () => {
   // dominio + país + atributos + JD-section words add up even without a
   // confidently-parsed rol — this must not be flagged as "not a JD".
@@ -411,28 +451,29 @@ test("role words like 'Manager' or 'Lead' inside the title are not mistaken for 
   assert.ok(!r2.refinarSuggestion.some((a) => a.toLowerCase() === "lead"), `refinarSuggestion should not include "lead" from the title, got [${r2.refinarSuggestion.join(", ")}]`);
 });
 
-test("'empresa/banco lider' describes the company, not the candidate's seniority", () => {
+test("seniority remains context and is never auto-added as an exclusion", () => {
   const r = Extractor.analyzeJD("Buscamos Backend Developer Python Senior para banco líder en Buenos Aires, modalidad híbrida.");
   assert.ok(!r.refinarSuggestion.some((a) => a.toLowerCase() === "líder"), `refinarSuggestion should not include "líder" from "banco líder", got [${r.refinarSuggestion.join(", ")}]`);
-  assert.ok(r.refinarSuggestion.some((a) => a.toLowerCase() === "senior"), "expected 'senior' to still be suggested");
+  assert.ok(r.seniority.some((a) => a.toLowerCase() === "senior"), "expected 'senior' to remain visible as context");
   assert.strictEqual(r.refinar.length, 0, "refinar is never auto-filled, only suggested");
 });
 
-test("a real 'líder' seniority signal is still detected when not describing the company", () => {
+test("a real 'líder' seniority signal remains context when not describing the company", () => {
   const r = Extractor.analyzeJD("Se busca Analista Contable con experiencia como líder de equipo para empresa de retail en Lima.");
-  assert.ok(r.refinarSuggestion.some((a) => a.toLowerCase() === "líder"), `expected "líder" in refinarSuggestion, got [${r.refinarSuggestion.join(", ")}]`);
+  assert.ok(r.seniority.some((a) => a.toLowerCase() === "líder"), `expected "líder" in seniority context, got [${r.seniority.join(", ")}]`);
 });
 
-test("a real seniority signal outside the title is still detected", () => {
+test("a real seniority signal outside the title remains context", () => {
   const r = Extractor.analyzeJD("Buscamos Community Manager senior con 5 años de experiencia para turismo.");
-  assert.ok(r.refinarSuggestion.some((a) => a.toLowerCase() === "senior"), "expected 'senior' in refinarSuggestion when it appears outside the title");
+  assert.ok(r.seniority.some((a) => a.toLowerCase() === "senior"), "expected 'senior' in context when it appears outside the title");
 });
 
 test("alcance only ever holds país + localidad — never modalidad or seniority", () => {
   const r = Extractor.analyzeJD("Buscamos Backend Developer Senior, Python, modalidad remota, para banco en Rosario, Argentina. 5+ años de experiencia.");
   assert.deepStrictEqual(r.alcance.sort(), ["Argentina", "Rosario"].sort());
-  assert.ok(r.refinarSuggestion.includes("senior"));
-  assert.ok(r.refinarSuggestion.includes("remoto"));
+  assert.ok(r.seniority.includes("senior"));
+  assert.ok(r.modality.includes("remoto"));
+  assert.deepStrictEqual(r.refinarSuggestion, [], "seniority and modality must never become guessed NOT filters");
 });
 
 test("locality is captured alongside country when the JD names a specific place", () => {
@@ -624,7 +665,7 @@ test("buildLinkedinBoolean keeps location — a real JD for Santiago de Composte
   assert.ok(!q.includes("España"), `only one location term — the country would just add an operator with no gain over the city: ${q}`);
 });
 
-test("buildLinkedinBooleanTiers gives three progressively broader tries, all keeping location, deduped", () => {
+test("buildLinkedinBooleanTiers includes progressively broader and roleless tries, all keeping location", () => {
   const state = {
     rol: ["Backend Developer"],
     atributos: ["AWS", "Go", "Lambda", "SQS", "SNS", "API Gateway"],
@@ -633,9 +674,11 @@ test("buildLinkedinBooleanTiers gives three progressively broader tries, all kee
     refinar: [],
   };
   const tiers = Generator.buildLinkedinBooleanTiers(state);
-  assert.strictEqual(tiers.length, 3);
+  assert.strictEqual(tiers.length, 4);
   tiers.forEach((t) => assert.ok(t.query.includes("Argentina"), `every tier should keep location: ${t.query}`));
   assert.strictEqual(tiers[2].query, '"Backend Developer" AND Argentina', `broadest tier should be rol + location only: ${tiers[2].query}`);
+  assert.ok(tiers[3].label.includes("sin título"), "last tier should allow a roleless search");
+  assert.ok(!tiers[3].query.includes("Backend Developer"), "roleless tier must not require the title");
   const uniqueQueries = new Set(tiers.map((t) => t.query));
   assert.strictEqual(uniqueQueries.size, tiers.length, "tiers should all be distinct");
 });
@@ -646,18 +689,20 @@ test("buildLinkedinBooleanTiers drops duplicate tiers when there's little to tri
   assert.strictEqual(tiers.length, 1, `all three tiers collapse to the same query: ${JSON.stringify(tiers)}`);
 });
 
-test("a skill mentioned only in the JD's Deseables/Plus section ranks behind skills from Excluyentes", () => {
+test("a skill mentioned only in the JD's Deseables/Plus section is not a mandatory filter", () => {
   const jd =
     "Buscamos Backend Developer. Requisitos Excluyentes: AWS, Lambda, SQS, SNS, API Gateway. " +
     "Deseables / Plus: experiencia en fintech, conocimiento de Java como lenguaje complementario.";
   const r = Extractor.analyzeJD(jd);
-  assert.strictEqual(r.atributos[r.atributos.length - 1], "Java", `Java (deseable-only) should rank last: ${r.atributos}`);
+  assert.ok(!r.atributos.includes("Java"), `Java is optional and must not constrain the default query: ${r.atributos}`);
+  assert.ok(r.atributosDeseables.includes("Java"), "optional skills should be available for human promotion");
 });
 
 test("a skill repeated in both Excluyentes and Deseables still ranks as required", () => {
   const jd = "Buscamos Backend Developer. Excluyente: AWS. Deseable: AWS avanzado, Java.";
   const r = Extractor.analyzeJD(jd);
-  assert.ok(r.atributos.indexOf("AWS") < r.atributos.indexOf("Java"), `AWS appears in both sections, shouldn't be deprioritized: ${r.atributos}`);
+  assert.ok(r.atributos.includes("AWS"), `AWS appears in both sections and remains required: ${r.atributos}`);
+  assert.ok(!r.atributos.includes("Java"), `Java appears only in optional section: ${r.atributos}`);
 });
 
 test("a résumé (name, phone, email up top) is never treated as a job posting, however JD-like its vocabulary reads", () => {
@@ -711,12 +756,13 @@ test("Cancún and Quintana Roo are recognized as México", () => {
 // required section — the buzzword never discriminates a search either way.
 // Real JD (Sogeti España QA) where "Playwright" only appears after
 // "VALORABLE" and was losing its cap slot to "QA"/"Testing"/"Agile".
-test("a specific optional-section skill outranks a generic required-section buzzword", () => {
+test("optional skills are surfaced without being forced into the default boolean", () => {
   const jd =
     "IMPRESCINDIBLE: 7+ años de experiencia en QA/Testing de software. Postman/SoapUI. " +
     "Entornos Agile/Scrum. SQL intermedio. VALORABLE: Automatización con Playwright + TypeScript.";
-  const atributos = Extractor.analyzeJD(jd).atributos;
-  assert.ok(atributos.includes("Playwright"), "Playwright debería estar en atributos: " + atributos.join(", "));
+  const result = Extractor.analyzeJD(jd);
+  assert.ok(!result.atributos.includes("Playwright"), "Playwright is optional and should not narrow the default search");
+  assert.ok(result.atributosDeseables.includes("Playwright"), "Playwright should be surfaced for explicit promotion");
 });
 
 // ---------------------------------------------------------------

@@ -1,5 +1,5 @@
 // Country/city terms for location detection. Accented and unaccented
-// variants are listed explicitly since matching stays accent-sensitive.
+// variants are listed explicitly for canonical display; matching ignores accents.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     module.exports = factory();
@@ -17,34 +17,46 @@
   // on purpose to avoid false-positive country detection.
   const LATAM = {
     "Argentina": [
-      "argentina", "buenos aires", "caba", "cordoba", "córdoba", "rosario", "mendoza", "la plata",
-      "santa fe", "tucuman", "tucumán", "entre rios", "entre ríos", "chaco", "neuquen", "neuquén", "misiones",
+      "argentina", "buenos aires", "caba", "capital federal", "ciudad autonoma de buenos aires", "cordoba", "córdoba", "rosario", "mendoza", "la plata",
+      "mar del plata", "santa fe", "san miguel de tucuman", "san miguel de tucumán", "tucuman", "tucumán", "entre rios", "entre ríos", "parana", "paraná",
+      "chaco", "resistencia", "neuquen", "neuquén", "misiones", "posadas", "corrientes", "santiago del estero", "san juan", "san luis", "rio negro", "río negro",
+      "bariloche", "general roca", "cipolletti", "viedma", "chubut", "comodoro rivadavia", "trelew", "santa cruz", "rio gallegos", "río gallegos",
+      "ushuaia", "tierra del fuego", "jujuy", "san salvador de jujuy", "catamarca", "la rioja", "formosa capital", "concordia", "gualeguaychu", "gualeguaychú",
+      "tandil", "bahia blanca", "bahía blanca", "quilmes", "lanus", "lanús", "avellaneda", "moron", "morón", "san isidro", "vicente lopez", "vicente lópez",
+      "villa maria", "villa maría", "rio cuarto", "río cuarto", "san rafael", "rafaela", "reconquista", "eldorado", "obera", "oberá",
     ],
     "Chile": [
       "chile", "santiago", "valparaiso", "valparaíso", "concepcion", "concepción",
-      "biobio", "biobío", "araucania", "araucanía", "coquimbo", "maule", "antofagasta", "atacama",
+      "biobio", "biobío", "araucania", "araucanía", "coquimbo", "maule", "antofagasta", "atacama", "tarapaca", "tarapacá",
+      "los lagos", "los rios", "los ríos", "aysen", "aysén", "magallanes", "viña del mar", "vina del mar", "temuco", "rancagua", "talca", "iquique", "puerto montt",
     ],
     "México": [
       "mexico", "méxico", "cdmx", "ciudad de mexico", "ciudad de méxico", "guadalajara", "monterrey", "queretaro", "querétaro",
       "jalisco", "nuevo leon", "nuevo león", "puebla", "yucatan", "yucatán", "chihuahua", "baja california", "veracruz", "michoacan", "michoacán", "oaxaca", "chiapas",
-      "cancun", "cancún", "quintana roo", "campeche", "tabasco", "merida", "mérida",
+      "cancun", "cancún", "quintana roo", "campeche", "tabasco", "merida", "mérida", "guanajuato", "san luis potosi", "san luis potosí",
+      "aguascalientes", "sinaloa", "sonora", "durango", "zacatecas", "colima", "morelos", "guerrero", "hidalgo", "tlaxcala", "nayarit", "tamaulipas",
+      "tijuana", "ciudad juarez", "ciudad juárez", "toluca", "cuernavaca", "hermosillo", "mazatlan", "mazatlán", "tuxtla gutierrez", "tuxtla gutiérrez",
     ],
     "Colombia": [
       "colombia", "bogota", "bogotá", "medellin", "medellín", "cali", "barranquilla",
       "antioquia", "valle del cauca", "atlantico", "atlántico", "cundinamarca", "bolivar", "bolívar", "narino", "nariño", "tolima",
+      "santander", "norte de santander", "caldas", "risaralda", "quindio", "quindío", "huila", "meta", "cauca", "boyaca", "boyacá", "magdalena",
+      "cartagena", "bucaramanga", "pereira", "manizales", "ibague", "ibagué", "villavicencio", "santa marta", "armenia",
     ],
-    "Perú": ["peru", "perú", "lima", "arequipa", "cusco", "la libertad", "piura", "lambayeque", "junin", "junín"],
-    "Uruguay": ["uruguay", "montevideo"],
+    "Perú": ["peru", "perú", "lima", "arequipa", "cusco", "la libertad", "piura", "lambayeque", "junin", "junín", "callao", "trujillo", "chiclayo", "huancayo", "iquitos", "puno", "tacna", "ica"],
+    "Uruguay": ["uruguay", "montevideo", "canelones", "maldonado", "punta del este", "salto", "paysandu", "paysandú"],
     "Brasil": [
       "brasil", "brazil", "sao paulo", "são paulo", "rio de janeiro", "belo horizonte",
-      "bahia", "bahía", "parana", "paraná", "rio grande do sul", "pernambuco", "ceara", "ceará", "santa catarina",
+      "bahia", "bahía", "parana", "paraná", "rio grande do sul", "pernambuco", "ceara", "ceará", "santa catarina", "brasilia", "brasília", "curitiba", "porto alegre",
+      "goias", "goiás", "amazonas", "estado do pará", "minas gerais", "espirito santo", "espírito santo", "mato grosso", "mato grosso do sul", "maranhao", "maranhão",
+      "piaui", "piauí", "sergipe", "alagoas", "rondonia", "rondônia", "acre", "amapa", "amapá", "tocantins", "florianopolis", "florianópolis", "recife", "fortaleza", "salvador", "manaus", "goiania", "goiânia", "campinas", "niteroi", "niterói",
     ],
-    "Ecuador": ["ecuador", "quito", "guayaquil"],
-    "Bolivia": ["bolivia", "la paz", "santa cruz de la sierra"],
-    "Paraguay": ["paraguay", "asuncion", "asunción"],
+    "Ecuador": ["ecuador", "quito", "guayaquil", "cuenca", "ambato", "loja", "manabi", "manabí", "azuay", "pichincha"],
+    "Bolivia": ["bolivia", "la paz", "santa cruz de la sierra", "cochabamba", "sucre", "oruro", "tarija", "potosi", "potosí"],
+    "Paraguay": ["paraguay", "asuncion", "asunción", "ciudad del este", "encarnacion", "encarnación", "central"],
     "Venezuela": ["venezuela", "caracas"],
-    "Panamá": ["panama", "panamá"],
-    "Costa Rica": ["costa rica", "san jose", "san josé"],
+    "Panamá": ["panama", "panamá", "ciudad de panama", "ciudad de panamá", "san miguelito", "colon", "colón", "chiriqui", "chiriquí"],
+    "Costa Rica": ["costa rica", "san jose", "san josé", "alajuela", "heredia", "cartago", "guanacaste", "puntarenas"],
     "República Dominicana": ["republica dominicana", "república dominicana", "santo domingo"],
   };
 
@@ -52,22 +64,30 @@
     "España": [
       "espana", "españa", "spain", "madrid", "barcelona", "valencia", "sevilla", "bilbao",
       "cataluña", "cataluna", "andalucia", "andalucía", "pais vasco", "país vasco", "galicia", "aragon", "aragón", "canarias", "murcia",
-      "mallorca", "palma", "baleares", "islas baleares", "santiago de compostela",
+      "mallorca", "palma", "baleares", "islas baleares", "santiago de compostela", "islas canarias", "canary islands", "gran canaria", "lanzarote", "fuerteventura", "la palma", "la gomera", "el hierro", "castilla y leon", "castilla y león", "castilla la mancha", "extremadura", "asturias", "cantabria", "navarra", "zaragoza", "malaga", "málaga", "granada", "alicante", "a coruña", "vigo", "valladolid", "toledo", "girona", "tarragona", "lleida", "ibiza", "menorca", "tenerife", "las palmas", "oviedo", "pamplona", "donostia", "san sebastian", "san sebastián",
     ],
-    "Reino Unido": ["reino unido", "united kingdom", "londres", "london", "manchester", "birmingham"],
+    "Reino Unido": ["reino unido", "united kingdom", "londres", "london", "manchester", "birmingham", "england", "scotland", "wales", "northern ireland", "edinburgh", "glasgow", "leeds", "liverpool", "bristol", "cambridge", "oxford", "cardiff", "belfast", "sheffield", "nottingham", "newcastle", "brighton"],
     "Alemania": [
       "alemania", "germany", "berlin", "berlín", "munich", "múnich", "frankfurt", "hamburgo", "hamburg",
-      "baviera", "bavaria", "renania", "hesse", "hessen",
+      "baviera", "bavaria", "renania", "hesse", "hessen", "north rhine-westphalia", "baden-wurttemberg", "baden-württemberg", "saxony", "lower saxony", "cologne", "köln", "dusseldorf", "düsseldorf", "stuttgart", "dresden", "leipzig", "nuremberg", "nürnberg", "bonn",
     ],
-    "Francia": ["francia", "france", "paris", "parís", "lyon", "marsella", "marseille"],
-    "Italia": ["italia", "italy", "roma", "rome", "milan", "milán", "milano"],
-    "Portugal": ["portugal", "lisboa", "lisbon", "oporto", "porto"],
-    "Países Bajos": ["paises bajos", "países bajos", "holanda", "netherlands", "amsterdam", "ámsterdam", "rotterdam"],
-    "Irlanda": ["irlanda", "ireland", "dublin", "dublín"],
-    "Polonia": ["polonia", "poland", "varsovia", "warsaw", "cracovia", "krakow"],
-    "Bélgica": ["belgica", "bélgica", "belgium", "bruselas", "brussels"],
-    "Suiza": ["suiza", "switzerland", "zurich", "zúrich", "ginebra", "geneva"],
-    "Rumania": ["rumania", "romania", "bucarest", "bucharest"],
+    "Francia": ["francia", "france", "paris", "parís", "lyon", "marsella", "marseille", "toulouse", "nantes", "lille", "bordeaux", "burdeos", "nice", "niza", "strasbourg", "montpellier", "provence", "ile-de-france", "île-de-france"],
+    "Italia": ["italia", "italy", "roma", "rome", "milan", "milán", "milano", "turin", "torino", "naples", "napoli", "bologna", "florence", "firenze", "venice", "venezia", "sicilia", "toscana", "lazio"],
+    "Portugal": ["portugal", "lisboa", "lisbon", "oporto", "porto", "braga", "coimbra", "faro", "aveiro", "madeira", "algarve"],
+    "Países Bajos": ["paises bajos", "países bajos", "holanda", "netherlands", "amsterdam", "ámsterdam", "rotterdam", "utrecht", "the hague", "la haya", "eindhoven", "groningen", "limburg", "north holland", "south holland"],
+    "Irlanda": ["irlanda", "ireland", "dublin", "dublín", "cork", "galway", "limerick", "leinster", "munster"],
+    "Polonia": ["polonia", "poland", "varsovia", "warsaw", "cracovia", "krakow", "wroclaw", "wrocław", "gdansk", "gdańsk", "poznan", "poznań", "lodz", "łódź"],
+    "Bélgica": ["belgica", "bélgica", "belgium", "bruselas", "brussels", "antwerp", "amberes", "ghent", "gante", "wallonia", "flanders"],
+    "Suiza": ["suiza", "switzerland", "zurich", "zúrich", "ginebra", "geneva", "lausanne", "basel", "berna", "bern", "ticino", "vaud"],
+    "Rumania": ["rumania", "romania", "bucarest", "bucharest", "cluj-napoca", "timisoara", "timișoara", "iasi", "iași", "brasov", "brașov"],
+    "Austria": ["austria", "viena", "wien", "salzburg", "graz", "innsbruck", "linz"],
+    "Suecia": ["suecia", "sweden", "estocolmo", "stockholm", "gothenburg", "gotemburgo", "malmo", "malmö", "uppsala"],
+    "Noruega": ["noruega", "norway", "oslo", "bergen", "stavanger", "trondheim"],
+    "Dinamarca": ["dinamarca", "denmark", "copenhague", "copenhagen", "aarhus", "odense"],
+    "Finlandia": ["finlandia", "finland", "helsinki", "tampere", "turku", "oulu"],
+    "Grecia": ["grecia", "greece", "atenas", "athens", "thessaloniki", "tesalonica"],
+    "República Checa": ["republica checa", "república checa", "czech republic", "czechia", "praga", "prague", "brno"],
+    "Hungría": ["hungria", "hungría", "hungary", "budapest", "debrecen"],
   };
 
   const OTHER = {
@@ -107,6 +127,14 @@
     "Bélgica": ["belgica", "bélgica", "belgium"],
     "Suiza": ["suiza", "switzerland"],
     "Rumania": ["rumania", "romania"],
+    "Austria": ["austria"],
+    "Suecia": ["suecia", "sweden"],
+    "Noruega": ["noruega", "norway"],
+    "Dinamarca": ["dinamarca", "denmark"],
+    "Finlandia": ["finlandia", "finland"],
+    "Grecia": ["grecia", "greece"],
+    "República Checa": ["republica checa", "república checa", "czech republic", "czechia"],
+    "Hungría": ["hungria", "hungría", "hungary"],
     "Estados Unidos": ["estados unidos", "united states", "usa"],
     "Canadá": ["canada", "canadá"],
   };
@@ -136,10 +164,42 @@
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
-  /** Whole-word, case-insensitive match. Works fine with accented letters in V8/Chromium/Node. */
+  function foldAccents(value) {
+    return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+
+  function displayLocality(terms, matched) {
+    // The lookup list may contain an unaccented spelling first for matching,
+    // but chips should preserve the canonical Spanish spelling when known.
+    const folded = foldAccents(matched);
+    const accented = terms.find((candidate) => foldAccents(candidate) === folded && candidate.normalize("NFD") !== candidate);
+    return titleCase(accented || matched);
+  }
+
+  function originalIndexForFolded(text, foldedIndex) {
+    let foldedLength = 0;
+    for (let i = 0; i < text.length; i++) {
+      const charLength = foldAccents(text[i]).length;
+      if (foldedLength >= foldedIndex) return i;
+      foldedLength += charLength;
+    }
+    return text.length;
+  }
+
+  /** Whole-word, case- and accent-insensitive match. */
   function containsWord(text, term) {
-    const re = new RegExp("(^|[^a-záéíóúñü0-9])" + escapeRegex(term.toLowerCase()) + "($|[^a-záéíóúñü0-9])", "i");
-    return re.test(text.toLowerCase());
+    const normalizedText = foldAccents(text);
+    const normalizedTerm = foldAccents(term);
+    const re = new RegExp("(^|[^a-z0-9])" + escapeRegex(normalizedTerm) + "($|[^a-z0-9])", "i");
+    return re.test(normalizedText);
+  }
+
+  const AMBIGUOUS_LOCALITIES = new Set(["salta", "salto", "santander", "meta", "formosa", "armenia", "lima", "santiago", "santa fe", "cordoba", "córdoba"]);
+  function hasLocationContext(text, index, term) {
+    const before = text.slice(Math.max(0, index - 55), index);
+    const after = text.slice(index + term.length, Math.min(text.length, index + term.length + 55));
+    return /\b(en|de|desde|para|ubicad[oa]s?|residencia|reside|radicad[oa]s?|sede en|localidad|ciudad de|provincia de|estado de|regi[oó]n de|based in|located in|from|lives in)\s+(?:the\s+)?$/i.test(before) ||
+      /^\s*(?:,|\-|\(|\/|\b(?:argentina|uruguay|colombia|espa[nñ]a|per[uú]|chile)\b)/i.test(after);
   }
 
   /** Returns the first country whose terms match the given text, or null. */
@@ -160,9 +220,11 @@
     let best = null;
     for (const term of terms) {
       if (bare.has(term) || term === excludeTerm || !containsWord(text, term)) continue;
-      const idx = text.toLowerCase().indexOf(term);
+      const foldedIndex = foldAccents(text).indexOf(foldAccents(term));
+      const idx = foldedIndex === -1 ? -1 : originalIndexForFolded(text, foldedIndex);
+      if (AMBIGUOUS_LOCALITIES.has(foldAccents(term)) && !hasLocationContext(text, idx, term)) continue;
       if (idx !== -1 && (!best || idx < best.index)) {
-        best = { term, index: idx, locality: titleCase(term) };
+        best = { term, index: idx, locality: displayLocality(terms, term) };
       }
     }
     return best;

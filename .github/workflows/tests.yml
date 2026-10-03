@@ -17,3 +17,5 @@ jobs:
       - run: node tests/locations.js
       - run: node tests/ai.js
       - run: node tests/tracking.js
+      - run: node tests/market-matrix.js
+      - run: node tests/pdf-text.js

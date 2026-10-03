@@ -46,6 +46,11 @@
     return "(" + trimmed.join(" OR ") + ")";
   }
 
+  function andGroup(terms) {
+    const trimmed = (terms || []).filter(Boolean).slice(0, MAX_TERMS_PER_GROUP);
+    return trimmed.map(quoteIfPhrase).join(" AND ");
+  }
+
   // A candidate's own profile almost never has the country in Spanish unless
   // the country itself is Spanish-speaking ("Germany", not "Alemania") —
   // adding "Germany" to a Xing search that returned nothing brought back
@@ -53,8 +58,24 @@
   // into Spanish the way it happens to do for LinkedIn's. Widens with an OR
   // instead of replacing, so it never costs a match on a site that does localize.
   function expandLocationTerm(term) {
+    const regionalAliases = {
+      "islas canarias": ["Islas Canarias", "Canarias", "Canary Islands", "Tenerife", "Gran Canaria", "Las Palmas", "Santa Cruz de Tenerife"],
+      "munich": ["Múnich", "Munich", "München"],
+      "dublin": ["Dublín", "Dublin"],
+    };
+    const region = regionalAliases[String(term || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()];
+    if (region) return region;
     const alias = Countries.searchAlias(term);
     return alias ? [term, alias] : [term];
+  }
+
+  function searchLocationTerms(state) {
+    const terms = state.alcance || [];
+    const firstIsCountry = terms.length > 1 && Object.keys(Countries.ALL_COUNTRIES).some((country) => country.toLowerCase() === terms[0].toLowerCase());
+    const hasLocality = terms.slice(1).some((term) => !Object.keys(Countries.ALL_COUNTRIES).some((country) => country.toLowerCase() === term.toLowerCase()));
+    // Country + city/region is a hierarchy, not an alternative. OR-ing the
+    // country back in silently widens a city-specific search to the nation.
+    return firstIsCountry && hasLocality ? terms.slice(1) : terms;
   }
 
   // relaxed=true drops Dominio and Alcance from the AND chain, keeping only
@@ -69,7 +90,7 @@
     // extractor.js already strips out of anything it auto-detects.
     const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix);
     const rolBlock = looseRol ? orGroupRaw(rol) : orGroup(rol);
-    const alcance = (state.alcance || []).flatMap(expandLocationTerm);
+    const alcance = searchLocationTerms(state).flatMap(expandLocationTerm);
     const blocks = [rolBlock, orGroup(state.atributos)];
     if (!relaxed) blocks.push(orGroup(state.dominio), orGroup(alcance));
     return blocks.filter(Boolean);
@@ -96,6 +117,38 @@
       out += ` -${quoteIfPhrase(t)}`;
     });
     return out.trim();
+  }
+
+  function appendExclusions(query, state) {
+    let out = query;
+    (state.refinar || []).forEach((term) => { out += ` -${quoteIfPhrase(term)}`; });
+    return out.trim();
+  }
+
+  function buildXRayTiers(state, siteDomain, relaxed, looseRol) {
+    const tiers = [{ label: "Precisa", query: buildXRayQuery(state, siteDomain, relaxed, looseRol) }];
+    const role = looseRol ? orGroupRaw(state.rol) : orGroup(state.rol);
+    const location = orGroup((state.alcance || []).slice(-1).flatMap(expandLocationTerm));
+    const usefulAttributes = (state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase()));
+    if (role && location) {
+      const balanced = [role, orGroup(usefulAttributes.slice(0, 1)), location].filter(Boolean).join(" ");
+      const query = appendExclusions((siteDomain ? `site:${siteDomain} ` : "") + balanced, state);
+      tiers.push({ label: "Equilibrada (rol + skill + ubicación)", query });
+    }
+    if (location) {
+      const filters = orGroup(usefulAttributes.slice(0, 2)) || orGroup(state.dominio);
+      if (filters) {
+        const domain = usefulAttributes.length ? orGroup((state.dominio || []).slice(0, 1)) : "";
+        const query = appendExclusions((siteDomain ? `site:${siteDomain} ` : "") + [filters, domain, location].filter(Boolean).join(" "), state);
+        tiers.push({ label: usefulAttributes.length ? "Skills + dominio + ubicación · sin título" : "Dominio + ubicación · sin título", query });
+      }
+    }
+    if ((state.rol || []).some((term) => /[a-záéíóúñ]\/a\b/i.test(term))) {
+      const index = tiers.findIndex((tier) => tier.label.includes("sin título"));
+      if (index > 0) tiers.unshift(...tiers.splice(index, 1));
+    }
+    const seen = new Set();
+    return tiers.filter((tier) => tier.query && !seen.has(tier.query) && seen.add(tier.query));
   }
 
   /**
@@ -154,8 +207,12 @@
 
   function buildLinkedinBooleanTier(state, maxAtributos) {
     const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix);
+    // A bare title such as "Auditor" matches many unrelated professions.
+    // Keep the JD's industry attached in every tier when the title is broad.
+    const broadRole = rol.length === 1 && rol[0].trim().split(/\s+/).length === 1;
     const blocks = [
       orGroup(rol),
+      broadRole ? orGroup((state.dominio || []).slice(0, 1)) : "",
       orGroup((state.atributos || []).slice(0, maxAtributos)),
       orGroup(linkedinLocationTerm(state)),
     ].filter(Boolean);
@@ -181,11 +238,43 @@
   // identical (little to trim in the first place) are deduped — no point
   // showing the same button three times.
   function buildLinkedinBooleanTiers(state) {
-    const tiers = [
-      { label: "Específica", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA) },
-      { label: "Media", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_MEDIA) },
-      { label: "Amplia (rol + ubicación)", query: buildLinkedinBooleanTier(state, 0) },
-    ];
+    const location = orGroup(linkedinLocationTerm(state));
+    const hasRole = (state.rol || []).some((term) => term && term.trim());
+    const tiers = hasRole ? [
+      { label: location ? "Específica (rol + requisitos + ubicación)" : "Específica (rol + requisitos)", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA) },
+      { label: location ? "Equilibrada (rol + 1 requisito + ubicación)" : "Equilibrada (rol + 1 requisito)", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_MEDIA) },
+      { label: location ? "Amplia (rol + ubicación)" : "Amplia (rol + dominio si aplica)", query: buildLinkedinBooleanTier(state, 0) },
+    ] : [];
+    const rolelessAttributes = orGroup((state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase())).slice(0, 2));
+    const rolelessDomain = orGroup((state.dominio || []).slice(0, 1));
+    if (location) {
+      const rolelessVariants = hasRole
+        ? [[rolelessAttributes || rolelessDomain, rolelessAttributes ? rolelessDomain : "", location]]
+        : [
+            [rolelessAttributes, rolelessDomain, location],
+            [orGroup((state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase())).slice(0, 1)), rolelessDomain, location],
+            [rolelessDomain, location],
+          ];
+      rolelessVariants.forEach((blocks, index) => {
+        const usable = blocks.filter(Boolean);
+        if (usable.length < 2 || !usable[usable.length - 1]) return;
+        let query = usable.join(" AND ");
+        (state.refinar || []).forEach((term) => { query += ` NOT ${quoteIfPhrase(term)}`; });
+        tiers.push({ label: hasRole ? "Requisitos + dominio + ubicación · sin título" : ["Skills + dominio + ubicación", "1 skill + dominio + ubicación", "Dominio + ubicación"][index], query });
+      });
+    }
+    if (!location) {
+      const filters = rolelessAttributes ? [orGroup((state.dominio || []).slice(0, 1)), rolelessAttributes].filter(Boolean).join(" AND ") : orGroup(state.dominio);
+      if (filters) {
+        let query = filters;
+        (state.refinar || []).forEach((term) => { query += ` NOT ${quoteIfPhrase(term)}`; });
+        tiers.push({ label: rolelessAttributes ? "Dominio y skills · sin título" : "Dominio · sin título", query });
+      }
+    }
+    if ((state.rol || []).some((term) => /[a-záéíóúñ]\/a\b/i.test(term))) {
+      const index = tiers.findIndex((tier) => tier.label.includes("sin título"));
+      if (index > 0) tiers.unshift(...tiers.splice(index, 1));
+    }
     const seen = new Set();
     return tiers.filter((t) => t.query && !seen.has(t.query) && seen.add(t.query));
   }
@@ -209,7 +298,7 @@
   /** Native GitHub search (people). */
   function buildGithubPeopleUrl(state) {
     const lang = detectGithubLanguage(state.atributos);
-    const cityLike = (state.alcance || []).find(
+    const cityLike = searchLocationTerms(state).slice(-1).find(
       (a) => !Keywords.SENIOR_WORDS.includes(a.toLowerCase()) && !Keywords.JUNIOR_WORDS.includes(a.toLowerCase()) && isNaN(parseInt(a, 10))
     );
     const qualifiers = [];
@@ -235,21 +324,28 @@
     return "https://github.com/search?q=" + encodeURIComponent(q) + "&type=repositories";
   }
 
+  function getTruncatedFields(state) {
+    return ["rol", "atributos", "dominio", "alcance"].filter((field) => (state[field] || []).length > MAX_TERMS_PER_GROUP);
+  }
+
   return {
     MAX_TERMS_PER_GROUP,
     quoteIfPhrase,
     orGroup,
     orGroupRaw,
+    andGroup,
     expandLocationTerm,
     coreBlocks,
     buildUniversalBoolean,
     buildXRayQuery,
+    buildXRayTiers,
     buildResumesQuery,
     googleUrl,
     bingUrl,
     linkedinSearchUrl,
     buildLinkedinBoolean,
     buildLinkedinBooleanTiers,
+    getTruncatedFields,
     detectGithubLanguage,
     stripAbbreviatedTitlePrefix,
     buildGithubPeopleUrl,

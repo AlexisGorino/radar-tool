@@ -69,7 +69,7 @@
     resumes:
       "CVs colgados en sitios personales o blogs, fuera de las redes profesionales — con mail y teléfono directo, a veces mejor que un perfil de LinkedIn. Sirve para cualquier rubro, con menos volumen.",
     custom:
-      "Para portales de empleo locales (Bumeran, Computrabajo, InfoJobs) o cualquier sitio propio. La calidad depende de cuánto indexe Google ese sitio puntual, no de RADAR.",
+      "Usá un sitio que publique perfiles o portfolios de personas. Muchos portales de empleo muestran ofertas en Google y reservan sus bases de candidatos a reclutadores con acceso propio; comprobá qué tipo de resultado devuelve el dominio.",
   };
 
   const NOTES = {
@@ -78,7 +78,7 @@
     xing: "Fuerte en Alemania, Austria y Suiza. El país va en inglés para que matchee con el perfil real.",
     behance: "Portfolios públicos de diseño, UX/UI e ilustración. Fuera de ese rubro no trae nada.",
     resumes: "Busca PDF/Word sueltos en toda la web, currículums publicados fuera de las redes profesionales.",
-    custom: "Ajustá el dominio arriba. El site: funciona igual en cualquier sitio que Google tenga indexado.",
+    custom: "El dominio solo acota páginas indexadas. Confirmá que sean perfiles de personas y no anuncios de vacantes.",
   };
 
   const HISTORY_KEY = "radar-history-v1";
@@ -109,6 +109,18 @@
   const aiSuggestHint = document.getElementById("aiSuggestHint");
   const aiAtributosRow = document.getElementById("aiAtributosRow");
   const aiAtributosList = document.getElementById("aiAtributosList");
+  const jdReview = document.getElementById("jdReview");
+  const jdReviewGrid = document.getElementById("jdReviewGrid");
+  const jdReviewSummary = document.getElementById("jdReviewSummary");
+  const jdReviewBadge = document.getElementById("jdReviewBadge");
+  const jdReviewWarning = document.getElementById("jdReviewWarning");
+  const aiAnalyzeJdBtn = document.getElementById("aiAnalyzeJdBtn");
+  const jdReviewAiNote = document.getElementById("jdReviewAiNote");
+  const jdReviewAiStatus = document.getElementById("jdReviewAiStatus");
+  const xrayTiersEl = document.getElementById("xrayTiers");
+  const generatorWarning = document.getElementById("generatorWarning");
+  let pendingAnalysis = null;
+  let currentFileName = "";
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
   const aiPanel = document.getElementById("aiPanel");
@@ -148,6 +160,7 @@
       chip.appendChild(removeBtn);
       wrap.appendChild(chip);
     });
+    renderNetworkRecommendations();
   }
 
   function renderAllChips() {
@@ -281,6 +294,22 @@
   // ---------------------------------------------------------------
   // Network tabs
   // ---------------------------------------------------------------
+  function renderNetworkRecommendations() {
+    const container = document.getElementById("networkRecommendations");
+    container.textContent = "";
+    if (!state.rol.length && !state.atributos.length) return;
+    RadarNetworks.recommendNetworks(state).forEach((suggestion) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "network-recommendation";
+      const title = document.createElement("strong");
+      title.textContent = RadarNetworks.NETWORKS[suggestion.id].label;
+      button.append(title, document.createTextNode(suggestion.reason));
+      button.addEventListener("click", () => selectNetwork(suggestion.id));
+      container.appendChild(button);
+    });
+  }
+
   function renderNetworkTabs() {
     networkTabsEl.innerHTML = "";
     RadarNetworks.NETWORK_ORDER.forEach((id) => {
@@ -313,37 +342,322 @@
   // ---------------------------------------------------------------
   // JD analysis
   // ---------------------------------------------------------------
-  function runAnalysis() {
+  function renderReviewItems(items, evidence, fieldName, result, promotable) {
+    const list = document.createElement("ul");
+    list.className = "jd-review-list";
+    if (!items || !items.length) {
+      const empty = document.createElement("li");
+      empty.className = "jd-review-empty";
+      empty.textContent = "No detectado";
+      list.appendChild(empty);
+      return list;
+    }
+    items.forEach((term) => {
+      const item = document.createElement("li");
+      const value = document.createElement("button");
+      if (fieldName) {
+        value.type = "button";
+        value.className = "jd-review-term";
+        value.textContent = (promotable ? "+ Usar: " : "× Quitar: ") + term;
+        value.title = promotable ? "Agregar a los filtros requeridos" : "Quitar este término de los filtros";
+        value.addEventListener("click", () => {
+          if (promotable) {
+            result.atributos = [...(result.atributos || []), term];
+            result.atributosDeseables = (result.atributosDeseables || []).filter((entry) => entry !== term);
+          } else {
+            result[fieldName] = (result[fieldName] || []).filter((entry) => entry !== term);
+          }
+          pendingAnalysis = result;
+          renderJdReview(result);
+        });
+        item.appendChild(value);
+      } else {
+        const text = document.createElement("strong");
+        text.textContent = term;
+        item.appendChild(text);
+      }
+      const source = Array.isArray(evidence) ? evidence.find((entry) => entry.term.toLowerCase() === term.toLowerCase()) : null;
+      const excerpt = source ? source.text : "";
+      if (excerpt) {
+        const quote = document.createElement("small");
+        quote.textContent = "“" + excerpt + "”";
+        item.appendChild(quote);
+      }
+      list.appendChild(item);
+    });
+    if (fieldName && !promotable) {
+      const addRow = document.createElement("li");
+      addRow.className = "jd-review-add";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.maxLength = 60;
+      input.placeholder = "Agregar término";
+      input.setAttribute("aria-label", "Agregar término para " + fieldName);
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "jd-review-add-button";
+      add.textContent = "+";
+      add.setAttribute("aria-label", "Agregar término");
+      const commit = () => {
+        const term = input.value.trim();
+        if (!term || (result[fieldName] || []).some((entry) => entry.toLowerCase() === term.toLowerCase())) return;
+        result[fieldName] = [...(result[fieldName] || []), term];
+        pendingAnalysis = result;
+        renderJdReview(result);
+      };
+      add.addEventListener("click", commit);
+      input.addEventListener("keydown", (event) => { if (event.key === "Enter") commit(); });
+      addRow.append(input, add);
+      list.appendChild(addRow);
+    }
+    return list;
+  }
+
+  function reviewGaps(result) {
+    const accepted = result.reviewAccepted || {};
+    return [
+      !accepted.role ? "role" : null,
+      !result.atributos.length && !accepted.requirements ? "requirements" : null,
+      !result.alcance.length && !accepted.location ? "location" : null,
+    ].filter(Boolean);
+  }
+
+  function renderReviewQuestions(result) {
+    const container = document.getElementById("jdReviewQuestions");
+    container.textContent = "";
+    const gaps = reviewGaps(result);
+    const descriptions = {
+      role: result.rol.length
+        ? [`¿Se trata de ${result.rol[0]}?`, "Confirmá el cargo, corregilo arriba o elegí una búsqueda por requisitos sin título."]
+        : ["No encontramos un cargo confiable.", "Podés escribir el cargo arriba o buscar solo por requisitos."],
+      requirements: ["No encontramos requisitos específicos.", "Agregá una herramienta, certificación o experiencia clave, o confirmá que querés continuar así."],
+      location: [result.fileCountrySuggestion ? `El archivo dice ${result.fileCountrySuggestion}; el texto de la JD no lo confirma.` : "La JD no indica ubicación.", "Agregá una ubicación arriba o confirmá que querés buscar sin ese filtro."],
+    };
+    gaps.forEach((gap) => {
+      const row = document.createElement("div");
+      row.className = "jd-review-question";
+      const copy = document.createElement("p");
+      const title = document.createElement("strong");
+      title.textContent = descriptions[gap][0] + " ";
+      copy.append(title, document.createTextNode(descriptions[gap][1]));
+      row.appendChild(copy);
+      if (gap === "role" && result.rol.length) {
+        const confirmRole = document.createElement("button");
+        confirmRole.type = "button";
+        confirmRole.className = "jd-review-choice";
+        confirmRole.textContent = "Sí, es este perfil";
+        confirmRole.addEventListener("click", () => {
+          result.reviewAccepted = { ...(result.reviewAccepted || {}), role: true };
+          renderReviewQuestions(result);
+        });
+        row.appendChild(confirmRole);
+      }
+      if (gap === "location" && result.fileCountrySuggestion) {
+        const useCountry = document.createElement("button");
+        useCountry.type = "button";
+        useCountry.className = "jd-review-choice";
+        useCountry.textContent = `Confirmar ${result.fileCountrySuggestion}`;
+        useCountry.addEventListener("click", () => {
+          result.country = result.fileCountrySuggestion;
+          result.alcance = [result.fileCountrySuggestion];
+          if (result.quality && Array.isArray(result.quality.warnings)) {
+            result.quality.warnings = result.quality.warnings.filter((warning) =>
+              !warning.startsWith("No detectamos una ubicación") && !warning.startsWith("El nombre del archivo menciona")
+            );
+          }
+          renderJdReview(result);
+        });
+        row.appendChild(useCountry);
+      }
+      const proceed = document.createElement("button");
+      proceed.type = "button";
+      proceed.className = "jd-review-choice";
+      proceed.textContent = { role: "Buscar sin título", requirements: "Continuar sin requisitos", location: "Buscar sin ubicación" }[gap];
+      proceed.addEventListener("click", () => {
+        if (gap === "role") result.rol = [];
+        result.reviewAccepted = { ...(result.reviewAccepted || {}), [gap]: true };
+        if (gap === "role") renderJdReview(result);
+        else renderReviewQuestions(result);
+      });
+      row.appendChild(proceed);
+      container.appendChild(row);
+    });
+    const hasSearchAnchor = result.rol.length || result.atributos.length;
+    const apply = document.getElementById("applyJdBtn");
+    apply.disabled = !result.isJobPosting || result.isResume || gaps.length > 0 || !hasSearchAnchor;
+    if (!hasSearchAnchor && result.isJobPosting) {
+      const message = document.createElement("p");
+      message.className = "jd-review-warning";
+      message.textContent = "Para generar una búsqueda útil, agregá al menos un cargo o un requisito específico.";
+      container.appendChild(message);
+    }
+  }
+
+  function renderJdReview(result) {
+    pendingAnalysis = result;
+    const quality = result.quality || { level: "Revisar", warnings: [], evidence: {} };
+    jdReviewBadge.textContent = quality.level;
+    jdReviewBadge.className = "jd-review-badge" + (quality.level === "Buena señal" ? " is-good" : " is-warn");
+    jdReviewSummary.textContent = result.isResume
+      ? "El documento parece un CV. No lo vamos a aplicar a los campos de búsqueda."
+      : result.isJobPosting
+        ? `Detectamos ${quality.wordCount || 0} palabras. Revisá título, requisitos y ubicación antes de continuar.`
+        : "No pudimos confirmar que el texto sea una descripción de puesto. Revisá la extracción o usá Gemini para una segunda lectura.";
+
+    jdReviewGrid.textContent = "";
+    const fields = [
+      ["Rol", result.rol, result.rol[0] && quality.evidence && quality.evidence.rol ? [{ term: result.rol[0], text: quality.evidence.rol }] : []],
+      ["Atributos detectados", result.atributos, quality.evidence && quality.evidence.atributos, "atributos"],
+      ["Deseables / baja prioridad (elegí si deben filtrar)", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
+      ["Dominio", result.dominio, quality.evidence && quality.evidence.dominio, "dominio"],
+      ["Ubicación", result.alcance, quality.evidence && quality.evidence.alcance, "alcance"],
+      ["Contexto (no filtra la búsqueda)", [...(result.seniority || []), ...(result.modality || [])], []],
+    ];
+    fields.forEach(([label, terms, evidence, fieldName, promotable]) => {
+      const card = document.createElement("div");
+      card.className = "jd-review-field";
+      const heading = document.createElement("h4");
+      heading.textContent = label;
+      card.appendChild(heading);
+      if (label === "Rol") {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "jd-review-role-input";
+        input.maxLength = 80;
+        input.value = (terms || [])[0] || "";
+        input.placeholder = "Título de perfil; puede quedar vacío si buscás por skills";
+        input.setAttribute("aria-label", "Revisar título del puesto");
+        input.addEventListener("input", () => {
+          const alternatives = result.rol.slice(1);
+          result.rol = input.value.trim() ? [input.value.trim(), ...alternatives] : alternatives;
+          result.reviewAccepted = { ...(result.reviewAccepted || {}), role: true };
+          pendingAnalysis = result;
+          renderReviewQuestions(result);
+        });
+        card.appendChild(input);
+        const excerpt = evidence && evidence[0] && evidence[0].text;
+        if (excerpt) {
+          const quote = document.createElement("small");
+          quote.className = "jd-review-source";
+          quote.textContent = "Evidencia: “" + excerpt + "”";
+          card.appendChild(quote);
+        }
+      } else {
+        if (fieldName === "alcance" && result.country) {
+          const countryLabel = document.createElement("small");
+          countryLabel.className = "jd-review-source";
+          countryLabel.textContent = "País reconocido: " + result.country;
+          card.appendChild(countryLabel);
+        }
+        card.appendChild(renderReviewItems(terms, evidence, fieldName, result, promotable));
+      }
+      jdReviewGrid.appendChild(card);
+    });
+    if (Array.isArray(result.roleAlternatives) && result.roleAlternatives.length) {
+      const alternativesCard = document.createElement("div");
+      alternativesCard.className = "jd-review-field jd-review-alternatives";
+      const heading = document.createElement("h4");
+      heading.textContent = "Títulos equivalentes sugeridos · elegí los pertinentes";
+      alternativesCard.appendChild(heading);
+      const choices = document.createElement("div");
+      choices.className = "jd-review-choices";
+      result.roleAlternatives.forEach((term) => {
+        const button = document.createElement("button");
+        const selected = result.rol.some((role) => role.toLowerCase() === term.toLowerCase());
+        button.type = "button";
+        button.className = "jd-review-choice" + (selected ? " is-selected" : "");
+        button.setAttribute("aria-pressed", selected ? "true" : "false");
+        button.textContent = (selected ? "✓ " : "+ ") + term;
+        button.addEventListener("click", () => {
+          if (selected) result.rol = result.rol.filter((role) => role.toLowerCase() !== term.toLowerCase());
+          else if (result.rol.length < RadarGenerator.MAX_TERMS_PER_GROUP) result.rol.push(term);
+          renderJdReview(result);
+        });
+        choices.appendChild(button);
+      });
+      alternativesCard.appendChild(choices);
+      jdReviewGrid.appendChild(alternativesCard);
+    }
+
+    const warnings = quality.warnings || [];
+    jdReviewWarning.textContent = warnings.join(" ");
+    jdReviewWarning.classList.toggle("hidden", warnings.length === 0 && result.isJobPosting);
+    if (!result.isJobPosting && !result.isResume && warnings.length === 0) {
+      jdReviewWarning.textContent = "Faltan señales suficientes para reconocer una vacante. No apliques estos campos sin revisarlos.";
+      jdReviewWarning.classList.remove("hidden");
+    }
+    renderReviewQuestions(result);
+    aiAnalyzeJdBtn.classList.toggle("hidden", !RadarAI.getKey() || result.isResume);
+    jdReviewAiNote.classList.toggle("hidden", aiAnalyzeJdBtn.classList.contains("hidden"));
+    jdReviewAiStatus.textContent = "";
+    jdReview.classList.remove("hidden");
+  }
+
+  function applyPendingAnalysis() {
+    if (!pendingAnalysis || !pendingAnalysis.isJobPosting || pendingAnalysis.isResume || reviewGaps(pendingAnalysis).length || (!pendingAnalysis.rol.length && !pendingAnalysis.atributos.length)) return;
+    FIELDS.forEach((field) => {
+      state[field] = (pendingAnalysis[field] || []).slice();
+    });
+    renderAllChips();
+    countrySelect.value = pendingAnalysis.country || RadarCountries.detectCountry(pendingAnalysis.alcance.join(" ")) || "";
+    renderRefinarSuggestions(pendingAnalysis.refinarSuggestion || []);
+    resultsEl.classList.remove("show");
+    jdReview.classList.add("hidden");
+    pendingAnalysis = null;
+    document.getElementById("chips-rol").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  function runAnalysis(fileName) {
     const text = jdInput.value;
     if (!text.trim()) {
       showError("Pegá o subí una JD antes de analizar.", "file");
       return;
     }
-    const result = RadarExtractor.analyzeJD(text);
-    if (result.isResume) {
-      openJdWarning("Esto parece un CV (nombre, teléfono y mail al principio), no una descripción de puesto — subí la JD de la vacante, no el currículum de un candidato.");
-      return;
-    }
-    if (!result.isJobPosting) {
-      openJdWarning("No encontramos rol, ubicación, skills ni palabras típicas de una JD (\"requisitos\", \"responsabilidades\"...) — esto no parece una descripción de puesto.");
-      return;
-    }
-    FIELDS.forEach((f) => {
-      (result[f] || []).forEach((term) => addTerm(f, term));
-    });
-    if (result.country) {
-      countrySelect.value = result.country;
-    }
-    renderRefinarSuggestions(result.refinarSuggestion || []);
-    // La JD pasó el chequeo general (tiene país/skills/palabras de JD de sobra)
-    // pero el propio Rol quedó vacío — pasa con PDFs que llegan con el texto
-    // mal extraído (espaciado roto, columnas). Mejor avisar que dejar el campo
-    // más importante en blanco sin decir nada.
-    if (!result.rol || !result.rol.length) {
-      openJdWarning("Analizamos la JD pero no pudimos identificar el título del puesto con confianza — completá el campo Rol a mano abajo. El resto de los campos sí se completaron.");
-    }
+    const result = RadarExtractor.analyzeJD(text, { fileName: typeof fileName === "string" ? fileName : currentFileName });
+    renderJdReview(result);
   }
-  document.getElementById("analyzeBtn").addEventListener("click", runAnalysis);
+  jdInput.addEventListener("input", () => {
+    currentFileName = "";
+    pendingAnalysis = null;
+    jdReview.classList.add("hidden");
+  });
+  document.getElementById("analyzeBtn").addEventListener("click", () => runAnalysis());
+  document.getElementById("applyJdBtn").addEventListener("click", applyPendingAnalysis);
+  document.getElementById("dismissJdBtn").addEventListener("click", () => jdReview.classList.add("hidden"));
+  aiAnalyzeJdBtn.addEventListener("click", async () => {
+    if (!pendingAnalysis || !jdInput.value.trim()) return;
+    const sourceText = jdInput.value;
+    aiAnalyzeJdBtn.disabled = true;
+    jdReviewAiStatus.classList.remove("hint-error");
+    jdReviewAiStatus.textContent = "Analizando la JD con Gemini…";
+    try {
+      const aiResult = await RadarAI.analyzeJD(sourceText);
+      if (jdInput.value !== sourceText) {
+        jdReviewAiStatus.textContent = "La JD cambió durante el análisis. Volvé a analizar el texto actualizado.";
+        return;
+      }
+      if (!aiResult.isJobPosting) {
+        jdReviewAiStatus.classList.add("hint-error");
+        jdReviewAiStatus.textContent = "Gemini tampoco pudo confirmar con evidencia que sea una vacante. Revisá el texto o completá los campos manualmente.";
+        return;
+      }
+      aiResult.quality = {
+        level: "Analizado con Gemini · revisá antes de usar",
+        wordCount: (jdInput.value.match(/[\p{L}\p{N}]+/gu) || []).length,
+        warnings: (aiResult.quality && aiResult.quality.warnings) || [],
+        evidence: (aiResult.quality && aiResult.quality.evidence) || {},
+      };
+      aiResult.fileCountrySuggestion = !aiResult.country && currentFileName ? RadarCountries.detectCountry(currentFileName) : null;
+      pendingAnalysis = aiResult;
+      renderJdReview(aiResult);
+      jdReviewAiStatus.textContent = "Análisis actualizado. Verificá cada dato antes de aplicarlo.";
+    } catch (err) {
+      jdReviewAiStatus.classList.add("hint-error");
+      jdReviewAiStatus.textContent = err.message || "No se pudo analizar la JD con Gemini.";
+    } finally {
+      aiAnalyzeJdBtn.disabled = false;
+    }
+  });
 
   // ---------------------------------------------------------------
   // Refinar suggestions (seniority/modality the JD mentions) — shown as
@@ -387,7 +701,7 @@
               pdf
                 .getPage(pageNum)
                 .then((page) => page.getTextContent())
-                .then((content) => textSoFar + content.items.map((item) => item.str).join(" ") + "\n")
+                .then((content) => textSoFar + RadarPdfText.extractTextItems(content.items) + "\n")
             ),
           Promise.resolve("")
         );
@@ -396,6 +710,7 @@
 
   function loadTextFile(file) {
     if (!file) return;
+    currentFileName = file.name;
     const isTxt = file.type === "text/plain" || /\.txt$/i.test(file.name);
     const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 
@@ -412,7 +727,7 @@
       const reader = new FileReader();
       reader.onload = () => {
         jdInput.value = String(reader.result || "").slice(0, 20000);
-        runAnalysis();
+        runAnalysis(file.name);
       };
       reader.onerror = () => showError("No se pudo leer el archivo.", "file");
       reader.readAsText(file);
@@ -440,7 +755,7 @@
           }
           jdInput.value = trimmed.slice(0, 20000);
           showError("", "file");
-          runAnalysis();
+          runAnalysis(file.name);
         })
         .catch(() => showError("No se pudo leer ese PDF. Puede estar dañado o protegido.", "file"));
     };
@@ -500,6 +815,11 @@
     const relaxed = relaxedModeCheckbox.checked;
     const universal = RadarGenerator.buildUniversalBoolean(state, relaxed);
     document.getElementById("out-universal").textContent = universal;
+    const truncated = RadarGenerator.getTruncatedFields(state);
+    generatorWarning.textContent = truncated.length
+      ? "Esta red admite hasta 6 términos por grupo. La búsqueda recortó términos de: " + truncated.join(", ") + ". Quitá los menos importantes o generá una estrategia más amplia."
+      : "";
+    generatorWarning.classList.toggle("hidden", truncated.length === 0);
 
     const net = RadarNetworks.NETWORKS[selectedNetwork];
 
@@ -536,9 +856,21 @@
       if (net.mode === "resumes") {
         xrayQuery = RadarGenerator.buildResumesQuery(state, relaxed);
         label = "Búsqueda — " + net.label;
+        xrayTiersEl.textContent = "";
       } else {
         const siteDomain = selectedNetwork === "custom" ? customSiteInput.value.trim().replace(/^https?:\/\//, "") : net.site;
-        xrayQuery = RadarGenerator.buildXRayQuery(state, siteDomain, relaxed, net.looseRol);
+        const tiers = RadarGenerator.buildXRayTiers(state, siteDomain, relaxed, net.looseRol);
+        xrayQuery = tiers[0] ? tiers[0].query : RadarGenerator.buildXRayQuery(state, siteDomain, relaxed, net.looseRol);
+        xrayTiersEl.textContent = "";
+        tiers.slice(1).forEach((tier) => {
+          const link = document.createElement("a");
+          link.className = "btn btn-engine";
+          link.href = RadarGenerator.googleUrl(tier.query);
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "Google · " + tier.label;
+          xrayTiersEl.appendChild(link);
+        });
         label = "X-Ray — " + net.label;
       }
       document.getElementById("out-xray").textContent = xrayQuery;
@@ -553,8 +885,12 @@
   }
 
   document.getElementById("generateBtn").addEventListener("click", () => {
-    if (!state.rol.length) {
-      showError("Completá al menos el campo Rol antes de generar.");
+    if (selectedNetwork === "custom" && !customSiteInput.value.trim()) {
+      showError("Indicá el dominio público donde querés buscar perfiles.");
+      return;
+    }
+    if (!state.rol.length && !state.atributos.length && !state.dominio.length && !state.alcance.length) {
+      showError("Agregá al menos un criterio de búsqueda: rol, skill, industria o ubicación.");
       return;
     }
     const universal = renderResults();
@@ -600,6 +936,9 @@
       renderChips(f);
     });
     jdInput.value = "";
+    currentFileName = "";
+    pendingAnalysis = null;
+    jdReview.classList.add("hidden");
     countrySelect.value = "";
     customSiteInput.value = "";
     minStarsInput.value = "";
@@ -608,6 +947,7 @@
     resultsEl.classList.remove("show");
     Object.values(errorSlots).forEach((el) => (el.textContent = ""));
     renderRefinarSuggestions([]);
+    generatorWarning.classList.add("hidden");
   });
 
   // ---------------------------------------------------------------

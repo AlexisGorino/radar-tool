@@ -11,8 +11,8 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=24">
-<script src="js/gate.js?v=24"></script>
+<link rel="stylesheet" href="css/styles.css?v=27">
+<script src="js/gate.js?v=27"></script>
 </head>
 <body>
 
@@ -52,11 +52,11 @@
 
 <main class="wrap">
 
-  <p class="intro">Pegá una JD, arrastrá un archivo de texto, o completá los campos a mano. Vas a obtener un booleano corto y listo para usar en cualquier buscador, más variantes para LinkedIn, GitHub y otras redes.</p>
+  <p class="intro">RADAR convierte una búsqueda en criterios revisables, separa requisitos de deseables y propone rutas de búsqueda para cada red. Antes de generar, vas a poder corregir el cargo, las skills y el alcance geográfico.</p>
 
   <section class="card">
     <h2>1 · Job description</h2>
-    <p class="hint">Detector de palabras clave: no es magia, revisá las sugerencias antes de generar.</p>
+    <p class="hint">Pegá o adjuntá la JD. RADAR detecta señales y te muestra qué entendió para que puedas corregirlo antes de buscar.</p>
 
     <div id="dropzone" class="dropzone">
       <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description" placeholder="Pegá el texto de la JD acá, o soltá un archivo .txt o .pdf en esta zona..."></textarea>
@@ -70,11 +70,28 @@
       </label>
       <button class="btn btn-ghost" id="clearAllBtn" type="button">Borrar todo</button>
     </div>
+    <section class="jd-review hidden" id="jdReview" aria-live="polite" aria-labelledby="jdReviewTitle">
+      <div class="jd-review-head">
+        <div><h3 id="jdReviewTitle">Revisá la vacante detectada</h3><p class="hint" id="jdReviewSummary"></p></div>
+        <span class="jd-review-badge" id="jdReviewBadge"></span>
+      </div>
+      <div class="jd-review-grid" id="jdReviewGrid"></div>
+      <div class="jd-review-questions" id="jdReviewQuestions"></div>
+      <p class="jd-review-help">Los términos detectados se pueden quitar o completar antes de aplicar. Los deseables solo filtran si los promovés.</p>
+      <p class="jd-review-warning hidden" id="jdReviewWarning"></p>
+      <div class="jd-review-actions">
+        <button class="btn btn-primary" id="applyJdBtn" type="button">Usar estos campos en RADAR</button>
+        <button class="btn btn-ghost" id="dismissJdBtn" type="button">Seguir editando la JD</button>
+        <button class="btn btn-ghost hidden" id="aiAnalyzeJdBtn" type="button">✨ Mejorar análisis con Gemini</button>
+      </div>
+      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">Al tocar “Mejorar análisis”, se enviará el texto de esta JD directamente a Google Gemini usando tu API key. RADAR no lo envía a Mindata.</p>
+      <p class="jd-review-ai-status" id="jdReviewAiStatus" role="status"></p>
+    </section>
   </section>
 
   <section class="card">
     <h2>2 · Campos RADAR</h2>
-    <p class="hint">Escribí un término y Enter para agregarlo. Click en la × para sacarlo. Sin límite de términos.</p>
+    <p class="hint">Escribí un término y Enter para agregarlo. Click en la × para sacarlo. El generador avisa si una red limita términos.</p>
 
     <div class="radar-grid">
       <div class="field">
@@ -113,7 +130,7 @@
       <div class="field field-alt">
         <div class="field-letter">A</div>
         <div class="field-label">Alcance</div>
-        <div class="field-desc">Ubicación, modalidad, seniority</div>
+        <div class="field-desc">País y localidad</div>
         <div class="alcance-country-row">
           <select id="countrySelect" aria-label="País">
             <option value="">País...</option>
@@ -139,10 +156,11 @@
   <section class="card">
     <h2>3 · Dónde buscar</h2>
     <p class="hint">Elegí la red. Cada una tiene su propia sintaxis, ya ajustada.</p>
+    <div class="network-recommendations" id="networkRecommendations" aria-live="polite"></div>
     <div class="network-tabs" id="networkTabs"></div>
     <p class="network-description" id="networkDescription"></p>
     <div class="custom-site-row hidden" id="customSiteRow">
-      <label>Dominio del sitio <input type="text" id="customSiteInput" placeholder="ej: bumeran.com.ar"></label>
+      <label>Dominio con perfiles públicos <input type="text" id="customSiteInput" placeholder="ej: portfolio.ejemplo.com"></label>
     </div>
     <div class="github-mode-row hidden" id="githubModeRow">
       <label><input type="radio" name="ghmode" value="people" checked> Buscar personas</label>
@@ -160,6 +178,7 @@
     <div class="result-hero" id="resultHero">
       <div class="result-hero-label">Booleano universal</div>
       <div class="boolean-box boolean-box-lg" id="out-universal">—</div>
+      <p class="platform-note platform-note-warn hidden" id="generatorWarning"></p>
       <p class="platform-note">AND / OR / NOT y comillas. Sirve tal cual en LinkedIn Recruiter y en la mayoría de los buscadores internos de portales y ATS.</p>
       <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
       <label class="relaxed-toggle">
@@ -176,7 +195,7 @@
       </div>
       <div class="boolean-box" id="out-linkedin">—</div>
       <div class="engine-buttons" id="linkedinTiers"></div>
-      <p class="platform-note">Más corto que el booleano universal a propósito: LinkedIn con cuenta gratis (no Recruiter) rompe la búsqueda a partir de 3-4 operadores AND/OR — probado en vivo, un booleano más largo dio cero resultados. Si la primera no trae a nadie, probá las otras: van sacando atributos hasta quedarse solo con el puesto. Dominio y Alcance no van acá: aplicalos con los filtros de Ubicación/Sector de LinkedIn en la página de resultados, son más precisos que buscar el país como texto suelto.</p>
+      <p class="platform-note">RADAR propone búsquedas progresivas y, cuando el título es demasiado literal, prioriza requisitos sin exigirlo. La ubicación escrita en la consulta no reemplaza el filtro “Ubicación” de LinkedIn: seleccioná allí la ciudad o región antes de evaluar perfiles.</p>
     </div>
 
     <div class="result-secondary" id="resultXray">
@@ -189,6 +208,7 @@
         <a class="btn btn-engine btn-engine-primary" id="openGoogle" href="#" target="_blank" rel="noopener noreferrer">Abrir en Google</a>
         <a class="btn btn-engine" id="openBing" href="#" target="_blank" rel="noopener noreferrer">Abrir en Bing (menos confiable hoy)</a>
       </div>
+      <div class="engine-buttons" id="xrayTiers"></div>
       <p class="platform-note" id="xrayNote"></p>
       <p class="platform-note platform-note-warn">Probado en vivo: Bing viene ignorando el <code>site:</code> en X-Ray (devuelve resultados sin relación, de cualquier sitio). Empezá siempre por Google — si tampoco trae nada, copiá el booleano y pegalo directo en el buscador del sitio.</p>
     </div>
@@ -205,7 +225,7 @@
 
   </section>
 
-  <p class="privacy-note">Todo corre en tu navegador. Ningún dato de la JD sale de esta página ni se guarda en ningún servidor. El historial (si lo usás) se guarda solo en este navegador, nunca se envía a ningún lado. Las únicas excepciones: lo que escribas en "¿Sugerencias o encontraste un bug?" (solo al tocar Enviar), y el Rol + un extracto de la JD si activaste "Sugerir con IA" con tu propia key — en ese caso va directo a Gemini, nunca pasa por un servidor de Mindata.</p>
+  <p class="privacy-note">La JD se analiza en este navegador y no se guarda en un servidor de Mindata. El historial queda en este navegador. Al entrar y generar búsquedas, RADAR registra en una hoja de uso tu nombre, apellido, fecha, acción y red, nunca el contenido de la JD. El feedback se envía a la persona elegida al tocar Enviar. Si usás Gemini, el texto de la JD se envía directamente a Google al tocar “Mejorar análisis” o “Sugerir con IA”.</p>
 
   <div class="feedback-row">
     <button class="btn btn-ghost btn-small" id="feedbackBtn" type="button">¿Sugerencias o encontraste un bug?</button>
@@ -316,13 +336,14 @@
 </div>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/countries.js?v=24"></script>
-<script src="js/keywords.js?v=24"></script>
-<script src="js/networks.js?v=24"></script>
-<script src="js/extractor.js?v=24"></script>
-<script src="js/generator.js?v=24"></script>
-<script src="js/ai.js?v=24"></script>
-<script src="js/tracking.js?v=24"></script>
-<script src="js/app.js?v=24"></script>
+<script src="js/pdf-text.js?v=27"></script>
+<script src="js/countries.js?v=27"></script>
+<script src="js/keywords.js?v=27"></script>
+<script src="js/networks.js?v=27"></script>
+<script src="js/extractor.js?v=27"></script>
+<script src="js/generator.js?v=27"></script>
+<script src="js/ai.js?v=27"></script>
+<script src="js/tracking.js?v=27"></script>
+<script src="js/app.js?v=27"></script>
 </body>
 </html>

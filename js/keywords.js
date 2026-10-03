@@ -21,7 +21,9 @@
     "GitHub Actions", "Jenkins", "GitLab CI",
     "SQL", "NoSQL", "MongoDB", "PostgreSQL", "MySQL", "Redis", "DynamoDB",
     "DevOps", "SRE", "Scrum", "Kanban", "Agile",
-    "GPON", "RF", "Networking", "Cisco", "Telecomunicaciones",
+    "GPON", "FTTH", "RF", "Networking", "Cisco", "Fibra óptica", "Fibra optica", "OTDR", "Fusionadora", "Empalme de fibra",
+    "Ekahau", "nPerf", "Baja tensión",
+    "Cableado estructurado", "Radioenlace", "Redes HFC", "Instalación de antenas", "Instalacion de antenas", "CCTV", "Trabajo en altura",
     "Fortinet", "Palo Alto Networks", "Check Point", "Juniper", "Aruba", "Meraki", "SD-WAN", "MPLS",
     "QA", "Testing", "Automation", "Selenium", "Cypress",
     "Machine Learning", "Data Science", "Power BI", "Tableau", "ETL", "Spark",
@@ -89,7 +91,7 @@
   // Common to almost every posting in their category — real, but they don't
   // discriminate a search the way a specific tool/framework/cert does.
   // Ranked last in Atributos so the technical, specific terms win the cap.
-  const GENERIC_SKILLS = ["Scrum", "Kanban", "Agile", "DevOps", "QA", "Testing", "ERP", "CRM"];
+  const GENERIC_SKILLS = ["Scrum", "Kanban", "Agile", "DevOps", "QA", "Testing", "ERP", "CRM", "Excel", "Excel avanzado", "Networking"];
 
   const SENIOR_WORDS =["senior", "sr", "lead", "líder", "lider", "manager", "gerente", "head", "director", "principal"];
   const JUNIOR_WORDS = ["junior", "jr", "trainee", "practicante", "ssr", "semi-senior", "semi senior", "pasante", "intern"];
@@ -110,6 +112,10 @@
     "scrum master": ["agile coach", "facilitador ágil"],
     "data scientist": ["científico de datos", "analista de datos"],
     "devops": ["sre", "ingeniero de infraestructura", "platform engineer"],
+    "tecnico instalador": ["técnico de campo", "field technician", "instalador de telecomunicaciones", "técnico de fibra óptica"],
+    "técnico instalador": ["tecnico de campo", "field technician", "instalador de telecomunicaciones", "tecnico de fibra optica"],
+    "instalador de telecomunicaciones": ["técnico instalador", "técnico de campo", "telecom field technician", "instalador de fibra óptica"],
+    "tecnico de telecomunicaciones": ["técnico instalador", "telecom technician", "field technician"],
   };
 
   const GH_LANGUAGES = [

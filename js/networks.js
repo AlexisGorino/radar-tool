@@ -23,5 +23,25 @@
 
   const NETWORK_ORDER = ["linkedin", "github", "stackoverflow", "xing", "behance", "resumes", "custom"];
 
-  return { NETWORKS, NETWORK_ORDER };
+  // Suggestions are based on the type of public profile each network holds.
+  // They describe a useful starting point, not a claim that candidates exist.
+  function recommendNetworks(state) {
+    const terms = [...(state.rol || []), ...(state.atributos || []), ...(state.dominio || [])].join(" ").toLowerCase();
+    const country = (state.country || (state.alcance || [])[0] || "").toLowerCase();
+    const result = [{ id: "linkedin", reason: "Perfiles profesionales de múltiples rubros" }];
+    if (/developer|desarrollador|programador|software|devops|sre|data engineer|ingenier[oa] de datos|python|java|kubernetes|github|react/.test(terms)) {
+      result.push({ id: "github", reason: "Actividad técnica y proyectos públicos" });
+      result.push({ id: "stackoverflow", reason: "Participación técnica pública" });
+    }
+    if (/diseñ|disen|designer|ux|ui|figma|ilustra/.test(terms)) {
+      result.push({ id: "behance", reason: "Portfolios y trabajos visuales" });
+    }
+    if (/alemania|austria|suiza|germany|austria|switzerland/.test(country)) {
+      result.push({ id: "xing", reason: "Red profesional con foco en mercados DACH" });
+    }
+    result.push({ id: "resumes", reason: "CVs públicos indexados en la web" });
+    return result;
+  }
+
+  return { NETWORKS, NETWORK_ORDER, recommendNetworks };
 });

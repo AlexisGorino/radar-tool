@@ -11,9 +11,11 @@ node tests/jd-bank.js    # tests de regresión con JDs reales
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 node tests/ai.js         # prompt y parseo de ai.js (sin red real)
 node tests/tracking.js   # payload y manejo de localStorage de tracking.js (sin red real)
+node tests/market-matrix.js # 18 roles y mercados representativos, sin red
+node tests/pdf-text.js      # preservación de líneas del PDF, validación y recomendaciones
 ```
 
-339 casos en total, sin dependencias ni framework. `tests/run.js` cubre las
+Los tests corren sin dependencias ni framework. `tests/run.js` cubre las
 funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
@@ -24,10 +26,54 @@ antes de que lleguen a producción. `tests/locations.js` prueba que además
 de capitales y ciudades grandes se detecten provincias/estados/regiones
 (Neuquén, Jalisco, Cataluña, Baviera...) y que palabras comunes que se
 parecen a un nombre de provincia (ej. "salta" como verbo) no disparen un
-falso positivo. `tests/ai.js` cubre `buildPrompt` y `parseSuggestions` de
-`js/ai.js` con datos mockeados — no llama a la API real de Gemini, ni acá
+falso positivo. `tests/ai.js` cubre prompts, sugerencias y análisis de JD
+con evidencia mockeada — no llama a la API real de Gemini, ni acá
 ni en CI, porque `suggestTerms` requiere una key que no existe en ese
 entorno.
+
+## Reproducción del PDF de Auditor (octubre de 2026)
+
+Se cargó en la interfaz local el PDF proporcionado por el usuario. Antes de la
+corrección, pdf.js unía todos los fragmentos con espacios y el analizador
+elegía un `Puesto:` del pie de firmas como cargo. Ahora conserva saltos de
+línea y espacios propios del PDF, identifica `Auditor`, `Ekahau`, `nPerf`,
+`Baja tensión` y `telecomunicaciones`. `TIER II/III` se interpreta como
+posibilidad de promoción, no como cargo. España aparece solo en el nombre del
+archivo: RADAR solicita confirmación antes de usarla como ubicación.
+
+## Comprobaciones externas recientes
+
+- LinkedIn redirigió a inicio de sesión; no se pudo medir cantidad ni
+  pertinencia de resultados internos sin una sesión del reclutador.
+- GitHub devolvió 39 perfiles para Backend Developer/Python con el filtro
+  nativo `location:"Buenos Aires"`; varios perfiles visibles coincidían con
+  el rol y la ubicación. Se corrigió la selección de ciudad frente a país.
+- Google mostró perfiles para Auditor/Ekahau en España, pero parte de los
+  resultados eran perfiles de redes o seguridad sin función de auditoría.
+- Google mostró perfiles de telecomunicaciones para FTTH/OTDR/Canarias,
+  incluidos también algunos fuera de la región. Una ubicación escrita como
+  palabra clave no equivale al filtro geográfico propio de LinkedIn.
+- Stack Overflow mostró perfiles técnicos para Backend/Python/Django; con
+  Buenos Aires el conjunto fue mucho menor. Behance mostró portfolios de UX
+  con Figma en Madrid, con duplicados por versiones de idioma.
+- Xing mostró perfiles de SAP FICO con la palabra Germany, incluidos algunos
+  fuera de Alemania. Los CVs públicos de contabilidad ofrecieron algunos
+  documentos, pero no respetaron de forma estricta Lima/NIIF.
+- La búsqueda de InfoJobs por Google mostró ofertas laborales, no candidatos.
+  No se recomienda presentar portales de ofertas como fuente de perfiles
+  públicos sin verificarlo previamente.
+- Bing presentó un desafío de verificación; esta sesión no permitió validar
+  nuevos resultados. La opción queda marcada como menos confiable en RADAR.
+- Una muestra de Recruiter/ATS en Buenos Aires y otra de Analista Contable/NIIF
+  en Lima mostraron perfiles públicos relacionados con esos puestos. Algunos
+  resultados contenían la ciudad en una experiencia anterior: el reclutador
+  debe confirmar ubicación actual dentro de la red.
+- Bumeran, igual que InfoJobs, mostró principalmente ofertas en Google.
+  Dribbble devolvió páginas de directorio de diseñadores, no perfiles
+  individuales consistentes; por eso no se añadió como red sugerida.
+- Microsoft Edge no estuvo disponible en el entorno de pruebas. La prueba
+  de interfaz se hizo en el navegador integrado; queda pendiente la revisión
+  manual en Edge de escritorio.
 
 Correr los tres primeros antes de cualquier cambio a `extractor.js`,
 `generator.js`, `keywords.js` o `countries.js` — son los módulos donde un
@@ -405,6 +451,13 @@ origen, no del extractor.
 - [ ] Pegar texto claramente no relacionado (una noticia, una receta) y
       analizar → mensaje de error ("no parece una descripción de puesto"),
       ningún campo se completa con ruido.
+- [ ] Pegar una JD de Tier I para técnico/a instalador/a en Islas Canarias →
+      el nivel no contamina el título, la localidad queda específica y los
+      requisitos no se mezclan con los deseables.
+- [ ] Probar una JD sin título explícito pero con requisitos y ubicación →
+      ofrece una búsqueda por criterios sin inventar ni exigir un cargo.
+- [ ] Revisar el análisis → quitar y agregar términos, promover deseables
+      cuando corresponda y confirmar cualquier campo de baja confianza.
 
 **Campos RADAR**
 - [ ] Escribir un término y Enter en cada uno de los 5 campos → aparece

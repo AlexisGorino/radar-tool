@@ -55,6 +55,51 @@ test("parseSuggestions descarta entradas que no son string y corta en 6", () => 
   assert.strictEqual(AI.parseSuggestions(data).roles.length, 6);
 });
 
+test("parseJDAnalysis accepts only evidence-backed role, requirements and location", () => {
+  const jd = "Buscamos Técnico instalador de telecomunicaciones con FTTH para Islas Canarias, España. Requisitos excluyentes: FTTH y OTDR.";
+  const payload = {
+    isJobPosting: true,
+    jobEvidence: "Buscamos Técnico instalador de telecomunicaciones",
+    role: { term: "Técnico instalador de telecomunicaciones", evidence: "Buscamos Técnico instalador de telecomunicaciones" },
+    roleAlternatives: ["Field Technician"],
+    requiredSkills: [
+      { term: "FTTH", evidence: "con FTTH" },
+      { term: "OTDR", evidence: "con FTTH" },
+      { term: "Kubernetes", evidence: "con FTTH" },
+    ],
+    preferredSkills: [],
+    industries: [],
+    locations: [{ country: "España", locality: "Islas Canarias", evidence: "para Islas Canarias, España" }],
+    seniority: { term: "Tier I", evidence: "Buscamos Técnico instalador de telecomunicaciones" },
+    modality: { term: "híbrido", evidence: "para Islas Canarias, España" },
+  };
+  const result = AI.parseJDAnalysis({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] }, jd);
+  assert.strictEqual(result.isJobPosting, true);
+  assert.deepStrictEqual(result.rol, ["Técnico instalador de telecomunicaciones"]);
+  assert.deepStrictEqual(result.atributos, ["FTTH"]);
+  assert.deepStrictEqual(result.alcance, ["España", "Islas Canarias"]);
+  assert.deepStrictEqual(result.seniority, []);
+  assert.deepStrictEqual(result.modality, []);
+});
+
+test("parseJDAnalysis refuses a model's unsupported title and still permits a strong roleless search", () => {
+  const jd = "Requisitos excluyentes: FTTH y OTDR en Islas Canarias, España.";
+  const payload = {
+    isJobPosting: true,
+    jobEvidence: "Requisitos excluyentes: FTTH",
+    role: { term: "Director de Operaciones", evidence: "Requisitos excluyentes: FTTH" },
+    roleAlternatives: [],
+    requiredSkills: [{ term: "FTTH", evidence: "Requisitos excluyentes: FTTH" }],
+    preferredSkills: [], industries: [],
+    locations: [{ country: "España", locality: "Islas Canarias", evidence: "Islas Canarias, España" }],
+    seniority: { term: "", evidence: "" }, modality: { term: "", evidence: "" },
+  };
+  const result = AI.parseJDAnalysis({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] }, jd);
+  assert.strictEqual(result.isJobPosting, true);
+  assert.deepStrictEqual(result.rol, []);
+  assert.ok(result.atributos.includes("FTTH"));
+});
+
 test("getKey/setKey redondean sobre un localStorage falso", () => {
   const store = {};
   global.localStorage = {

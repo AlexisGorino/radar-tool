@@ -15,9 +15,10 @@ Pages o publicada como página estática en cualquier lado.
 
 - **Método RADAR**: Rol, Atributos, Dominio, Alcance, Refinar — cinco campos
   que arman el booleano.
-- **Analizador de JD**: pegá el texto, o arrastrá/subí un `.txt` o `.pdf`
-  (se lee en el navegador, no sube a ningún lado), y el detector completa
-  los cinco campos solo (rol, skills, industria, país, modalidad, seniority).
+- **Analizador de JD con revisión**: pegá el texto, o arrastrá/subí un `.txt` o
+  `.pdf` (se lee en el navegador). RADAR muestra cargo, requisitos, industria,
+  ubicación y evidencia antes de aplicar nada. Pregunta por los datos que faltan.
+  Si el país está solo en el nombre del archivo, pide confirmarlo.
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
 - **Sugerencias con IA (opcional)**: cargando tu propia key gratuita de
@@ -33,6 +34,10 @@ Pages o publicada como página estática en cualquier lado.
   ciberseguridad, telecomunicaciones, RRHH y diseño en distintos países (ver
   `TESTING.md`) — Indeed CVs, X/Twitter y Wellfound se sacaron del listado
   porque, probados de verdad, no traían candidatos reales.
+- **Rutas sugeridas**: prioriza LinkedIn para búsquedas generales, GitHub para
+  perfiles técnicos, Behance para diseño y Xing para mercados DACH. Son puntos
+  de partida; cada red conserva sus filtros y límites propios. Los portales que
+  publican ofertas, pero no perfiles, no sirven como fuente de candidatos por X-Ray.
 - **Historial de búsquedas**: guarda las últimas 20 búsquedas en el propio
   navegador (no en un servidor) para recuperarlas con un click.
 - **Registro de uso por nombre**: al entrar por primera vez en un navegador,
@@ -57,6 +62,7 @@ radar-tool/
     keywords.js          datos: skills, industrias, seniority, sinónimos de rol
     networks.js           datos: redes soportadas
     extractor.js            parsing de la JD → campos RADAR (funciones puras)
+    pdf-text.js             conserva líneas y espacios de los PDF leídos por pdf.js
     generator.js              construcción de booleanos y URLs (funciones puras)
     ai.js                       capa opcional de sugerencias con Gemini (prompt + parseo, funciones puras)
     tracking.js                   registro de uso por nombre (payload + fetch, funciones puras)
@@ -72,6 +78,8 @@ radar-tool/
     jd-bank.js            banco de regresion con JDs reales (node tests/jd-bank.js)
     ai.js                   tests de ai.js (node tests/ai.js)
     tracking.js                tests de tracking.js (node tests/tracking.js)
+    market-matrix.js          roles y mercados de IT, no IT y telecomunicaciones
+    pdf-text.js               regresión de extracción, validación y ubicación
 ```
 
 `extractor.js` y `generator.js` no tocan el DOM ni hacen llamadas de red:
@@ -86,9 +94,11 @@ node tests/jd-bank.js
 node tests/locations.js
 node tests/ai.js
 node tests/tracking.js
+node tests/market-matrix.js
+node tests/pdf-text.js
 ```
 
-339 casos entre los cinco. Ver [`TESTING.md`](TESTING.md) para el detalle y
+Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
 ## Probarlo en local
@@ -133,9 +143,9 @@ y abrir `http://localhost:8080` (o el puerto que corresponda).
 ## Dónde está desplegado
 
 GitHub Pages, sirviendo directo desde la rama `main` de este repo:
-**https://alexisgorino.github.io/radar-tool/**. Cualquier push a `main`
-dispara un rebuild automático (unos segundos). Sin límite de uso, sin
-cuenta para quien lo usa, gratis de forma indefinida.
+**https://alexisgorino.github.io/radar-tool/**. Los cambios publicados en
+`main` se despliegan mediante GitHub Pages. Algunas redes externas requieren
+iniciar sesión para consultar sus resultados.
 
 ## Desplegarlo en otro lado
 

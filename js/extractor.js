@@ -21,7 +21,7 @@
     const seen = new Set();
     const out = [];
     arr.forEach((a) => {
-      const k = a.toLowerCase();
+      const k = a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
       if (!seen.has(k)) {
         seen.add(k);
         out.push(a);
@@ -91,7 +91,9 @@
   }
 
   function stripTags(text) {
-    return text.replace(/<[^>]*>/g, " ").replace(/\s{2,}/g, " ").trim();
+    return text.replace(/<[^>]*>/g, " ").replace(/\r\n?/g, "\n")
+      .replace(/[ \t]{2,}/g, " ").replace(/[ \t]*\n[ \t]*/g, "\n")
+      .replace(/\n{3,}/g, "\n\n").trim();
   }
 
   // Every country/city term plus modality words, longest-first so "buenos aires"
@@ -128,9 +130,12 @@
   // Refinar suggestion (SENIOR_WORDS/JUNIOR_WORDS below), never as a
   // dead-weight literal baked into the one field every network ANDs against.
   const LEADING_SENIORITY_ABBREV_RE = /^(?:sr|ssr|jr)\.?\s+/i;
+  // Support tiers/levels describe the service layer, not the profession.
+  // "Tier I - Técnico instalador" should search for the technician title.
+  const LEADING_SUPPORT_TIER_RE = /^(?:(?:tier|nivel|level)\s*(?:[1-4]|i{1,3}|iv|v)|n[1-4]|l[1-4])\s*[-:|–—]?\s+/i;
 
   function trimRolPhrase(raw) {
-    let rol = raw.trim().replace(LEADING_VERB_RE, "").replace(LEADING_SENIORITY_ABBREV_RE, "").trim();
+    let rol = raw.trim().replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "").replace(LEADING_SENIORITY_ABBREV_RE, "").trim();
     const stopWords =
       /\s+(para|con|a nuestro|a nuestra|al equipo|a su equipo|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
@@ -266,8 +271,25 @@
     return RESPONSIBILITY_VERBS.has(firstWord);
   }
 
+  function looksLikeAdministrativeText(candidate) {
+    return /(?:\b(?:nombre|firma|fecha|puesto)\s*:|recibido y conforme|esta descripci[oó]n|^c[oó]digo\b|^descriptivo de funciones\b|^objetivo del puesto\b)/i.test(candidate);
+  }
+
   function guessRol(rawText) {
     const text = stripTags(rawText);
+    // This compound title is common in telecom field-service postings. Check
+    // it before the generic title noun can stop at just "Técnico/a".
+    const titlePrefix = text.slice(0, 180).replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "");
+    const supportTechnician = titlePrefix.match(/^((?:t[ée]cnic[oa](?:\/[oa])?\s+)?(?:de\s+)?(?:soporte|help\s?desk|mesa de ayuda)(?:\s+(?:it|informático|informática))?)/i);
+    const installer = "instalador(?:a|\\/a)?";
+    const workContext = "(?:de\\s+campo\\s+de\\s+|de\\s+campo\\s+|de\\s+)?";
+    const fieldTechnician = titlePrefix.match(new RegExp("^((?:t[ée]cnic[oa](?:\\/[oa])?\\s+)?" + installer + "\\s+" + workContext + "(?:telecomunicaciones|fibra(?:\\s+óptica)?|antenas?))", "i"));
+    const telecomTechnician = titlePrefix.match(new RegExp("^(t[ée]cnic[oa](?:\\/[oa])?\\s+(?:" + installer + "\\s+)?" + workContext + "(?:telecomunicaciones|fibra(?:\\s+óptica)?|antenas?))", "i"));
+    const fieldTitle = supportTechnician || telecomTechnician || fieldTechnician;
+    if (fieldTitle) {
+      const candidate = trimRolPhrase(fieldTitle[1]);
+      if (candidate && !isBareNonRole(candidate)) return [candidate];
+    }
     const patterns = [
       // explicit label wins over a generic "busca" phrased elsewhere in the text
       // (e.g. "Posición: Product Manager. ... busca perfil con experiencia..." must not extract "perfil")
@@ -297,10 +319,15 @@
       let m;
       p.lastIndex = 0;
       while ((m = p.exec(text)) !== null) {
+        // Signature blocks commonly contain repeated "Puesto:" labels. They
+        // identify signatories, not the role described in the document.
+        const before = text.slice(Math.max(0, m.index - 120), m.index);
+        if (/recibido y conforme|creada por|revisada por|aprobada por|\bnombre\s*:/i.test(before)) continue;
         const raw = startsWithTemplateLabel(m[1]) ? salvageTemplateHeaderTitle(m[1]) : m[1];
         const candidate = raw ? trimRolPhrase(raw) : "";
         if (
           candidate &&
+          !looksLikeAdministrativeText(candidate) &&
           !looksLikeTemplateNoise(candidate) &&
           !isBareNonRole(candidate) &&
           !looksLikeResponsibilityBullet(candidate)
@@ -314,7 +341,7 @@
     const firstLine = text
       .split("\n")
       .map((l) => l.trim())
-      .find((l) => l.length > 3 && l.length < 60 && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)));
+      .find((l) => l.length > 3 && l.length < 60 && !looksLikeAdministrativeText(l) && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)));
     if (firstLine) return [trimRolPhrase(firstLine)];
 
     // PDF-extracted JDs rarely have real line breaks at all — pdf.js joins
@@ -327,9 +354,14 @@
     // right at the start of the document.
     const TITLE_NOUN =
       "Developer|Engineer|Manager|Analyst|Consultant|Designer|Architect|Specialist|Director|Coordinator|Lead|Officer|Representative|Executive|Assistant|Technician|Recruiter|Scientist|Programmer|" +
-      "Desarrollador[a]?|Ingenier[oa]|Gerente|Analista|Consultor[a]?|Diseñador[a]?|Arquitect[oa]|Especialista|Director[a]?|Coordinador[a]?|L[íi]der|Ejecutivo[a]?|Asistente|T[ée]cnic[oa]|Responsable|Jefe[a]?|Programador[a]?|Comercial|Vendedor[a]?|Auditor[a]?";
+      "Desarrollador[a]?|Ingenier[oa]|Gerente|Analista|Consultor[a]?|Diseñador[a]?|Arquitect[oa]|Especialista|Director[a]?|Coordinador[a]?|L[íi]der|Ejecutivo[a]?|Asistente|T[ée]cnic[oa](?:/[oa])?|Instalad[oa](?:/[oa])?(?:\\s+(?:de\\s+)?telecomunicaciones)?|Responsable|Jefe[a]?|Programador[a]?|Comercial|Vendedor[a]?|Auditor[a]?";
     const titleHeadRe = new RegExp("^((?:[A-Za-zÀ-ÿ.]+\\s+){0,6}?(?:" + TITLE_NOUN + "))\\b", "i");
-    const prefix = text.slice(0, 150).replace(LEADING_VERB_RE, "");
+    const prefix = text.slice(0, 150).replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "");
+    const specializedTelecomTitle = prefix.match(/^((?:t[ée]cnic[oa](?:\/[oa])?\s+)?instalad[oa](?:\/[oa])?\s+(?:de\s+)?(?:telecomunicaciones|fibra(?:\s+óptica)?|antenas?))/i);
+    if (specializedTelecomTitle) {
+      const candidate = trimRolPhrase(specializedTelecomTitle[1]);
+      if (candidate && !isBareNonRole(candidate)) return [candidate];
+    }
     const headMatch = prefix.match(titleHeadRe);
     if (headMatch) {
       const candidate = trimRolPhrase(headMatch[1]);
@@ -392,16 +424,71 @@
     return /[\w.+-]+@[\w.-]+\.\w{2,}/.test(head) || /curriculum\s*vitae/i.test(head);
   }
 
-  function analyzeJD(rawText) {
+  function evidenceFor(text, term) {
+    if (!term) return "";
+    const fold = (value) => String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const foldedIndex = fold(text).indexOf(fold(term));
+    const index = foldedIndex < 0 ? -1 : originalIndexForFolded(text, foldedIndex);
+    if (index < 0) return "";
+    const lineStart = text.lastIndexOf("\n", index) + 1;
+    const nextLine = text.indexOf("\n", index);
+    const line = text.slice(lineStart, nextLine < 0 ? text.length : nextLine).trim();
+    if (line.length <= 100 && line.toLowerCase().includes(term.toLowerCase())) return line;
+    const start = Math.max(0, text.lastIndexOf(".", index) + 1, text.lastIndexOf("\n", index) + 1);
+    let end = text.indexOf(".", index + term.length);
+    if (end < 0 || end - start > 180) end = Math.min(text.length, index + term.length + 100);
+    return text.slice(start, end + (text[end] === "." ? 1 : 0)).replace(/\s+/g, " ").trim();
+  }
+
+  function originalIndexForFolded(text, target) {
+    let offset = 0;
+    for (let i = 0; i < text.length; i++) {
+      if (offset >= target) return i;
+      offset += text[i].normalize("NFD").replace(/[\u0300-\u036f]/g, "").length;
+    }
+    return text.length;
+  }
+
+  function buildQuality(text, analyzed) {
+    const warnings = [];
+    const wordCount = (text.match(/[\p{L}\p{N}]+/gu) || []).length;
+    if (wordCount < 35) warnings.push("El texto es muy breve para validar una descripción de puesto completa.");
+    if (!analyzed.rol.length) warnings.push("No pudimos identificar el título del puesto con suficiente confianza.");
+    if (!analyzed.atributos.length) warnings.push("No detectamos requisitos concretos para filtrar. Confirmá si falta una skill, herramienta o certificación clave.");
+    if (!analyzed.alcance.length) warnings.push("No detectamos una ubicación; confirmá si la búsqueda es remota o si falta indicar el país.");
+    if (/\uFFFD/.test(text)) warnings.push("El archivo contiene caracteres dañados; puede haberse extraído mal.");
+    if (/(?:\b[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\s+){4,}[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\b/.test(text)) {
+      warnings.push("El texto parece tener palabras separadas letra por letra, algo frecuente en PDFs con extracción defectuosa.");
+    }
+
+    let level = "Revisar";
+    if (analyzed.isResume) level = "Parece un CV";
+    else if (analyzed.isJobPosting && analyzed.rol.length && wordCount >= 35 && warnings.length <= 1) level = "Buena señal";
+    else if (analyzed.isJobPosting && analyzed.rol.length) level = "Revisión recomendada";
+    else level = "Validación necesaria";
+
+    const evidence = {
+      rol: analyzed.rol[0] ? evidenceFor(text, analyzed.rol[0]) : "",
+      atributos: analyzed.atributos.map((term) => ({ term, text: evidenceFor(text, term) })),
+      atributosDeseables: analyzed.atributosDeseables.map((term) => ({ term, text: evidenceFor(text, term) })),
+      dominio: analyzed.dominio.map((term) => ({ term, text: evidenceFor(text, term) })),
+      alcance: analyzed.alcance.map((term) => ({ term, text: evidenceFor(text, term) })),
+    };
+    return { level, wordCount, warnings, evidence };
+  }
+
+  function analyzeJD(rawText, options) {
     const text = String(rawText || "").slice(0, MAX_INPUT_LENGTH);
     if (!text.trim()) {
       return { rol: [], atributos: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false, isResume: false };
     }
 
     const rol = dedupe(guessRol(text));
-    const atributos = dedupe(
-      findMatchesRanked(text, Keywords.SKILLS, MAX_ATTRIBUTES, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS)
-    );
+    const allSkillMatches = findMatchesRanked(text, Keywords.SKILLS, undefined, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS);
+    const optionalSet = new Set(optionalOnlySkills(text, Keywords.SKILLS).map((term) => term.toLowerCase()));
+    const genericSet = new Set(Keywords.GENERIC_SKILLS.map((term) => term.toLowerCase()));
+    const atributos = dedupe(allSkillMatches.filter((term) => !optionalSet.has(term.toLowerCase()) && !genericSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
+    const atributosDeseables = dedupe(allSkillMatches.filter((term) => optionalSet.has(term.toLowerCase()) || genericSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
     const dominio = dedupe(findMatchesRanked(text, Keywords.INDUSTRIES, MAX_DOMINIO));
 
     // Alcance is país + localidad only. Modalidad (remoto/híbrido/presencial)
@@ -428,13 +515,23 @@
     // choice by the recruiter, not something a keyword match should guess.
     // What's detected above is surfaced as a suggestion the UI can offer,
     // not as pre-added chips.
-    const refinarSuggestion = dedupe([...seniorFound, ...juniorFound, ...modality]);
+    // Never infer a NOT exclusion from a positive JD statement. A JD asking
+    // for a senior person must not suggest excluding "Senior", and modality
+    // is context rather than a reliable term on public candidate profiles.
+    const refinarSuggestion = [];
 
-    const analyzed = { rol, atributos, dominio, alcance, refinar: [], refinarSuggestion, country };
+    const analyzed = { rol, atributos, atributosDeseables, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country };
+    const namedCountry = options && options.fileName ? Countries.detectCountry(options.fileName) : null;
+    analyzed.fileCountrySuggestion = !country && namedCountry ? namedCountry : null;
     analyzed.isResume = looksLikeResume(text);
     // A résumé never counts as a job posting, no matter how many generic
     // signals it also trips — see looksLikeResume above.
     analyzed.isJobPosting = !analyzed.isResume && countJobPostingSignals(text, analyzed) >= MIN_JOB_POSTING_SIGNALS;
+    analyzed.quality = buildQuality(text, analyzed);
+    if (analyzed.fileCountrySuggestion) {
+      analyzed.quality.warnings.push(`El nombre del archivo menciona ${analyzed.fileCountrySuggestion}, pero la JD no indica país. Confirmá si corresponde antes de buscar.`);
+      analyzed.quality.level = "Revisión recomendada";
+    }
     return analyzed;
   }
 

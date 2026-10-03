@@ -419,8 +419,8 @@ cases.forEach((c) => {
     c.expectSkills.forEach((s) => {
       check(
         `${c.name} :: atributos includes "${s}"`,
-        r.atributos.some((a) => a.toLowerCase() === s.toLowerCase()),
-        `got atributos=[${r.atributos.join(", ")}]`
+        [...r.atributos, ...(r.atributosDeseables || [])].some((a) => a.toLowerCase() === s.toLowerCase()),
+        `got requeridos=[${r.atributos.join(", ")}], deseables=[${(r.atributosDeseables || []).join(", ")}]`
       );
     });
   }
