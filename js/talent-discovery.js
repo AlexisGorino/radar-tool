@@ -72,15 +72,22 @@
     const label = SOURCES[sourceId] && SOURCES[sourceId].label;
     if (!label || !title) return "";
     const clean = String(title).replace(/\s+/g, " ").trim();
-    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const suffix = new RegExp(`(?:\\s*(?:[|·—–-])\\s*${escaped})(?:\\s*\\|.*)?\\s*$`, "i");
-    if (!suffix.test(clean)) return "";
-    const withoutSource = clean.replace(suffix, "").trim();
-    const candidate = withoutSource.split(/\s[|·—–-]\s/, 1)[0].trim();
-    // A name is surfaced only when the source title provides a distinct
-    // 2–5 word prefix. Otherwise retain the profile URL and say it is unknown.
-    if (candidate === clean || candidate.length > 70 || candidate.split(/\s+/).length < 2 || candidate.split(/\s+/).length > 4) return "";
-    if (/\b(profile|perfil|jobs|empleo|vacante|company|empresa|developer|engineer|designer|recruiter|consultant|technician|tecnico|técnico|manager|analyst|analista|software|telecom|auditor)\b/i.test(candidate)) return "";
+    const parts = clean.split(/\s+(?:[|·—–-])\s+/).map((part) => part.trim()).filter(Boolean);
+    // Search engines commonly put the person first and the headline after a
+    // dash, with or without the source name at the end. A delimiter is
+    // required so a headline-only result is never presented as a person's name.
+    if (parts.length < 2) return "";
+    if (normalizeText(parts[parts.length - 1]) === normalizeText(label)) parts.pop();
+    if (/\b(portfolio|portafolio|profile|perfil)\b/.test(normalizeText(parts.slice(1).join(" ")))) return "";
+    const candidate = parts[0] || "";
+    const words = candidate.split(/\s+/);
+    // Allow compound surnames and initials, but reject role headlines and
+    // phrases with sentence-like casing. False names are worse than no name.
+    if (candidate.length > 70 || words.length < 2 || words.length > 6) return "";
+    const particles = new Set(["da", "das", "de", "del", "der", "di", "dos", "du", "la", "las", "los", "van", "von", "y"]);
+    const nameWords = words.filter((word) => !particles.has(normalizeText(word)));
+    if (nameWords.length < 2 || !nameWords.every((word) => /^[A-ZÁÉÍÓÚÜÑ][A-Za-zÁÉÍÓÚÜÑáéíóúüñ'.’\-]*$/.test(word) || /^[A-ZÁÉÍÓÚÜÑ]{2,}\.?$/.test(word))) return "";
+    if (/\b(profile|perfil|jobs|empleo|vacante|company|empresa|developer|engineer|designer|recruiter|consultant|technician|tecnico|técnico|manager|analyst|analista|software|telecom|auditor|ingeniero|instalador|operador|supervisor|specialist|especialista|coordinator|coordinador|administrator|administrador|sales|support|customer|field|senior|junior|tier|network|redes|servicio|service)\b/i.test(normalizeText(candidate))) return "";
     return candidate;
   }
 
