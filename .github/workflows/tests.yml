@@ -24,6 +24,7 @@ jobs:
       - run: node tests/pdf-text.js
       - run: node tests/review-quality.js
       - run: node tests/docx.js
+      - run: node tests/outcome.js
 
   browser-e2e:
     runs-on: ubuntu-24.04

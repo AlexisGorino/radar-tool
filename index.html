@@ -11,7 +11,7 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=28">
+<link rel="stylesheet" href="css/styles.css?v=29">
 <script src="js/gate.js?v=27"></script>
 </head>
 <body>
@@ -184,9 +184,9 @@
       <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
       <label class="relaxed-toggle">
         <input type="checkbox" id="relaxedModeCheckbox">
-        Relajar búsqueda
+        Ampliar búsqueda
       </label>
-      <p class="platform-note">Saca Dominio y Alcance del booleano, y deja solo Rol AND Atributos. Usalo si la versión completa te da cero resultados: pedirle a un buscador que un perfil combine puesto + skills + industria + ubicación, todo con las palabras exactas que detectamos, a veces es pedir de más — esto amplía el universo de gente que puede aparecer.</p>
+      <p class="platform-note">Quita el filtro de sector y conserva el cargo, las señales del perfil y la ubicación elegida. Usalo si la búsqueda precisa trae pocos resultados; la localidad nunca se elimina al ampliar.</p>
     </div>
 
     <div class="result-secondary hidden" id="resultLinkedinNative">
@@ -224,9 +224,20 @@
       <p class="platform-note">Búsqueda nativa de GitHub, no X-Ray: usa sus propios calificadores (language:, location:, stars:).</p>
     </div>
 
+    <section class="outcome-panel" id="outcomePanel" aria-labelledby="outcomeTitle">
+      <h3 id="outcomeTitle">¿Cómo te fue con esta fuente?</h3>
+      <p class="platform-note">Tu señal ayuda a calibrar las rutas. Guardamos solo el conteo por fuente en este navegador; no se guardan la búsqueda ni datos de candidatos.</p>
+      <div class="outcome-actions" role="group" aria-label="Evaluar resultados de búsqueda">
+        <button class="btn btn-engine" type="button" data-outcome="relevant">Encontré perfiles útiles</button>
+        <button class="btn btn-engine" type="button" data-outcome="noisy">Hubo mucho ruido</button>
+        <button class="btn btn-engine" type="button" data-outcome="empty">No encontré perfiles</button>
+      </div>
+      <p class="outcome-status hint" id="outcomeStatus" aria-live="polite"></p>
+    </section>
+
   </section>
 
-  <p class="privacy-note">La JD se analiza en este navegador y no se guarda en un servidor de Mindata. El historial queda en este navegador. Al entrar y generar búsquedas, RADAR registra en una hoja de uso tu nombre, apellido, fecha, acción y red, nunca el contenido de la JD. El feedback se envía a la persona elegida al tocar Enviar. Si usás Gemini, el texto de la JD se envía directamente a Google al tocar “Mejorar análisis” o “Sugerir con IA”.</p>
+  <p class="privacy-note">La JD se analiza en este navegador y no se guarda en un servidor de Mindata. El historial y los conteos agregados de resultados quedan en este navegador. Al entrar y generar búsquedas, RADAR registra en una hoja de uso tu nombre, apellido, fecha, acción y red, nunca el contenido de la JD. El feedback escrito se envía a la persona elegida al tocar Enviar. Si usás Gemini, el texto de la JD se envía directamente a Google al tocar “Mejorar análisis” o “Sugerir con IA”.</p>
 
   <div class="feedback-row">
     <button class="btn btn-ghost btn-small" id="feedbackBtn" type="button">¿Sugerencias o encontraste un bug?</button>
@@ -338,15 +349,16 @@
 
 <script src="js/vendor/pdf.min.js"></script>
 <script src="js/vendor/mammoth.browser.min.js"></script>
-<script src="js/pdf-text.js?v=28"></script>
-<script src="js/countries.js?v=28"></script>
-<script src="js/keywords.js?v=28"></script>
-<script src="js/networks.js?v=28"></script>
-<script src="js/extractor.js?v=28"></script>
-<script src="js/generator.js?v=28"></script>
-<script src="js/review.js?v=28"></script>
-<script src="js/ai.js?v=28"></script>
-<script src="js/tracking.js?v=28"></script>
-<script src="js/app.js?v=28"></script>
+<script src="js/pdf-text.js?v=29"></script>
+<script src="js/countries.js?v=29"></script>
+<script src="js/keywords.js?v=29"></script>
+<script src="js/networks.js?v=29"></script>
+<script src="js/extractor.js?v=29"></script>
+<script src="js/generator.js?v=29"></script>
+<script src="js/review.js?v=29"></script>
+<script src="js/ai.js?v=29"></script>
+<script src="js/tracking.js?v=29"></script>
+<script src="js/outcome.js?v=29"></script>
+<script src="js/app.js?v=29"></script>
 </body>
 </html>

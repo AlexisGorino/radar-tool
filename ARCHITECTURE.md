@@ -15,7 +15,7 @@ que el deploy sea arrastrar una carpeta a un hosting estático.
 ├─────────────────────────────────────────┤
 │  extractor.js   generator.js review.js   │  núcleo: funciones puras
 ├─────────────────────────────────────────┤
-│  ai.js         tracking.js               │  capas opcionales: red a Gemini / registro de uso
+│  ai.js tracking.js outcome.js            │  servicios opcionales: IA / uso / métricas locales
 ├─────────────────────────────────────────┤
 │  countries.js  keywords.js  networks.js  │  datos estáticos
 └─────────────────────────────────────────┘
@@ -36,8 +36,8 @@ como filtro — ver más abajo). También calcula `isJobPosting`: una sumatoria
 de señales (rol, país, atributos, dominio, palabras típicas de JD) para
 distinguir un texto pegado por error (una noticia, un CV) de una JD real,
 sin bloquear consultas manuales cortas legítimas. `generator.js` toma esos
-campos y arma el booleano y las URLs de búsqueda, con un modo `relaxed` que
-saca Dominio/Alcance del AND cuando la versión completa no trae resultados.
+campos y arma el booleano y las URLs de búsqueda. Su modo `relaxed` quita
+Dominio y conserva Alcance al ampliar una consulta.
 Que sean puras es lo que permite testearlas con Node sin levantar un
 navegador ni mockear nada.
 
@@ -62,6 +62,11 @@ fire-and-forget a un Apps Script propio). No es opcional como `ai.js`: es
 parte del gate de acceso (`app.js` la llama al hacer check-in y al generar
 un booleano). Nunca participa del núcleo determinístico ni ve los campos
 RADAR — solo identidad + evento + cuándo.
+
+**Feedback de resultados** (`outcome.js`): conserva conteos locales por fuente
+para perfiles útiles, resultados ruidosos o búsquedas vacías. No almacena
+consultas, JDs, nombres ni datos de perfiles. Un tablero de equipo requeriría un
+servicio compartido con reglas explícitas de retención y acceso.
 
 **UI** (`app.js`): la única capa que conoce el DOM. Lee inputs, llama al
 núcleo, pinta el resultado. Mantiene un objeto `state` en memoria (los cinco

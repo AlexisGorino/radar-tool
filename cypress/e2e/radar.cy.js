@@ -39,9 +39,25 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn + .inline-error").should("contain.text", "Sin título");
     cy.get('[data-field="rol"]').type("Recepcionista{enter}");
     cy.get('[data-field="atributos"]').type("atención al cliente{enter}");
+    cy.get('[data-field="dominio"]').type("retail{enter}");
     cy.get('[data-field="alcance"]').type("Rosario{enter}");
     cy.get("#generateBtn").click();
     cy.get("#out-universal").should("contain.text", "Recepcionista").and("contain.text", "atención al cliente").and("contain.text", "Rosario");
+    cy.get("#out-universal").should("contain.text", "retail");
+    cy.get("#relaxedModeCheckbox").check();
+    cy.get("#out-universal").should("contain.text", "Rosario").and("not.contain.text", "retail");
+  });
+
+  it("records only anonymous per-source outcome counts in local storage", () => {
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.contains("#outcomePanel button", "Encontré perfiles útiles").click();
+    cy.window().then((win) => {
+      const saved = JSON.parse(win.localStorage.getItem("radar-outcomes-v1"));
+      expect(saved).to.deep.equal({ linkedin: { relevant: 1, noisy: 0, empty: 0 } });
+    });
   });
 
   it("routes LinkedIn, GitHub, X-Ray networks, CV search, and custom sites to their intended destinations", () => {

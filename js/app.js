@@ -976,12 +976,29 @@
   // Generate
   // ---------------------------------------------------------------
   const relaxedModeCheckbox = document.getElementById("relaxedModeCheckbox");
+  const outcomeStatus = document.getElementById("outcomeStatus");
+
+  function renderOutcomeSummary() {
+    const outcomes = RadarOutcome.read(localStorage);
+    const counts = outcomes[selectedNetwork];
+    if (!counts || RadarOutcome.total(counts) === 0) {
+      outcomeStatus.textContent = "";
+      return;
+    }
+    const networkName = RadarNetworks.NETWORKS[selectedNetwork].label;
+    outcomeStatus.textContent = `Registrado en este navegador para ${networkName}: ${counts.relevant} útiles · ${counts.noisy} con ruido · ${counts.empty} sin perfiles.`;
+  }
 
   // Renders the universal boolean + whatever the selected network needs.
-  // Split out from the button handler so the "Relajar búsqueda" checkbox
+  // Split out from the button handler so the "Ampliar búsqueda" checkbox
   // can re-render live without re-adding a history entry every toggle.
   function renderResults() {
     const relaxed = relaxedModeCheckbox.checked;
+    document.querySelectorAll("[data-outcome]").forEach((button) => {
+      button.disabled = false;
+      button.setAttribute("aria-pressed", "false");
+    });
+    outcomeStatus.textContent = "";
     const universal = RadarGenerator.buildUniversalBoolean(state, relaxed);
     document.getElementById("out-universal").textContent = universal;
     const truncated = RadarGenerator.getTruncatedFields(state);
@@ -1068,8 +1085,24 @@
     }
 
     resultsEl.classList.add("show");
+    renderOutcomeSummary();
     return universal;
   }
+
+  document.querySelectorAll("[data-outcome]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const recorded = RadarOutcome.record(localStorage, selectedNetwork, button.dataset.outcome);
+      outcomeStatus.textContent = recorded
+        ? "Gracias. Se guardó únicamente el conteo local de esta fuente."
+        : "No se pudo guardar en este navegador.";
+      document.querySelectorAll("[data-outcome]").forEach((choice) => {
+        choice.setAttribute("aria-pressed", choice === button ? "true" : "false");
+        choice.disabled = true;
+      });
+      if (!recorded) return;
+      setTimeout(renderOutcomeSummary, 1200);
+    });
+  });
 
   document.getElementById("generateBtn").addEventListener("click", () => {
     if (jdNeedsReview && jdInput.value.trim()) {

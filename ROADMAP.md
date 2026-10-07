@@ -9,6 +9,8 @@
 - Lectura local de Word `.docx`, además de PDF, TXT y texto pegado/escrito.
 - Banco de regresión ampliado para IT, telecom, RRHH, finanzas, diseño y
   escritos libres. LinkedIn muestra hasta tres rutas con una explicación breve.
+- La ampliación del booleano elimina el sector y conserva la ubicación.
+- Feedback agregado por fuente, guardado localmente sin consultas ni perfiles.
 
 La precisión de candidatos reales, OCR de escaneos y acceso a resultados de
 portales siguen pendientes y requieren una etapa separada.

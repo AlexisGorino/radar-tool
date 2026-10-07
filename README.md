@@ -47,6 +47,12 @@ Pages o publicada como página estática en cualquier lado.
   perfiles técnicos, Behance para diseño y Xing para mercados DACH. Son puntos
   de partida; cada red conserva sus filtros y límites propios. Los portales que
   publican ofertas, pero no perfiles, no sirven como fuente de candidatos por X-Ray.
+- **Ampliación segura**: quita el sector cuando se necesitan más resultados y
+  conserva la ubicación elegida para no abrir accidentalmente una búsqueda
+  regional a todo un país.
+- **Feedback de sourcing**: permite registrar si una fuente trajo perfiles útiles,
+  mucho ruido o ningún perfil. Solo guarda conteos por fuente en este navegador;
+  no conserva la búsqueda ni datos de candidatos.
 - **Historial de búsquedas**: guarda las últimas 20 búsquedas en el propio
   navegador (no en un servidor) para recuperarlas con un click.
 - **Registro de uso por nombre**: al entrar por primera vez en un navegador,
@@ -76,6 +82,7 @@ radar-tool/
     generator.js              construcción de booleanos y URLs (funciones puras)
     ai.js                       capa opcional de sugerencias con Gemini (prompt + parseo, funciones puras)
     tracking.js                   registro de uso por nombre (payload + fetch, funciones puras)
+    outcome.js                    conteos anónimos locales de resultado por fuente
     app.js                          conecta el motor con el DOM
   assets/
     mindata-logo.png
@@ -111,6 +118,7 @@ node tests/market-matrix.js
 node tests/pdf-text.js
 node tests/review-quality.js
 node tests/docx.js
+node tests/outcome.js
 ```
 
 Las pruebas de navegador usan Cypress y están configuradas para GitHub Actions. Para

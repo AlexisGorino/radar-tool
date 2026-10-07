@@ -78,8 +78,10 @@
     return firstIsCountry && hasLocality ? terms.slice(1) : terms;
   }
 
-  // relaxed=true drops Dominio and Alcance from the AND chain, keeping only
-  // Rol AND Atributos. Chaining all four blocks with AND can legitimately
+  // relaxed=true drops only Dominio from the AND chain. Alcance is a hard
+  // constraint: relaxing a search must never silently widen a city-specific
+  // vacancy to an entire country (or remove geography altogether). Chaining
+  // all four blocks with AND can legitimately
   // zero out a search — a real person rarely matches role + skills +
   // industry + location all at once in the exact words RADAR picked — so
   // this is the one-click way out of that without manually deleting chips.
@@ -92,7 +94,8 @@
     const rolBlock = looseRol ? orGroupRaw(rol) : orGroup(rol);
     const alcance = searchLocationTerms(state).flatMap(expandLocationTerm);
     const blocks = [rolBlock, orGroup(state.atributos)];
-    if (!relaxed) blocks.push(orGroup(state.dominio), orGroup(alcance));
+    if (!relaxed) blocks.push(orGroup(state.dominio));
+    blocks.push(orGroup(alcance));
     return blocks.filter(Boolean);
   }
 
