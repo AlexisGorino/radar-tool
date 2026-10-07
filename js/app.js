@@ -847,7 +847,7 @@
         jdInput.value = String(reader.result || "").slice(0, 20000);
         runAnalysis(file.name);
       };
-      reader.onerror = () => showError("No se pudo leer el archivo.", "file");
+      reader.onerror = () => { if (sequence === uploadSequence) showError("No se pudo leer el archivo.", "file"); };
       reader.readAsText(file);
       return;
     }
@@ -880,7 +880,7 @@
           })
           .catch(() => { if (sequence === uploadSequence) showError("No se pudo leer ese Word. Puede estar dañado o protegido.", "file"); });
       };
-      reader.onerror = () => showError("No se pudo leer el archivo de Word.", "file");
+      reader.onerror = () => { if (sequence === uploadSequence) showError("No se pudo leer el archivo de Word.", "file"); };
       reader.readAsArrayBuffer(file);
       return;
     }
@@ -913,7 +913,7 @@
         })
         .catch(() => { if (sequence === uploadSequence) showError("No se pudo leer ese PDF. Puede estar dañado o protegido.", "file"); });
     };
-    reader.onerror = () => showError("No se pudo leer el archivo.", "file");
+    reader.onerror = () => { if (sequence === uploadSequence) showError("No se pudo leer el archivo.", "file"); };
     reader.readAsArrayBuffer(file);
   }
 
