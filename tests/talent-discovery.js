@@ -77,7 +77,12 @@ test("validates only HTTPS person-profile URL patterns for each selected source"
 
 test("extracts a name only when the result title separates a plausible name from its source", () => {
   assert.equal(Discovery.parseDisplayName("Ana García - Telecom Technician - LinkedIn", "linkedin"), "Ana García");
+  assert.equal(Discovery.parseDisplayName("Cecilio José Bolaños Lorenzo - Técnico Instalador y telecomunicaciones", "linkedin"), "Cecilio José Bolaños Lorenzo");
+  assert.equal(Discovery.parseDisplayName("José Alexandre Gama da Silva - NOC TELECOM Especialist", "linkedin"), "José Alexandre Gama da Silva");
+  assert.equal(Discovery.parseDisplayName("Diego Capello - Network Engineer", "linkedin"), "Diego Capello");
   assert.equal(Discovery.parseDisplayName("Backend Developer | LinkedIn", "linkedin"), "");
+  assert.equal(Discovery.parseDisplayName("Técnico de Telecomunicaciones - LinkedIn", "linkedin"), "");
+  assert.equal(Discovery.parseDisplayName("Network Engineer | NOC - LinkedIn", "linkedin"), "");
   assert.equal(Discovery.parseDisplayName("Ana García - Portfolio", "linkedin"), "");
 });
 
