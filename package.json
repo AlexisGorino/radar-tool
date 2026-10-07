@@ -4,7 +4,7 @@
   "private": true,
   "description": "RADAR talent search query builder",
   "scripts": {
-    "build": "ng build",
+    "build": "ng build && node scripts/stamp-build.js",
     "check:angular": "ngc -p tsconfig.app.json",
     "start:dev": "ng serve --base-href /",
     "test:e2e": "cypress run",

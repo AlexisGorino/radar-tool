@@ -50,3 +50,27 @@ portales siguen pendientes y requieren una etapa separada.
    retención. Enviar a terceros solo JDs autorizadas y sin datos innecesarios.
 9. Añadir feedback de reclutadores sobre falsos positivos y búsquedas vacías,
    y usarlo para ajustar sinónimos, pesos y preguntas con evaluación periódica.
+
+## Prioridad 4: plataforma técnica
+
+10. Migrar las interacciones del DOM a Angular por flujo: primero carga y
+    validación de documentos, luego revisión interactiva de la JD y finalmente
+    generación de consultas. Mantener pruebas de paridad para los módulos puros
+    y Cypress para los recorridos completos.
+11. Agregar un backend antes de ofrecer autenticación real, IA compartida,
+    secretos del equipo o uso multiusuario. El password actual está en una
+    aplicación pública de navegador y solo funciona como pantalla de entrada;
+    no protege el contenido. El backend debería usar identidad individual,
+    permisos, límites por usuario, secretos fuera del cliente y auditoría
+    mínima con retención definida.
+12. Añadir telemetría técnica sin texto de JD ni datos de candidatos: fallos de
+    lectura por formato, tiempo de análisis, errores de carga y versiones del
+    cliente. Habilitarlo solo con política de privacidad y retención acordadas.
+13. Automatizar controles de dependencias y accesibilidad en CI, además de
+    mantener la CSP estricta, los presupuestos de bundle y el despliegue
+    versionado.
+
+No conviene conectar ni scrapear redes que no den acceso autorizado. Para
+mostrar perfiles reales dentro de RADAR haría falta una API oficial o un
+proveedor con permisos, límites y condiciones de uso compatibles; mientras
+tanto el producto debe generar búsquedas transparentes y abrirlas en la fuente.

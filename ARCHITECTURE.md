@@ -87,13 +87,21 @@ subidos y `js/vendor/mammoth.browser.min.js` para extraer texto de `.docx`.
 Ambos están vendorizados como archivos locales, sin CDN. El texto de esos
 documentos no sale del navegador durante el análisis determinístico.
 
-## Por qué no hay framework
+## Migración gradual a Angular
 
-No hay estado complejo que justifique uno: cinco listas de strings, una red
-seleccionada, y un resultado derivado. React/Vue/lo que sea agregarían un
-build step y una capa de indirección sin resolver ningún problema real acá.
-El árbol del DOM es chico y se re-renderiza entero por campo en cada cambio
-(`renderChips`), que a esta escala es más simple que diffear manualmente.
+Angular 21 es la entrada de producción y es dueño del ciclo de vida del shell,
+del acceso y del estado de arranque. `AccessGateComponent` mantiene el flujo
+existente, mientras `LegacyDomBridge` monta temporalmente los módulos de
+negocio en el orden declarado, después de que Angular haya renderizado el DOM.
+El núcleo puro sigue en JavaScript para evitar cambiar a la vez lógica de
+búsqueda y capa visual; cada interacción DOM se migra en cortes con pruebas de
+paridad antes de retirar el puente.
+
+La compilación genera el identificador del build en `index.html`. El puente
+lo aplica como query de caché a los módulos heredados, de modo que cada
+publicación solicita los scripts correspondientes a su versión. Un fallo de
+carga se comunica desde el template Angular con una acción explícita para
+reintentar, sin manipular el DOM desde el componente.
 
 ## Persistencia
 
@@ -107,16 +115,18 @@ Carpeta estática pura: sirve igual desde un `file://`, un servidor local,
 o cualquier hosting estático (Netlify, Vercel, GitHub Pages, S3+CloudFront,
 nginx). No hay variables de entorno ni configuración de build.
 
-En producción hoy: GitHub Pages, rama `main`, sin paso de build —
-https://alexisgorino.github.io/radar-tool/. Cada push a `main` se
-publica solo, GitHub Pages sirve el contenido del repo tal cual.
+En producción hoy: GitHub Pages publica el build de Angular desde la rama
+`main` en https://alexisgorino.github.io/radar-tool/. Cada push ejecuta
+build y despliegue; el sitio servido es `dist/radar-tool/browser`, no el
+contenido fuente del repositorio.
 
 ## Integración continua
 
-`.github/workflows/tests.yml` corre `tests/run.js`, `tests/jd-bank.js` y
-`tests/locations.js` en cada push y cada pull request. Un cambio que rompa
-un caso ya cubierto falla el check en GitHub antes de llegar a `main`, en
-vez de depender de que alguien se acuerde de correr los tests a mano.
+`.github/workflows/tests.yml` compila Angular, ejecuta las suites unitarias
+del núcleo y corre Cypress contra el build servido bajo el subpath de Pages.
+La cobertura de navegador comprueba el acceso, el ciclo de arranque, la
+revisión de JD, la geografía y rutas generadas; una falla en la carga del
+puente también debe mostrar el estado de recuperación.
 
 ## Compatibilidad de navegadores
 

@@ -1,4 +1,9 @@
-<div id="radarBootError" class="radar-boot-error hidden" role="alert">No pudimos iniciar todos los módulos de RADAR. Recargá la página; si el problema continúa, avisá al equipo.</div>
+@if (bootError(); as message) {
+  <div id="radarBootError" class="radar-boot-error" role="alert" aria-live="assertive">
+    <p>{{ message }}</p>
+    <button class="btn btn-primary" id="radarBootRetry" type="button" (click)="reload()">Reintentar</button>
+  </div>
+}
 <radar-access-gate [ready]="modulesReady()" />
 
 <div id="appShell" class="app-shell">

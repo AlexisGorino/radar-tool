@@ -12,6 +12,7 @@ import { AccessGateComponent } from './access-gate.component';
 export class AppComponent implements AfterViewInit {
   private readonly legacyDom = inject(LegacyDomBridge);
   readonly modulesReady = signal(false);
+  readonly bootError = signal('');
 
   async ngAfterViewInit(): Promise<void> {
     try {
@@ -21,12 +22,11 @@ export class AppComponent implements AfterViewInit {
     } catch (error) {
       console.error('RADAR interface initialization failed.', error);
       document.documentElement.dataset['radarReady'] = 'error';
-      const message = document.getElementById('radarBootError');
-      if (message) {
-        const detail = error instanceof Error ? error.message : String(error);
-        message.textContent = `No pudimos iniciar todos los módulos de RADAR (${detail}). Recargá la página; si el problema continúa, avisá al equipo.`;
-        message.classList.remove('hidden');
-      }
+      this.bootError.set('No pudimos iniciar todos los módulos de RADAR. Revisá tu conexión y reintentá; si el problema continúa, avisá al equipo.');
     }
+  }
+
+  reload(): void {
+    window.location.reload();
   }
 }

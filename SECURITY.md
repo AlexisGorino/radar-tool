@@ -57,7 +57,7 @@ ya lo cubre — es para que la sugerencia de rol no quede con basura de markup.
 `encodeURIComponent` antes de concatenarse (`generator.js`), evitando que un
 término con caracteres especiales rompa la URL o inyecte parámetros.
 
-## Pantalla de acceso (`js/gate.js` + el bloque de arriba de `app.js`)
+## Pantalla de acceso (`js/gate.js` + `AccessGateComponent`)
 
 Es una puerta de recepción, no una cerradura. El repo es público en GitHub,
 así que la contraseña ("MinDataTeam") está a un click de "ver código fuente"

@@ -4,22 +4,23 @@ import { inject, Injectable } from '@angular/core';
 const LEGACY_SCRIPTS = [
   'js/vendor/pdf.min.js',
   'js/vendor/mammoth.browser.min.js',
-  'js/pdf-text.js?v=31',
-  'js/countries.js?v=31',
-  'js/keywords.js?v=31',
-  'js/networks.js?v=31',
-  'js/extractor.js?v=31',
-  'js/generator.js?v=31',
-  'js/review.js?v=31',
-  'js/ai.js?v=31',
-  'js/tracking.js?v=31',
-  'js/outcome.js?v=31',
-  'js/app.js?v=31'
+  'js/pdf-text.js',
+  'js/countries.js',
+  'js/keywords.js',
+  'js/networks.js',
+  'js/extractor.js',
+  'js/generator.js',
+  'js/review.js',
+  'js/ai.js',
+  'js/tracking.js',
+  'js/outcome.js',
+  'js/app.js'
 ] as const;
 
 @Injectable({ providedIn: 'root' })
 export class LegacyDomBridge {
   private readonly document = inject(DOCUMENT);
+  private readonly buildId = this.document.querySelector<HTMLMetaElement>('meta[name="radar-build-id"]')?.content || 'dev';
   private startup?: Promise<void>;
 
   start(): Promise<void> {
@@ -36,7 +37,9 @@ export class LegacyDomBridge {
   private loadScript(path: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const script = this.document.createElement('script');
-      script.src = new URL(path, this.document.baseURI).toString();
+      const source = new URL(path, this.document.baseURI);
+      source.searchParams.set('v', this.buildId);
+      script.src = source.toString();
       script.async = false;
       script.onload = () => resolve();
       script.onerror = () => reject(new Error(`Could not load ${path}`));

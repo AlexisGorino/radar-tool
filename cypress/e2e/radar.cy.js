@@ -40,6 +40,25 @@ describe("RADAR talent search flow", () => {
     cy.get("#jdReview").should("not.be.visible");
     cy.get("#jdInput").should("be.visible");
     cy.get("html").should("have.attr", "data-radar-ready", "true");
+    cy.window().then((win) => {
+      const versionedLegacyScripts = win.performance.getEntriesByType("resource").filter((entry) => {
+        const url = new URL(entry.name);
+        return url.pathname.endsWith("/js/app.js") && url.searchParams.has("v");
+      });
+      expect(versionedLegacyScripts, "legacy app script has a build-specific cache key").to.have.length(1);
+    });
+  });
+
+  it("shows a recoverable message when a legacy module fails to load", () => {
+    cy.intercept("GET", "**/js/app.js?v=*", { forceNetworkError: true });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+      },
+    });
+    cy.get("#radarBootError").should("be.visible").and("contain.text", "No pudimos iniciar");
+    cy.get("#radarBootRetry").should("be.visible").and("contain.text", "Reintentar");
   });
 
   it("blocks vague manual searches until role signals and geography are entered", () => {
