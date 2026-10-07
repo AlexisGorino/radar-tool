@@ -30,6 +30,7 @@ jobs:
       - run: node tests/review-quality.js
       - run: node tests/docx.js
       - run: node tests/outcome.js
+      - run: npm run test:discovery
 
   browser-e2e:
     runs-on: ubuntu-24.04

@@ -59,6 +59,11 @@
   const githubModeRow = document.getElementById("githubModeRow");
   const starsInputWrap = document.getElementById("starsInputWrap");
   const minStarsInput = document.getElementById("minStars");
+  const publicSearchSources = document.getElementById("publicSearchSources");
+  const findProfilesBtn = document.getElementById("findProfilesBtn");
+  const publicSearchConfigNote = document.getElementById("publicSearchConfigNote");
+  const publicSearchStatus = document.getElementById("publicSearchStatus");
+  const publicSearchResults = document.getElementById("publicSearchResults");
   const resultsEl = document.getElementById("results");
   const resultXray = document.getElementById("resultXray");
   const resultGithub = document.getElementById("resultGithub");
@@ -85,6 +90,7 @@
   let currentFileName = "";
   let currentSourceMeta = null;
   let uploadSequence = 0;
+  let publicSearchSequence = 0;
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
   const aiPanel = document.getElementById("aiPanel");
@@ -96,6 +102,10 @@
 
   const FEEDBACK_EMAILS = { alexis: "alexis.gorino@mindata.es", franco: "franco.velazco@mindata.es" };
   const FEEDBACK_ENDPOINT = "https://formsubmit.co/ajax/";
+
+  function getPublicSearchEndpoint() {
+    return (document.querySelector('meta[name="radar-search-endpoint"]')?.content || "").trim();
+  }
 
   // ---------------------------------------------------------------
   // Chips
@@ -1084,9 +1094,152 @@
     }
 
     resultsEl.classList.add("show");
+    renderPublicSearchSources();
     renderOutcomeSummary();
     return universal;
   }
+
+  function renderPublicSearchSources() {
+    const recommended = RadarNetworks.recommendNetworks(state).map((entry) => entry.id);
+    const allowed = Object.keys(RadarTalentDiscovery.SOURCES);
+    publicSearchSources.replaceChildren();
+    allowed.forEach((source) => {
+      const label = document.createElement("label");
+      label.className = "public-source-option";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = "publicSearchSource";
+      input.value = source;
+      input.checked = recommended.includes(source);
+      input.addEventListener("change", () => {
+        const selected = [...publicSearchSources.querySelectorAll('input[name="publicSearchSource"]:checked')];
+        const overLimit = selected.length > RadarTalentDiscovery.MAX_SOURCES;
+        findProfilesBtn.disabled = !getPublicSearchEndpoint() || selected.length === 0 || overLimit;
+        if (overLimit) {
+          publicSearchStatus.textContent = `Elegí hasta ${RadarTalentDiscovery.MAX_SOURCES} fuentes por consulta para cuidar el cupo mensual.`;
+        } else {
+          publicSearchStatus.textContent = "";
+        }
+      });
+      const text = document.createElement("span");
+      text.textContent = RadarTalentDiscovery.SOURCES[source].label;
+      label.append(input, text);
+      publicSearchSources.appendChild(label);
+    });
+    const selectedCount = recommended.filter((source) => allowed.includes(source)).length;
+    findProfilesBtn.disabled = !getPublicSearchEndpoint() || selectedCount === 0;
+    if (getPublicSearchEndpoint()) {
+      publicSearchConfigNote.textContent = "La búsqueda usa consultas resumidas y no envía la JD completa.";
+    } else {
+      publicSearchConfigNote.textContent = "Falta configurar el endpoint seguro; la clave del proveedor nunca va en el navegador.";
+    }
+    publicSearchStatus.textContent = "";
+    publicSearchResults.replaceChildren();
+  }
+
+  function renderPublicProfileResults(rows, sourceErrors) {
+    publicSearchResults.replaceChildren();
+    if (!rows.length) {
+      const empty = document.createElement("p");
+      empty.className = "public-search-empty";
+      empty.textContent = "No aparecieron perfiles públicos verificables con esta consulta. Probá una ruta más amplia, revisá las señales o cambiá las fuentes.";
+      publicSearchResults.appendChild(empty);
+    } else {
+      const summary = document.createElement("p");
+      summary.className = "public-search-summary";
+      summary.textContent = `${rows.length} perfiles públicos que coinciden con señales visibles. Revisá el enlace y la evidencia antes de contactar.`;
+      publicSearchResults.appendChild(summary);
+      const list = document.createElement("ol");
+      list.className = "public-profile-list";
+      rows.forEach((row) => {
+        const item = document.createElement("li");
+        item.className = "public-profile-card";
+        const head = document.createElement("div");
+        head.className = "public-profile-head";
+        const title = document.createElement("div");
+        title.className = "public-profile-title";
+        const name = document.createElement("strong");
+        name.textContent = row.name || "Nombre no visible en el resultado";
+        const headline = document.createElement("span");
+        headline.textContent = row.title;
+        title.append(name, headline);
+        const score = document.createElement("span");
+        score.className = "public-profile-score";
+        score.textContent = `${row.score} · ${row.confidence}`;
+        head.append(title, score);
+
+        const meta = document.createElement("div");
+        meta.className = "public-profile-meta";
+        const source = document.createElement("span");
+        source.textContent = row.sourceLabel;
+        const location = document.createElement("span");
+        location.textContent = row.locationStatus;
+        meta.append(source, location);
+
+        const snippet = document.createElement("p");
+        snippet.className = "public-profile-snippet";
+        snippet.textContent = row.snippet || "La fuente no publicó un fragmento descriptivo para este resultado.";
+        const evidence = document.createElement("p");
+        evidence.className = "public-profile-evidence";
+        const signalText = row.visibleSignals.length ? `Señales visibles: ${row.visibleSignals.join(" · ")}. ` : "No se detectaron señales textuales suficientes. ";
+        evidence.textContent = `${signalText}Cobertura del fragmento: ${row.scoreBreakdown.join(" · ")}.`;
+        const link = document.createElement("a");
+        link.href = row.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "Abrir perfil en la fuente ↗";
+        item.append(head, meta, snippet, evidence, link);
+        list.appendChild(item);
+      });
+      publicSearchResults.appendChild(list);
+    }
+    if (sourceErrors && sourceErrors.length) {
+      const partial = document.createElement("p");
+      partial.className = "public-search-partial";
+      partial.textContent = `Algunas fuentes no respondieron: ${sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source).join(", ")}.`;
+      publicSearchResults.appendChild(partial);
+    }
+  }
+
+  findProfilesBtn.addEventListener("click", async () => {
+    const publicSearchEndpoint = getPublicSearchEndpoint();
+    if (!publicSearchEndpoint) return;
+    const selected = [...publicSearchSources.querySelectorAll('input[name="publicSearchSource"]:checked')].map((input) => input.value);
+    if (!selected.length || selected.length > RadarTalentDiscovery.MAX_SOURCES) {
+      publicSearchStatus.textContent = `Elegí entre 1 y ${RadarTalentDiscovery.MAX_SOURCES} fuentes.`;
+      return;
+    }
+    const sequence = ++publicSearchSequence;
+    const plan = RadarTalentDiscovery.buildPlan(state, selected, RadarGenerator);
+    if (!plan.queries.length) {
+      publicSearchStatus.textContent = "No se pudo formar una consulta válida. Quitá términos largos o reducí la cantidad de señales y volvé a intentar.";
+      return;
+    }
+    findProfilesBtn.disabled = true;
+    findProfilesBtn.textContent = "Buscando perfiles…";
+    const skippedNote = plan.skippedSources.length
+      ? ` Se omitieron por longitud: ${plan.skippedSources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(", ")}.`
+      : "";
+    publicSearchStatus.textContent = `Consultando ${plan.queries.length} fuentes públicas. Esta operación consume una búsqueda por fuente del cupo del proveedor.${skippedNote}`;
+    publicSearchResults.replaceChildren();
+    try {
+      const response = await RadarTalentDiscovery.search(publicSearchEndpoint, plan, state);
+      if (sequence !== publicSearchSequence) return;
+      renderPublicProfileResults(response.results, response.sourceErrors);
+      const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
+      publicSearchStatus.textContent = count
+        ? `Listo: ${count} perfiles públicos ordenados por evidencia textual. La ubicación exacta solo figura como visible cuando aparece en el resultado.`
+        : "Búsqueda completada sin perfiles verificables.";
+    } catch (error) {
+      if (sequence !== publicSearchSequence) return;
+      publicSearchStatus.textContent = error instanceof Error ? error.message : "No se pudo completar la búsqueda pública.";
+    } finally {
+      if (sequence === publicSearchSequence) {
+        findProfilesBtn.disabled = false;
+        findProfilesBtn.textContent = "Buscar perfiles públicos";
+      }
+    }
+  });
 
   document.querySelectorAll("[data-outcome]").forEach((button) => {
     button.addEventListener("click", () => {

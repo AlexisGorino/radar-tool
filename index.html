@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'; worker-src 'self' blob:; connect-src 'self' https://formsubmit.co https://generativelanguage.googleapis.com https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none';">
+<meta name="radar-search-endpoint" content="">
 <meta name="description" content="RADAR: generador de booleanos de sourcing para reclutadores. Convertí una JD en un booleano preciso para LinkedIn, Google X-Ray, GitHub y más. Método Mindata.">
 <meta property="og:title" content="RADAR — Generador de booleanos | Mindata">
 <meta property="og:description" content="Convertí una JD en un booleano de sourcing preciso para LinkedIn, Google X-Ray, GitHub y más. Herramienta interna del equipo de Mindata.">
@@ -176,6 +177,22 @@
     </div>
   </section>
 
+  <section class="card public-search-setup" id="publicSearchSetup" aria-labelledby="publicSearchTitle">
+    <div class="public-search-heading">
+      <div><span class="public-search-kicker">DESCUBRIMIENTO PÚBLICO</span><h2 id="publicSearchTitle">Perfiles encontrados</h2></div>
+      <span class="public-search-cap">Hasta 50 · enlaces públicos</span>
+    </div>
+    <p class="hint">RADAR consulta resultados públicos indexados, valida que cada enlace parezca un perfil y ordena las señales visibles contra esta búsqueda. No accede a perfiles privados ni afirma que una persona esté disponible o sea la mejor contratación.</p>
+    <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
+    <div class="public-search-action">
+      <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles públicos</button>
+      <span class="hint" id="publicSearchConfigNote">La conexión segura con el proveedor todavía no está configurada.</span>
+    </div>
+    <p class="public-search-status" id="publicSearchStatus" role="status" aria-live="polite"></p>
+    <div class="public-search-results" id="publicSearchResults" aria-live="polite"></div>
+    <p class="platform-note">El puntaje compara solo la evidencia visible en el título y fragmento: imprescindibles 45%, alternativas 25%, cargo 15% y ubicación 15% (si solo aparece el país, la ubicación suma parcialmente). Los pesos se redistribuyen entre los campos usados en la búsqueda. Si un dato no aparece, queda como no verificado: no demuestra que la persona no lo tenga. No mide desempeño ni calidad profesional. Confirmá cada dato en la fuente.</p>
+  </section>
+
   <div class="generate-row">
     <button class="btn btn-primary" id="generateBtn" type="button">Armar booleano</button>
   </div>
@@ -244,7 +261,7 @@
 
   </section>
 
-  <p class="privacy-note">La JD se analiza en este navegador y no se guarda en un servidor de Mindata. El historial y los conteos agregados de resultados quedan en este navegador. Al entrar y generar búsquedas, RADAR registra en una hoja de uso tu nombre, apellido, fecha, acción y red, nunca el contenido de la JD. El feedback escrito se envía a la persona elegida al tocar Enviar. Si usás Gemini, el texto de la JD se envía directamente a Google al tocar “Mejorar análisis” o “Sugerir con IA”.</p>
+  <p class="privacy-note">La JD se analiza en este navegador y no se guarda en un servidor de Mindata. El historial y los conteos agregados de resultados quedan en este navegador. Al entrar y generar búsquedas, RADAR registra en una hoja de uso tu nombre, apellido, fecha, acción y red, nunca el contenido de la JD. El feedback escrito se envía a la persona elegida al tocar Enviar. Si usás Gemini, el texto de la JD se envía directamente a Google al tocar “Mejorar análisis” o “Sugerir con IA”. Si iniciás una búsqueda de perfiles públicos, RADAR envía al proveedor externo solo los términos de búsqueda seleccionados (cargo, señales y ubicación), no el documento completo; el proveedor informa que conserva las consultas y resultados hasta 31 días. Los resultados se muestran solo durante esta sesión y no se guardan en RADAR.</p>
 
   <div class="feedback-row">
     <button class="btn btn-ghost btn-small" id="feedbackBtn" type="button">¿Sugerencias o encontraste un bug?</button>
@@ -366,6 +383,7 @@
 <script src="js/ai.js?v=30"></script>
 <script src="js/tracking.js?v=30"></script>
 <script src="js/outcome.js?v=30"></script>
-<script src="js/app.js?v=30"></script>
+<script src="js/talent-discovery.js?v=31"></script>
+<script src="js/app.js?v=31"></script>
 </body>
 </html>

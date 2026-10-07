@@ -14,6 +14,7 @@ const LEGACY_SCRIPTS = [
   'js/ai.js',
   'js/tracking.js',
   'js/outcome.js',
+  'js/talent-discovery.js',
   'js/app.js'
 ] as const;
 
