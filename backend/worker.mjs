@@ -9,6 +9,19 @@ const MAX_SOURCES = 4;
 const MAX_RESULTS = 50;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
+const PROVIDER_ERROR_CODES = new Set([
+  "provider_rate_limited",
+  "provider_credentials_rejected",
+  "provider_request_rejected",
+  "provider_unavailable",
+]);
+
+function safeProviderErrorCode(error) {
+  if (PROVIDER_ERROR_CODES.has(error && error.message)) return error.message;
+  if (error && (error.name === "TimeoutError" || error.name === "AbortError")) return "provider_timeout";
+  if (error && error.name === "TypeError") return "provider_network_error";
+  return "source_unavailable";
+}
 
 function json(body, status, origin, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
@@ -176,8 +189,7 @@ export default {
       try {
         resultsBySource.push(await lookup(entry.query, plan.location, entry.source, env.SERPAPI_KEY));
       } catch (error) {
-        const safeCodes = new Set(["provider_rate_limited", "provider_credentials_rejected", "provider_request_rejected", "provider_unavailable"]);
-        sourceErrors.push({ source: entry.source, code: safeCodes.has(error.message) ? error.message : "source_unavailable" });
+        sourceErrors.push({ source: entry.source, code: safeProviderErrorCode(error) });
       }
     }
     const results = takeBalanced(resultsBySource);

@@ -91,6 +91,11 @@ describe("RADAR talent search flow", () => {
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").should("be.enabled").click();
     cy.get(".public-profile-card").should("have.length", 2);
+    cy.get(".public-search-results-heading").should("contain.text", "2 perfiles encontrados");
+    cy.get(".public-profile-rank").first().should("have.text", "01");
+    cy.get(".public-profile-score").first().should("contain.text", "/100");
+    cy.get(".public-profile-details summary").first().click();
+    cy.get(".public-profile-details[open]").should("contain.text", "Señales visibles");
     cy.contains("Ana Pérez").should("be.visible");
     cy.contains("Localidad visible").should("be.visible");
     cy.contains("Juan Gómez").parents(".public-profile-card").should("contain.text", "País o región visible; localidad sin confirmar");
@@ -154,8 +159,34 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
     cy.get("#findProfilesBtn").should("be.enabled").click();
-    cy.get("#publicSearchStatus").should("contain.text", "límite temporal");
+    cy.get(".public-search-error").should("contain.text", "límite temporal");
+    cy.get(".public-search-error").should("contain.text", "No mostramos una lista vacía");
     cy.get("#findProfilesBtn").should("be.enabled");
+  });
+
+  it("distinguishes a source failure from a completed search with no matches", () => {
+    cy.intercept("POST", "/mock-search", {
+      statusCode: 502,
+      body: { error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] },
+    }).as("failedPublicSearch");
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get("#findProfilesBtn").click();
+    cy.wait("@failedPublicSearch");
+    cy.get(".public-search-error").should("contain.text", "tardó demasiado en responder");
+    cy.get(".public-search-error").should("contain.text", "No se hacen reintentos automáticos");
+    cy.get(".public-search-empty").should("not.exist");
   });
 
   it("shows a recoverable message when a legacy module fails to load", () => {

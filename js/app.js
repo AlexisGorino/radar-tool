@@ -1160,17 +1160,24 @@
       empty.textContent = "No aparecieron perfiles públicos verificables con esta consulta. Probá una ruta más amplia, revisá las señales o cambiá las fuentes.";
       publicSearchResults.appendChild(empty);
     } else {
-      const summary = document.createElement("p");
-      summary.className = "public-search-summary";
-      summary.textContent = `${rows.length} perfiles públicos que coinciden con señales visibles. Revisá el enlace y la evidencia antes de contactar.`;
+      const summary = document.createElement("div");
+      summary.className = "public-search-results-heading";
+      const resultCount = document.createElement("strong");
+      resultCount.textContent = `${rows.length} perfiles encontrados`;
+      const summaryNote = document.createElement("span");
+      summaryNote.textContent = "Ordenados por señales públicas visibles; no es una evaluación de idoneidad.";
+      summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
       const list = document.createElement("ol");
       list.className = "public-profile-list";
-      rows.forEach((row) => {
+      rows.forEach((row, index) => {
         const item = document.createElement("li");
         item.className = "public-profile-card";
         const head = document.createElement("div");
         head.className = "public-profile-head";
+        const rank = document.createElement("span");
+        rank.className = "public-profile-rank";
+        rank.textContent = String(index + 1).padStart(2, "0");
         const title = document.createElement("div");
         title.className = "public-profile-title";
         const name = document.createElement("strong");
@@ -1180,30 +1187,45 @@
         title.append(name, headline);
         const score = document.createElement("span");
         score.className = "public-profile-score";
-        score.textContent = `${row.score} · ${row.confidence}`;
-        head.append(title, score);
+        const scoreValue = document.createElement("strong");
+        scoreValue.textContent = `${row.score}/100`;
+        const scoreLabel = document.createElement("small");
+        scoreLabel.textContent = row.confidence;
+        score.append(scoreValue, scoreLabel);
+        const identity = document.createElement("div");
+        identity.className = "public-profile-identity";
+        identity.append(rank, title);
+        head.append(identity, score);
 
         const meta = document.createElement("div");
         meta.className = "public-profile-meta";
         const source = document.createElement("span");
+        source.className = "public-profile-source";
         source.textContent = row.sourceLabel;
         const location = document.createElement("span");
+        location.className = row.specificLocationHit ? "public-profile-location is-confirmed" : "public-profile-location is-unverified";
         location.textContent = row.locationStatus;
         meta.append(source, location);
 
         const snippet = document.createElement("p");
         snippet.className = "public-profile-snippet";
         snippet.textContent = row.snippet || "La fuente no publicó un fragmento descriptivo para este resultado.";
+        const details = document.createElement("details");
+        details.className = "public-profile-details";
+        const detailsSummary = document.createElement("summary");
+        detailsSummary.textContent = "Ver señales y cobertura";
         const evidence = document.createElement("p");
         evidence.className = "public-profile-evidence";
         const signalText = row.visibleSignals.length ? `Señales visibles: ${row.visibleSignals.join(" · ")}. ` : "No se detectaron señales textuales suficientes. ";
         evidence.textContent = `${signalText}Cobertura del fragmento: ${row.scoreBreakdown.join(" · ")}.`;
+        details.append(detailsSummary, evidence);
         const link = document.createElement("a");
+        link.className = "public-profile-link";
         link.href = row.url;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.textContent = "Abrir perfil en la fuente ↗";
-        item.append(head, meta, snippet, evidence, link);
+        item.append(head, meta, snippet, details, link);
         list.appendChild(item);
       });
       publicSearchResults.appendChild(list);
@@ -1217,6 +1239,21 @@
         : `Algunas fuentes no respondieron: ${sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source).join(", ")}.`;
       publicSearchResults.appendChild(partial);
     }
+  }
+
+  function renderPublicSearchError(error) {
+    publicSearchResults.replaceChildren();
+    const panel = document.createElement("section");
+    panel.className = "public-search-error";
+    panel.setAttribute("role", "alert");
+    const heading = document.createElement("strong");
+    heading.textContent = "No pudimos consultar las fuentes";
+    const message = document.createElement("p");
+    message.textContent = error instanceof Error ? error.message : "La consulta no pudo completarse.";
+    const note = document.createElement("span");
+    note.textContent = "No mostramos una lista vacía como si la búsqueda hubiera terminado correctamente. No se hacen reintentos automáticos.";
+    panel.append(heading, message, note);
+    publicSearchResults.appendChild(panel);
   }
 
   async function runPublicProfileSearch(strategy) {
@@ -1271,7 +1308,8 @@
       }
     } catch (error) {
       if (sequence !== publicSearchSequence) return;
-      publicSearchStatus.textContent = error instanceof Error ? error.message : "No se pudo completar la búsqueda pública.";
+      publicSearchStatus.textContent = "La búsqueda no se completó.";
+      renderPublicSearchError(error);
     } finally {
       if (sequence === publicSearchSequence) {
         findProfilesBtn.disabled = false;

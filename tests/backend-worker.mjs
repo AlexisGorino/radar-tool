@@ -177,6 +177,36 @@ async function main() {
     }
   });
 
+  await test("distinguishes provider network and timeout failures without exposing exception text", async () => {
+    const previousFetch = globalThis.fetch;
+    try {
+      for (const [name, code] of [["TypeError", "provider_network_error"], ["TimeoutError", "provider_timeout"]]) {
+        globalThis.fetch = async (rawUrl) => {
+          const url = new URL(rawUrl);
+          if (url.pathname.endsWith("/account.json")) {
+            return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+          }
+          const error = new Error("network detail must stay hidden");
+          error.name = name;
+          throw error;
+        };
+        const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+          method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+        }), {
+          ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+          SERPAPI_KEY: "server-secret",
+          SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+        });
+        const payload = await response.json();
+        assert.equal(response.status, 502);
+        assert.ok(payload.sourceErrors.every((entry) => entry.code === code));
+        assert.doesNotMatch(JSON.stringify(payload), /network detail|server-secret/);
+      }
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   console.log(`\n${passed} backend-worker tests passed.`);
 }
 

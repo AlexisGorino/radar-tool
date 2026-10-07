@@ -180,6 +180,18 @@ test("search omits credentials, does not send the JD, and reports provider error
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_request_rejected" }] }) })),
     /Revisá la ubicación o los términos/
   );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] }) })),
+    /tardó demasiado en responder/
+  );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_network_error" }] }) })),
+    /no pudo conectarse/
+  );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => { throw new TypeError("Failed to fetch"); }),
+    /No se pudo conectar con el servicio/
+  );
 });
 
 console.log(`\n${passed} talent-discovery tests passed.`);
