@@ -27,6 +27,9 @@
           },
           "configurations": {
             "production": {
+              "optimization": {
+                "styles": { "inlineCritical": false }
+              },
               "budgets": [
                 { "type": "initial", "maximumWarning": "1.5mb", "maximumError": "2mb" },
                 { "type": "anyComponentStyle", "maximumWarning": "24kb", "maximumError": "32kb" }
