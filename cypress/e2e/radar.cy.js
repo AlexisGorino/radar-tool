@@ -36,7 +36,7 @@ describe("RADAR talent search flow", () => {
 
   it("blocks vague manual searches until role signals and geography are entered", () => {
     cy.get("#generateBtn").click();
-    cy.get("#generatorWarning").should("contain.text", "cargo");
+    cy.get("#generateBtn + .inline-error").should("contain.text", "Sin título");
     cy.get('[data-field="rol"]').type("Recepcionista{enter}");
     cy.get('[data-field="atributos"]').type("atención al cliente{enter}");
     cy.get('[data-field="alcance"]').type("Rosario{enter}");
