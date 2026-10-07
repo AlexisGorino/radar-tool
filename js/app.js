@@ -18,27 +18,27 @@
   // en vivo (no supuestos): ver TESTING.md, sección "Auditoría de redes".
   const NETWORK_DESCRIPTIONS = {
     linkedin:
-      "Usá el botón \"Buscar en LinkedIn\" de abajo — no depende de que Google tenga nada indexado, y es donde vive la mayoría de los perfiles. El X-Ray de al lado es el plan B: anda bien en Google para cualquier rubro y país (probado con desarrollo, SAP, ciberseguridad y telecomunicaciones), pero Bing ya ni respeta el site:, no lo uses ahí.",
+      "Perfiles profesionales de muchos rubros. La búsqueda interna requiere iniciar sesión y su filtro de ubicación debe confirmarse allí. Google X-Ray es una alternativa para páginas públicas indexadas; puede estar desactualizada.",
     github:
-      "Developers y perfiles de datos con actividad pública en GitHub. Probado con Backend + Python en Argentina: más de cien resultados reales. Fuera de lo técnico no hay nada que buscar acá.",
+      "Útil para desarrollo, datos e infraestructura cuando hay proyectos o contribuciones públicas. Un repositorio no confirma experiencia laboral, residencia ni disponibilidad; evitá esta fuente para puestos sin actividad técnica pública.",
     stackoverflow:
-      "Gente con historial real respondiendo o preguntando: dev, QA, data, DevOps. El puesto no va entre comillas — casi nadie escribe su cargo tal cual en la bio, así que se busca suelto. Para roles comerciales no sirve, ahí no hay actividad.",
-    xing: "Equivalente a LinkedIn pero en Alemania, Austria y Suiza. El país se busca en el idioma del perfil, no en español (\"Germany\", no \"Alemania\") porque así lo escriben de verdad. Fuera de esa zona apenas hay usuarios.",
+      "Perfiles con participación pública en preguntas y respuestas, principalmente de tecnología. La actividad técnica puede aportar contexto, pero no equivale a historial laboral.",
+    xing: "Red profesional con mayor uso en Alemania, Austria y Suiza. Fuera de esos mercados puede ofrecer poca cobertura; verificá país y ciudad en el perfil.",
     behance:
-      "Portfolios de diseño, UX/UI e ilustración. Anda muy bien — algunos perfiles hasta dicen \"en búsqueda activa\". Para cualquier otro rubro no va a traer nada, ni vale la pena intentarlo.",
+      "Portfolios públicos de diseño, UX/UI e ilustración. Sirve para evaluar trabajos publicados; no confirma empleo actual ni disponibilidad.",
     resumes:
-      "CVs colgados en sitios personales o blogs, fuera de las redes profesionales — con mail y teléfono directo, a veces mejor que un perfil de LinkedIn. Sirve para cualquier rubro, con menos volumen.",
+      "Documentos de CV que los buscadores ya tienen indexados. Pueden estar antiguos o publicados fuera de contexto; comprobá la fuente y tratá los datos personales con cuidado.",
     custom:
-      "Usá un sitio que publique perfiles o portfolios de personas. Muchos portales de empleo muestran ofertas en Google y reservan sus bases de candidatos a reclutadores con acceso propio; comprobá qué tipo de resultado devuelve el dominio.",
+      "Acota a un dominio que publique perfiles o portfolios. En portales de empleo el buscador puede devolver anuncios, no candidatos; verificá cada tipo de resultado.",
   };
 
   const NOTES = {
-    linkedin: "Este X-Ray es el respaldo — para buscar de verdad usá el botón de arriba, no depende de Google ni Bing.",
-    stackoverflow: "El puesto se busca suelto, no entre comillas — en Stack Overflow nadie escribe su cargo tal cual.",
-    xing: "Fuerte en Alemania, Austria y Suiza. El país va en inglés para que matchee con el perfil real.",
-    behance: "Portfolios públicos de diseño, UX/UI e ilustración. Fuera de ese rubro no trae nada.",
-    resumes: "Busca PDF/Word sueltos en toda la web, currículums publicados fuera de las redes profesionales.",
-    custom: "El dominio solo acota páginas indexadas. Confirmá que sean perfiles de personas y no anuncios de vacantes.",
+    linkedin: "X-Ray consulta páginas públicas de LinkedIn indexadas en Google. Puede omitir perfiles privados o mostrar datos antiguos; usá el filtro de ubicación de LinkedIn para confirmar la ciudad.",
+    stackoverflow: "Busca páginas de perfiles con actividad pública. La coincidencia técnica es una señal para revisar, no una equivalencia con experiencia laboral.",
+    xing: "Cobertura más fuerte en Alemania, Austria y Suiza. Los resultados indexados no reemplazan la verificación de residencia actual.",
+    behance: "Busca portfolios públicos; evaluá trabajos y especialidad dentro del sitio.",
+    resumes: "Busca archivos PDF/Word ya indexados; no consulta bases privadas ni confirma que el CV esté vigente.",
+    custom: "El dominio solo limita páginas indexadas. Confirmá que cada resultado sea un perfil y no una oferta de empleo.",
   };
 
   const HISTORY_KEY = "radar-history-v1";
@@ -64,6 +64,10 @@
   const publicSearchConfigNote = document.getElementById("publicSearchConfigNote");
   const publicSearchStatus = document.getElementById("publicSearchStatus");
   const publicSearchResults = document.getElementById("publicSearchResults");
+  const publicSearchRefine = document.getElementById("publicSearchRefine");
+  const publicSearchRefineTitle = document.getElementById("publicSearchRefineTitle");
+  const publicSearchRefineText = document.getElementById("publicSearchRefineText");
+  const broadenPublicSearchBtn = document.getElementById("broadenPublicSearchBtn");
   const resultsEl = document.getElementById("results");
   const resultXray = document.getElementById("resultXray");
   const resultGithub = document.getElementById("resultGithub");
@@ -91,6 +95,8 @@
   let currentSourceMeta = null;
   let uploadSequence = 0;
   let publicSearchSequence = 0;
+  let publicSearchRows = [];
+  let publicSearchStrategy = "precise";
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
   const aiPanel = document.getElementById("aiPanel");
@@ -704,6 +710,7 @@
       const sourceField = field === "deseables" ? "atributosDeseables" : field;
       state[field] = (pendingAnalysis[sourceField] || []).slice();
     });
+    state.seniority = (pendingAnalysis.seniority || []).slice();
     renderAllChips();
     countrySelect.value = pendingAnalysis.country || RadarCountries.detectCountry(pendingAnalysis.alcance.join(" ")) || "";
     noLocationCheckbox.checked = !pendingAnalysis.alcance.length;
@@ -1123,7 +1130,13 @@
       });
       const text = document.createElement("span");
       text.textContent = RadarTalentDiscovery.SOURCES[source].label;
-      label.append(input, text);
+      const description = document.createElement("small");
+      description.textContent = RadarTalentDiscovery.SOURCES[source].description;
+      const copy = document.createElement("span");
+      copy.className = "public-source-copy";
+      copy.append(text, description);
+      label.title = RadarTalentDiscovery.SOURCES[source].description;
+      label.append(input, copy);
       publicSearchSources.appendChild(label);
     });
     const selectedCount = recommended.filter((source) => allowed.includes(source)).length;
@@ -1135,6 +1148,8 @@
     }
     publicSearchStatus.textContent = "";
     publicSearchResults.replaceChildren();
+    publicSearchRows = [];
+    publicSearchRefine.classList.add("hidden");
   }
 
   function renderPublicProfileResults(rows, sourceErrors) {
@@ -1201,7 +1216,7 @@
     }
   }
 
-  findProfilesBtn.addEventListener("click", async () => {
+  async function runPublicProfileSearch(strategy) {
     const publicSearchEndpoint = getPublicSearchEndpoint();
     if (!publicSearchEndpoint) return;
     const selected = [...publicSearchSources.querySelectorAll('input[name="publicSearchSource"]:checked')].map((input) => input.value);
@@ -1210,26 +1225,47 @@
       return;
     }
     const sequence = ++publicSearchSequence;
-    const plan = RadarTalentDiscovery.buildPlan(state, selected, RadarGenerator);
+    const plan = RadarTalentDiscovery.buildPlan(state, selected, RadarGenerator, { strategy });
     if (!plan.queries.length) {
       publicSearchStatus.textContent = "No se pudo formar una consulta válida. Quitá términos largos o reducí la cantidad de señales y volvé a intentar.";
       return;
     }
     findProfilesBtn.disabled = true;
     findProfilesBtn.textContent = "Buscando perfiles…";
+    broadenPublicSearchBtn.disabled = true;
+    if (strategy === "precise") publicSearchRows = [];
+    publicSearchStrategy = strategy;
     const skippedNote = plan.skippedSources.length
       ? ` Se omitieron por longitud: ${plan.skippedSources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(", ")}.`
       : "";
-    publicSearchStatus.textContent = `Consultando ${plan.queries.length} fuentes públicas. Esta operación consume una búsqueda por fuente del cupo del proveedor.${skippedNote}`;
+    publicSearchStatus.textContent = `Consultando ${plan.queries.length} fuentes públicas. Esta ruta consume una búsqueda por fuente del cupo mensual; no se ejecutan intentos extra automáticamente.${skippedNote}`;
     publicSearchResults.replaceChildren();
     try {
       const response = await RadarTalentDiscovery.search(publicSearchEndpoint, plan, state);
       if (sequence !== publicSearchSequence) return;
-      renderPublicProfileResults(response.results, response.sourceErrors);
+      const rowsByUrl = new Map(publicSearchRows.map((row) => [row.url, row]));
+      response.results.forEach((row) => {
+        const previous = rowsByUrl.get(row.url);
+        if (!previous || row.score > previous.score) rowsByUrl.set(row.url, row);
+      });
+      publicSearchRows = [...rowsByUrl.values()].sort((a, b) => b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999)).slice(0, RadarTalentDiscovery.MAX_RESULTS);
+      renderPublicProfileResults(publicSearchRows, response.sourceErrors);
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
       publicSearchStatus.textContent = count
-        ? `Listo: ${count} perfiles públicos ordenados por evidencia textual. La ubicación exacta solo figura como visible cuando aparece en el resultado.`
+        ? `Listo: ${count} perfiles públicos ordenados por evidencia visible. Confirmá ubicación y requisitos en cada fuente.`
         : "Búsqueda completada sin perfiles verificables.";
+      if (count <= 3 && strategy !== "market") {
+        const nextStrategy = strategy === "precise" ? "equivalent" : "market";
+        broadenPublicSearchBtn.dataset.strategy = nextStrategy;
+        broadenPublicSearchBtn.textContent = nextStrategy === "equivalent" ? "Probar perfiles equivalentes" : "Ampliar sin cargo ni sector";
+        publicSearchRefineTitle.textContent = count ? `Aparecieron ${count} perfiles. ¿Querés ampliar?` : "No aparecieron perfiles verificables con esta ruta.";
+        publicSearchRefineText.textContent = nextStrategy === "equivalent"
+          ? "Siguiente intento: deja de exigir el título literal y busca perfiles por señales del puesto. Mantiene la localidad, los imprescindibles y las exclusiones. Consume una búsqueda adicional por fuente seleccionada."
+          : "Última ampliación: quita el cargo literal y el sector, y conserva la localidad, los imprescindibles y las exclusiones. Si sigue sin alcanzar, revisá si alguna señal marcada como imprescindible admite equivalencias o elegí otra fuente. Consume una búsqueda adicional por fuente seleccionada.";
+        publicSearchRefine.classList.remove("hidden");
+      } else {
+        publicSearchRefine.classList.add("hidden");
+      }
     } catch (error) {
       if (sequence !== publicSearchSequence) return;
       publicSearchStatus.textContent = error instanceof Error ? error.message : "No se pudo completar la búsqueda pública.";
@@ -1237,9 +1273,13 @@
       if (sequence === publicSearchSequence) {
         findProfilesBtn.disabled = false;
         findProfilesBtn.textContent = "Buscar perfiles públicos";
+        broadenPublicSearchBtn.disabled = false;
       }
     }
-  });
+  }
+
+  findProfilesBtn.addEventListener("click", () => runPublicProfileSearch("precise"));
+  broadenPublicSearchBtn.addEventListener("click", () => runPublicProfileSearch(broadenPublicSearchBtn.dataset.strategy || "equivalent"));
 
   document.querySelectorAll("[data-outcome]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1316,6 +1356,7 @@
       state[f] = [];
       renderChips(f);
     });
+    state.seniority = [];
     jdInput.value = "";
     currentFileName = "";
     currentSourceMeta = null;
@@ -1368,6 +1409,7 @@
       dominio: state.dominio.slice(),
       alcance: state.alcance.slice(),
       refinar: state.refinar.slice(),
+      seniority: (state.seniority || []).slice(),
       network: selectedNetwork,
       universal: universalBoolean,
     };
@@ -1429,6 +1471,7 @@
     FIELDS.forEach((f) => {
       state[f] = (entry[f] || []).slice();
     });
+    state.seniority = Array.isArray(entry.seniority) ? entry.seniority.slice() : [];
     renderAllChips();
     noLocationCheckbox.checked = !state.alcance.length;
     relaxedModeCheckbox.checked = false;

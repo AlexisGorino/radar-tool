@@ -80,14 +80,37 @@
   // eating one of the few slots the boolean has room for. A skill mentioned
   // on BOTH sides (required, and repeated as a "plus") stays a real requirement.
   const OPTIONAL_SECTION_RE = /\b(deseables?|plus|nice to have|valorable|opcionales?|a favor|suma(?:n)? puntos)\b/i;
+  const REQUIRED_SECTION_RE = /\b(?:requisitos? (?:imprescindibles?|excluyentes?)|requisitos?|requerid[oa]s?|imprescindibles?|excluyentes?|obligatorios?|must have|mandatory|requirements?)\b/i;
+  const REQUIRED_HEADING_RE = /(?:^|\n)[ \t]*(?:[-•*][ \t]*)?(?:experiencia|formaci[oó]n|educaci[oó]n|habilidades? t[eé]cnicas|idiomas?|funciones|responsabilidades|conocimientos? t[eé]cnicos?)[ \t]*(?::|\n|$)/gim;
 
   function optionalOnlySkills(text, bank) {
-    const marker = text.match(OPTIONAL_SECTION_RE);
-    if (!marker) return [];
-    const before = text.slice(0, marker.index);
-    const after = text.slice(marker.index);
-    const requiredElsewhere = new Set(findMatches(before, bank).map((t) => t.toLowerCase()));
-    return findMatches(after, bank).filter((t) => !requiredElsewhere.has(t.toLowerCase()));
+    const markers = [];
+    [
+      ...Array.from(text.matchAll(new RegExp(OPTIONAL_SECTION_RE.source, "gi")), (match) => ({ index: match.index, optional: true })),
+      ...Array.from(text.matchAll(new RegExp(REQUIRED_SECTION_RE.source, "gi")), (match) => ({ index: match.index, optional: false })),
+      ...Array.from(text.matchAll(new RegExp(REQUIRED_HEADING_RE.source, "gim")), (match) => ({ index: match.index + match[0].length, optional: false })),
+    ].sort((a, b) => a.index - b.index).forEach((marker) => {
+      if (markers.length && markers[markers.length - 1].optional === marker.optional) return;
+      markers.push(marker);
+    });
+    if (!markers.some((marker) => marker.optional)) return [];
+
+    const optional = [];
+    findMatches(text, bank).forEach((term) => {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const occurrence = new RegExp("(^|[^a-záéíóúñü0-9])" + escaped + "($|[^a-záéíóúñü0-9])", "gi");
+      const indices = Array.from(text.matchAll(occurrence), (match) => match.index + match[1].length);
+      const isOnlyOptional = indices.length > 0 && indices.every((index) => {
+        let state = false;
+        for (const marker of markers) {
+          if (marker.index > index) break;
+          state = marker.optional;
+        }
+        return state;
+      });
+      if (isOnlyOptional) optional.push(term);
+    });
+    return optional;
   }
 
   function stripTags(text) {
@@ -499,7 +522,7 @@
   }
 
   function analyzeJD(rawText, options) {
-    const text = String(rawText || "").slice(0, MAX_INPUT_LENGTH);
+    const text = normalizeJDText(String(rawText || "").slice(0, MAX_INPUT_LENGTH));
     if (!text.trim()) {
       return { rol: [], atributos: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false, isResume: false };
     }
@@ -531,6 +554,7 @@
       return true;
     });
     const juniorFound = findMatches(text, Keywords.JUNIOR_WORDS).filter((w) => !Countries.containsWord(rolText, w));
+    if (/\b(?:0\s*[-–—a]\s*2|hasta\s+2|entre\s+0\s+y\s+2)\s*(?:a[nñ]os?|years?)\b/i.test(text) && !juniorFound.length) juniorFound.push("junior");
 
     // Refinar (NOT/exclusiones) is never auto-filled: it's a deliberate
     // choice by the recruiter, not something a keyword match should guess.
@@ -556,6 +580,16 @@
     return analyzed;
   }
 
+  function normalizeJDText(value) {
+    return String(value || "")
+      .replace(/[\u00a0\u2007\u202f]/g, " ")
+      .replace(/\r\n?/g, "\n")
+      .replace(/[\t\f\v ]{2,}/g, " ")
+      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
   return {
     MAX_INPUT_LENGTH,
     MAX_ATTRIBUTES,
@@ -564,6 +598,7 @@
     dedupe,
     findMatches,
     findMatchesRanked,
+    normalizeJDText,
     looksLikeTemplateNoise,
     optionalOnlySkills,
     looksLikeResume,

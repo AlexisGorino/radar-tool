@@ -43,6 +43,42 @@ test("does not silently send oversized plans; exposes sources that need a shorte
   assert.deepEqual(plan.skippedSources, ["linkedin"]);
 });
 
+test("widens junior project-management titles without dropping specific locality or job signals", () => {
+  const state = {
+    rol: ["Jefe de Proyecto"], imprescindibles: [], atributos: ["MS Project", "PMBOK"],
+    deseables: ["PRINCE2"], dominio: ["telecomunicaciones"], alcance: ["España", "Santiago de Compostela"], refinar: [], seniority: ["junior"],
+  };
+  const plan = Discovery.buildPlan(state, ["linkedin"], Generator);
+  const query = plan.queries[0].query;
+  ["Jefe de Proyecto", "Project Manager", "Junior Project Manager", "Coordinador de Proyectos", "Santiago de Compostela", "MS Project", "telecomunicaciones"].forEach((term) => {
+    assert.ok(query.toLowerCase().includes(term.toLowerCase()), `query missing ${term}: ${query}`);
+  });
+  assert.ok(query.length <= 900, `query exceeds provider limit (${query.length})`);
+  assert.doesNotMatch(query, /NOT junior|-junior/i, "experience level is search context, not an exclusion");
+  const evidence = Discovery.termEvidence("Project Manager junior · telecomunicaciones · Santiago de Compostela", state);
+  assert.ok(evidence.roleHits.includes("Project Manager"), "a translated title counts as role evidence");
+});
+
+test("offers controlled no-title and no-sector recovery routes that retain hard criteria", () => {
+  const state = {
+    rol: ["Jefe de Proyecto"], imprescindibles: ["MS Project"], atributos: ["Jira", "PMBOK"],
+    deseables: ["PRINCE2"], dominio: ["telecomunicaciones"], alcance: ["España", "Santiago de Compostela"], refinar: ["Senior"],
+  };
+  const sources = ["linkedin"];
+  const precise = Discovery.buildPlan(state, sources, Generator).queries[0].query;
+  const equivalent = Discovery.buildPlan(state, sources, Generator, { strategy: "equivalent" }).queries[0].query;
+  const market = Discovery.buildPlan(state, sources, Generator, { strategy: "market" }).queries[0].query;
+  assert.match(precise, /Jefe de Proyecto/i);
+  assert.doesNotMatch(equivalent, /Jefe de Proyecto|Project Manager/i);
+  assert.match(equivalent, /Santiago de Compostela/i);
+  assert.match(equivalent, /MS Project/i);
+  assert.match(equivalent, /telecomunicaciones/i);
+  assert.doesNotMatch(market, /Jefe de Proyecto|telecomunicaciones/i);
+  assert.match(market, /Santiago de Compostela/i);
+  assert.match(market, /MS Project/i);
+  assert.match(market, /-Senior/i);
+});
+
 test("preserves every configured country and locality in the public-search query plan", () => {
   const profile = { rol: ["Analista"], imprescindibles: [], atributos: ["atención al cliente"], deseables: [], dominio: [], refinar: [] };
   const normalize = (text) => String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

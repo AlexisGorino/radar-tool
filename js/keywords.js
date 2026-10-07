@@ -32,6 +32,8 @@
     "Figma", "UX", "UI",
     "ISO 27001", "NIST", "GDPR", "NIS2", "DORA", "PCI-DSS", "CISM", "CISSP", "CISA", "CRISC",
     "PMP", "PRINCE2", "IAM", "PAM", "Zero Trust", "SIEM", "SOC", "Pentesting",
+    "MS Project", "Microsoft Project", "PMBOK", "Gantt", "Jira", "Confluence", "SharePoint",
+    "PowerPoint", "Asana", "Monday.com", "CAPM",
     "Rust", "Scala", "Elixir", "Dart", "Flutter", "React Native", "Perl", "Objective-C", "Haskell", "Unity",
     // Marketing / ventas
     "SEO", "SEM", "Google Ads", "Meta Ads", "Google Analytics", "Marketing Digital",
@@ -91,7 +93,7 @@
   // Common to almost every posting in their category — real, but they don't
   // discriminate a search the way a specific tool/framework/cert does.
   // Ranked last in Atributos so the technical, specific terms win the cap.
-  const GENERIC_SKILLS = ["Scrum", "Kanban", "Agile", "DevOps", "QA", "Testing", "ERP", "CRM", "Excel", "Excel avanzado", "Networking"];
+  const GENERIC_SKILLS = ["Scrum", "Kanban", "Agile", "DevOps", "QA", "Testing", "ERP", "CRM", "Excel", "Excel avanzado", "Networking", "Confluence", "SharePoint", "PowerPoint", "Asana", "Monday.com"];
 
   const SENIOR_WORDS =["senior", "sr", "lead", "líder", "lider", "manager", "gerente", "head", "director", "principal"];
   const JUNIOR_WORDS = ["junior", "jr", "trainee", "practicante", "ssr", "semi-senior", "semi senior", "pasante", "intern"];
@@ -109,6 +111,9 @@
     "diseñador": ["designer", "ux designer", "ui designer"],
     "product manager": ["pm", "product owner", "gerente de producto"],
     "project manager": ["pm", "jefe de proyecto", "gerente de proyecto"],
+    "jefe de proyecto": ["project manager", "jefe de proyectos", "gerente de proyecto", "coordinador de proyectos", "project coordinator", "pmo analyst"],
+    "jefe de proyectos": ["project manager", "jefe de proyecto", "gerente de proyectos", "coordinador de proyectos", "project coordinator", "pmo analyst"],
+    "coordinador de proyectos": ["project coordinator", "jefe de proyecto", "jefe de proyectos", "project manager"],
     "scrum master": ["agile coach", "facilitador ágil"],
     "data scientist": ["científico de datos", "analista de datos"],
     "devops": ["sre", "ingeniero de infraestructura", "platform engineer"],

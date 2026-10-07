@@ -10,11 +10,11 @@
   "use strict";
 
   const SOURCES = Object.freeze({
-    linkedin: { label: "LinkedIn", domain: "linkedin.com", path: /^\/(?:in|pub)\//i },
-    github: { label: "GitHub", domain: "github.com", path: /^\/[^/]+\/?$/i },
-    stackoverflow: { label: "Stack Overflow", domain: "stackoverflow.com", path: /^\/users\/\d+\//i },
-    xing: { label: "Xing", domain: "xing.com", path: /^\/profile\//i },
-    behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i },
+    linkedin: { label: "LinkedIn", domain: "linkedin.com", path: /^\/(?:in|pub)\//i, description: "Perfiles profesionales de distintos rubros. El buscador público puede omitir perfiles privados o no indexados." },
+    github: { label: "GitHub", domain: "github.com", path: /^\/[^/]+\/?$/i, description: "Actividad y proyectos públicos, sobre todo para tecnología. No demuestra experiencia laboral ni disponibilidad." },
+    stackoverflow: { label: "Stack Overflow", domain: "stackoverflow.com", path: /^\/users\/\d+\//i, description: "Participación técnica pública en preguntas y respuestas; útil para perfiles de ingeniería." },
+    xing: { label: "Xing", domain: "xing.com", path: /^\/profile\//i, description: "Perfiles profesionales con mayor presencia en Alemania, Austria y Suiza." },
+    behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i, description: "Portfolios de diseño, UX/UI e ilustración; no es fuente adecuada para la mayoría de los otros puestos." },
   });
   const MAX_SOURCES = 4;
   const MAX_RESULTS = 50;
@@ -27,7 +27,28 @@
       .slice(0, 8);
   }
 
-  function buildPlan(state, recommendations, generator) {
+  function expandRoleFamily(roles, seniority) {
+    const original = cleanTerms(roles);
+    const normalized = normalizeText(original.join(" "));
+    const projectManagement = /\b(?:jefe de proyectos?|gerente de proyectos?|project manager|project coordinator|coordinador de proyectos?)\b/.test(normalized);
+    if (!projectManagement) return original;
+    const juniorContext = normalizeText([...(Array.isArray(seniority) ? seniority : []), ...original].join(" "));
+    const junior = /\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(juniorContext);
+    const aliases = junior
+      ? ["Jefe de Proyecto", "Jefe de Proyectos", "Project Manager", "Junior Project Manager", "Coordinador de Proyectos", "Coordinador de Proyectos Junior"]
+      : ["Jefe de Proyecto", "Jefe de Proyectos", "Project Manager", "Coordinador de Proyectos", "Project Coordinator", "PMO Analyst"];
+    const seen = new Set(original.map(normalizeText));
+    aliases.forEach((term) => {
+      if (!seen.has(normalizeText(term)) && original.length < 6) {
+        original.push(term);
+        seen.add(normalizeText(term));
+      }
+    });
+    return original;
+  }
+
+  function buildPlan(state, recommendations, generator, options) {
+    const strategy = options && options.strategy || "precise";
     const allowed = new Set(Object.keys(SOURCES));
     const chosen = (Array.isArray(recommendations) ? recommendations : [])
       .map((entry) => typeof entry === "string" ? entry : entry && entry.id)
@@ -36,8 +57,17 @@
     const skippedSources = [];
     const plan = chosen.map((id) => {
       const source = SOURCES[id];
-      const tiers = generator.buildXRayTiers(state, id === "linkedin" ? "linkedin.com/in" : source.domain, false, id === "stackoverflow" || id === "xing");
-      const usable = tiers.find((tier) => tier.query && tier.query.length <= MAX_QUERY_LENGTH);
+      // Project management vacancies use several standard title families in
+      // LATAM and Spain. Expand only this well-defined family, while keeping
+      // the JD's requirements and its most specific location in the query.
+      const queryState = strategy === "market"
+        ? { ...state, rol: [], dominio: [] }
+        : { ...state, rol: expandRoleFamily(state.rol, state.seniority) };
+      const tiers = generator.buildXRayTiers(queryState, id === "linkedin" ? "linkedin.com/in" : source.domain, false, id === "stackoverflow" || id === "xing");
+      const preferred = strategy === "equivalent"
+        ? tiers.find((tier) => tier.label.includes("sin título")) || tiers[1]
+        : tiers[0];
+      const usable = preferred && preferred.query && preferred.query.length <= MAX_QUERY_LENGTH ? preferred : null;
       if (!usable) {
         skippedSources.push(id);
         return null;
@@ -95,7 +125,7 @@
     const searchable = normalizeText(text);
     const required = cleanTerms(state.imprescindibles);
     const alternatives = cleanTerms(state.atributos);
-    const role = cleanTerms(state.rol);
+    const role = expandRoleFamily(state.rol, state.seniority);
     const location = cleanTerms(state.alcance);
     const hits = (terms) => terms.filter((term) => searchable.includes(normalizeText(term)));
     const roleHits = hits(role);
@@ -176,5 +206,5 @@
     };
   }
 
-  return { SOURCES, MAX_SOURCES, MAX_RESULTS, buildPlan, validateProfileUrl, parseDisplayName, termEvidence, normalizeResults, search };
+  return { SOURCES, MAX_SOURCES, MAX_RESULTS, buildPlan, expandRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, normalizeResults, search };
 });
