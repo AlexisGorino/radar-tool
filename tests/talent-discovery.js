@@ -172,6 +172,14 @@ test("search omits credentials, does not send the JD, and reports provider error
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 429, json: async () => ({ error: "provider_rate_limited" }) })),
     /SerpApi rechazó temporalmente/
   );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_credentials_rejected" }] }) })),
+    /credencial configurada/
+  );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_request_rejected" }] }) })),
+    /Revisá la ubicación o los términos/
+  );
 });
 
 console.log(`\n${passed} talent-discovery tests passed.`);
