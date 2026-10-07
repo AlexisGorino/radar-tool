@@ -23,7 +23,7 @@ describe("RADAR document upload races", () => {
 
   it("ignores a late file error after the recruiter has replaced the text", () => {
     cy.get("#fileInput").selectFile({
-      contents: "Texto de una búsqueda anterior",
+      contents: Cypress.Buffer.from("Texto de una búsqueda anterior"),
       fileName: "anterior.txt",
       mimeType: "text/plain",
     });
