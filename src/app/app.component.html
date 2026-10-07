@@ -1,19 +1,5 @@
 <div id="radarBootError" class="radar-boot-error hidden" role="alert">No pudimos iniciar todos los módulos de RADAR. Recargá la página; si el problema continúa, avisá al equipo.</div>
-<div id="authGate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="authGateTitle">
-  <form class="auth-gate-box" id="authGateForm">
-    <img src="assets/mindata-logo.png" alt="Mindata" class="auth-gate-logo">
-    <h2 id="authGateTitle">Acceso del equipo</h2>
-    <p class="hint">RADAR es de uso interno de Mindata. Contanos quién sos e ingresá la contraseña del equipo para entrar.</p>
-    <label class="auth-gate-label" for="authGateNombre">Nombre</label>
-    <input type="text" id="authGateNombre" autocomplete="given-name" placeholder="Tu nombre">
-    <label class="auth-gate-label" for="authGateApellido">Apellido</label>
-    <input type="text" id="authGateApellido" autocomplete="family-name" placeholder="Tu apellido">
-    <label class="auth-gate-label" for="authGatePassword">Contraseña</label>
-    <input type="password" id="authGatePassword" autocomplete="current-password" placeholder="Contraseña del equipo">
-    <button class="btn btn-primary" id="authGateSubmit" type="submit">Entrar</button>
-    <p class="hint auth-gate-error" id="authGateError" role="alert"></p>
-  </form>
-</div>
+<radar-access-gate [ready]="modulesReady()" />
 
 <div id="appShell" class="app-shell">
 <header class="topbar">

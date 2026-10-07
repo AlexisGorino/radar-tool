@@ -2,47 +2,6 @@
 (function () {
   "use strict";
 
-  // ---------------------------------------------------------------
-  // Access gate. NOTE this is a lobby door, not a lock: the repo is public,
-  // so the password below is one "view source" away from anyone who looks —
-  // it keeps the tool from showing up cold to a random visitor or search
-  // crawler, it does not protect the JD text or booleans from someone who
-  // actually wants in. js/gate.js already flips <html class="authed"> before
-  // paint for a returning visitor; this only wires up the form for a first
-  // visit on this browser.
-  // ---------------------------------------------------------------
-  const AUTH_KEY = "radar-auth-v1";
-  const AUTH_PASSWORD = "MinDataTeam";
-  const authGateForm = document.getElementById("authGateForm");
-  const authGateNombre = document.getElementById("authGateNombre");
-  const authGateApellido = document.getElementById("authGateApellido");
-  const authGatePassword = document.getElementById("authGatePassword");
-  const authGateError = document.getElementById("authGateError");
-
-  authGateForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    if (!authGateNombre.value.trim() || !authGateApellido.value.trim()) {
-      authGateError.textContent = "Completá tu nombre y apellido antes de entrar.";
-      return;
-    }
-    if (authGatePassword.value !== AUTH_PASSWORD) {
-      authGateError.textContent = "Contraseña incorrecta.";
-      authGatePassword.value = "";
-      authGatePassword.focus();
-      return;
-    }
-    try {
-      localStorage.setItem(AUTH_KEY, "ok");
-    } catch (err) {
-      // private browsing / storage disabled — still unlocks this load,
-      // just won't be remembered next time
-    }
-    RadarTracking.setUser(authGateNombre.value, authGateApellido.value);
-    RadarTracking.logEvent("check_in");
-    document.documentElement.classList.add("authed");
-    authGateError.textContent = "";
-  });
-
   const FIELDS = ["rol", "atributos", "imprescindibles", "deseables", "dominio", "alcance", "refinar"];
   const MAX_TXT_BYTES = 500 * 1024;
   const MAX_PDF_BYTES = 8 * 1024 * 1024;

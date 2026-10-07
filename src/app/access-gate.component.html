@@ -1,0 +1,15 @@
+<div id="authGate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="authGateTitle">
+  <form class="auth-gate-box" id="authGateForm" (submit)="submit($event)">
+    <img src="assets/mindata-logo.png" alt="Mindata" class="auth-gate-logo">
+    <h2 id="authGateTitle">Acceso del equipo</h2>
+    <p class="hint">RADAR es de uso interno de Mindata. Contanos quién sos e ingresá la contraseña del equipo para entrar.</p>
+    <label class="auth-gate-label" for="authGateNombre">Nombre</label>
+    <input type="text" id="authGateNombre" name="nombre" autocomplete="given-name" placeholder="Tu nombre" required>
+    <label class="auth-gate-label" for="authGateApellido">Apellido</label>
+    <input type="text" id="authGateApellido" name="apellido" autocomplete="family-name" placeholder="Tu apellido" required>
+    <label class="auth-gate-label" for="authGatePassword">Contraseña</label>
+    <input type="password" id="authGatePassword" name="password" autocomplete="current-password" placeholder="Contraseña del equipo" required>
+    <button class="btn btn-primary" id="authGateSubmit" type="submit" [disabled]="!ready()">{{ ready() ? 'Entrar' : 'Preparando…' }}</button>
+    <p class="hint auth-gate-error" id="authGateError" role="alert">{{ error }}</p>
+  </form>
+</div>
