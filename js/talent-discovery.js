@@ -185,13 +185,18 @@
   async function search(endpoint, plan, state, fetchImpl) {
     const fetcher = fetchImpl || fetch;
     if (!endpoint) throw new Error("La búsqueda de perfiles públicos todavía no está configurada en este entorno.");
-    const response = await fetcher(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      credentials: "omit",
-      cache: "no-store",
-      body: JSON.stringify(plan),
-    });
+    let response;
+    try {
+      response = await fetcher(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "omit",
+        cache: "no-store",
+        body: JSON.stringify(plan),
+      });
+    } catch {
+      throw new Error("No se pudo conectar con el servicio de búsqueda. Revisá la conexión e intentá de nuevo manualmente.");
+    }
     const payload = await response.json();
     if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito mensual; RADAR no inició consultas que pudieran generar cargos.");
     if (payload.error === "hourly_quota_exhausted") throw new Error("Se alcanzó el cupo horario del proveedor; RADAR no inició la búsqueda. Esperá a que se renueve y volvé a intentar.");
@@ -201,8 +206,11 @@
       const codes = new Set((Array.isArray(payload.sourceErrors) ? payload.sourceErrors : []).map((item) => item.code));
       if (codes.has("provider_credentials_rejected")) throw new Error("El proveedor rechazó la credencial configurada. La consulta no pudo completarse; revisá el secreto SERPAPI_KEY en Cloudflare.");
       if (codes.has("provider_request_rejected")) throw new Error("El proveedor rechazó la consulta. Revisá la ubicación o los términos y probá una búsqueda más breve.");
+      if (codes.has("provider_timeout")) throw new Error("El proveedor tardó demasiado en responder. No se obtuvieron perfiles; revisá la conexión e intentá de nuevo manualmente.");
+      if (codes.has("provider_network_error")) throw new Error("RADAR no pudo conectarse con el proveedor de búsqueda. Revisá la configuración y probá de nuevo.");
       if (codes.has("provider_unavailable")) throw new Error("El proveedor de búsqueda no respondió correctamente. No se obtuvieron perfiles; probá de nuevo más tarde.");
-      throw new Error("Las fuentes públicas no respondieron. No se obtuvieron perfiles; probá de nuevo más tarde.");
+      if (codes.has("source_unavailable")) throw new Error("La fuente respondió con un error inesperado. No se obtuvieron perfiles; intentá más tarde o probá otra fuente.");
+      throw new Error("No se pudo completar la consulta. No se obtuvieron perfiles; revisá la conexión o probá otra fuente.");
     }
     if (payload.error === "free_plan_required") throw new Error("La búsqueda está pausada: el proveedor debe tener un plan gratuito activo para mantener el costo en USD 0.");
     if (payload.error === "budget_unavailable") throw new Error("RADAR no pudo verificar que la cuenta siga dentro del plan gratuito; no inició la búsqueda.");
