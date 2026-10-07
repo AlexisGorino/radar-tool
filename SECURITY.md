@@ -31,18 +31,22 @@ antes de repoblarlos con nodos creados por `document.createElement`.
 CDN, no hay analytics, no hay fuentes externas.
 
 **Validación de archivos.** El upload/drag-and-drop acepta `.txt` (hasta
-500 KB) y `.pdf` (hasta 8 MB) — cualquier otro tipo se rechaza antes de
-leer un solo byte (`MAX_TXT_BYTES` / `MAX_PDF_BYTES` en `app.js`). El
+500 KB), `.pdf` y `.docx` (hasta 8 MB) — cualquier otro tipo se rechaza antes de
+leer un solo byte (`MAX_TXT_BYTES` / `MAX_PDF_BYTES` / `MAX_DOCX_BYTES` en `app.js`). El
 contenido leído además se trunca a 20.000 caracteres (`MAX_INPUT_LENGTH` en
 `extractor.js`) antes de procesarlo, para no colgar el regex engine con un
 archivo patológico.
 
 **Lectura de PDF sin salir del navegador.** El parseo de `.pdf` usa pdf.js
 (Mozilla), vendorizado en `js/vendor/` — se sirve desde el mismo origen,
-no desde un CDN. No hay excepción a `connect-src 'none'`: el archivo se
-decodifica localmente y nunca se sube a ningún lado. La CSP agrega
+no desde un CDN. El archivo se decodifica localmente y nunca se sube a
+ningún lado. La CSP agrega
 `worker-src 'self' blob:` porque pdf.js corre el parseo en un Web Worker
 propio; sigue sin admitir orígenes externos.
+
+**Lectura de Word sin salir del navegador.** Mammoth extrae solo texto plano
+de `.docx`; RADAR lo inserta con `textContent`. La librería se sirve desde
+`js/vendor/` y no transmite el archivo a terceros.
 
 **Tags HTML en el texto de la JD.** Si alguien pega una JD con `<script>` o
 cualquier otro tag embebido, `extractor.js` los descarta antes de intentar

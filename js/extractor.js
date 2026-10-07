@@ -271,6 +271,13 @@
     return RESPONSIBILITY_VERBS.has(firstWord);
   }
 
+  // Informal briefs often say "busco alguien/persona/perfil que...". That
+  // describes a need, not the candidate's job title. Ask for a title or
+  // continue with concrete skills instead of quoting this whole sentence.
+  function looksLikeVagueRole(candidate) {
+    return /^(?:alguien|persona|perfil|profesional|candidat[oa]|gente)\b/i.test(candidate.trim());
+  }
+
   function looksLikeAdministrativeText(candidate) {
     return /(?:\b(?:nombre|firma|fecha|puesto)\s*:|recibido y conforme|esta descripci[oó]n|^c[oó]digo\b|^descriptivo de funciones\b|^objetivo del puesto\b)/i.test(candidate);
   }
@@ -330,7 +337,8 @@
           !looksLikeAdministrativeText(candidate) &&
           !looksLikeTemplateNoise(candidate) &&
           !isBareNonRole(candidate) &&
-          !looksLikeResponsibilityBullet(candidate)
+          !looksLikeResponsibilityBullet(candidate) &&
+          !looksLikeVagueRole(candidate)
         )
           return [candidate];
         if (!p.global) break; // patterns without /g (the English lead-sentence one) only ever get one shot
@@ -341,7 +349,7 @@
     const firstLine = text
       .split("\n")
       .map((l) => l.trim())
-      .find((l) => l.length > 3 && l.length < 60 && !looksLikeAdministrativeText(l) && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)));
+      .find((l) => l.length > 3 && l.length < 60 && !looksLikeAdministrativeText(l) && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)) && !looksLikeVagueRole(trimRolPhrase(l)));
     if (firstLine) return [trimRolPhrase(firstLine)];
 
     // PDF-extracted JDs rarely have real line breaks at all — pdf.js joins
@@ -370,7 +378,8 @@
         !startsWithTemplateLabel(headMatch[1]) &&
         !looksLikeTemplateNoise(candidate) &&
         !isBareNonRole(candidate) &&
-        !looksLikeResponsibilityBullet(candidate)
+        !looksLikeResponsibilityBullet(candidate) &&
+        !looksLikeVagueRole(candidate)
       )
         return [candidate];
     }
@@ -449,21 +458,33 @@
     return text.length;
   }
 
-  function buildQuality(text, analyzed) {
+  function buildQuality(text, analyzed, sourceMeta) {
     const warnings = [];
     const wordCount = (text.match(/[\p{L}\p{N}]+/gu) || []).length;
     if (wordCount < 35) warnings.push("El texto es muy breve para validar una descripción de puesto completa.");
     if (!analyzed.rol.length) warnings.push("No pudimos identificar el título del puesto con suficiente confianza.");
     if (!analyzed.atributos.length) warnings.push("No detectamos requisitos concretos para filtrar. Confirmá si falta una skill, herramienta o certificación clave.");
     if (!analyzed.alcance.length) warnings.push("No detectamos una ubicación; confirmá si la búsqueda es remota o si falta indicar el país.");
-    if (/\uFFFD/.test(text)) warnings.push("El archivo contiene caracteres dañados; puede haberse extraído mal.");
-    if (/(?:\b[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\s+){4,}[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\b/.test(text)) {
+    const damaged = /\uFFFD/.test(text);
+    const separatedLetters = /(?:\b[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\s+){4,}[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\b/.test(text);
+    if (damaged) warnings.push("El archivo contiene caracteres dañados; puede haberse extraído mal.");
+    if (separatedLetters) {
       warnings.push("El texto parece tener palabras separadas letra por letra, algo frecuente en PDFs con extracción defectuosa.");
     }
+    const sparsePages = sourceMeta && Array.isArray(sourceMeta.sparsePages) ? sourceMeta.sparsePages : [];
+    const orderPages = sourceMeta && Array.isArray(sourceMeta.orderPages) ? sourceMeta.orderPages : [];
+    const docxWarnings = sourceMeta && Array.isArray(sourceMeta.docxWarnings) ? sourceMeta.docxWarnings : [];
+    if (sparsePages.length) warnings.push(`El PDF tiene muy poco texto legible en la página ${sparsePages.join(", ")}. Revisá si es un escaneo o si faltan requisitos.`);
+    if (orderPages.length) warnings.push(`El orden de lectura del PDF podría estar mezclado en la página ${orderPages.join(", ")}. Compará el texto extraído con el original.`);
+    if (docxWarnings.length) warnings.push("Word informó posibles problemas al leer el archivo. Compará el texto extraído con el documento original.");
+    const blocked = !!(sourceMeta && sourceMeta.pageCount && sourceMeta.totalWords < 8);
+    if (blocked) warnings.push("El PDF no contiene suficiente texto legible para aplicarlo. Pegá una versión legible de la JD.");
+    const requiresSourceReview = !blocked && !!(damaged || separatedLetters || sparsePages.length || orderPages.length || docxWarnings.length);
 
     let level = "Revisar";
-    if (analyzed.isResume) level = "Parece un CV";
-    else if (analyzed.isJobPosting && analyzed.rol.length && wordCount >= 35 && warnings.length <= 1) level = "Buena señal";
+    if (blocked) level = "Texto ilegible";
+    else if (analyzed.isResume) level = "Parece un CV";
+    else if (!requiresSourceReview && analyzed.isJobPosting && analyzed.rol.length && wordCount >= 35 && warnings.length <= 1) level = "Buena señal";
     else if (analyzed.isJobPosting && analyzed.rol.length) level = "Revisión recomendada";
     else level = "Validación necesaria";
 
@@ -474,7 +495,7 @@
       dominio: analyzed.dominio.map((term) => ({ term, text: evidenceFor(text, term) })),
       alcance: analyzed.alcance.map((term) => ({ term, text: evidenceFor(text, term) })),
     };
-    return { level, wordCount, warnings, evidence };
+    return { level, wordCount, warnings, evidence, blocked, requiresSourceReview };
   }
 
   function analyzeJD(rawText, options) {
@@ -527,7 +548,7 @@
     // A résumé never counts as a job posting, no matter how many generic
     // signals it also trips — see looksLikeResume above.
     analyzed.isJobPosting = !analyzed.isResume && countJobPostingSignals(text, analyzed) >= MIN_JOB_POSTING_SIGNALS;
-    analyzed.quality = buildQuality(text, analyzed);
+    analyzed.quality = buildQuality(text, analyzed, options && options.sourceMeta);
     if (analyzed.fileCountrySuggestion) {
       analyzed.quality.warnings.push(`El nombre del archivo menciona ${analyzed.fileCountrySuggestion}, pero la JD no indica país. Confirmá si corresponde antes de buscar.`);
       analyzed.quality.level = "Revisión recomendada";

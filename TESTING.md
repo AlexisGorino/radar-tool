@@ -13,10 +13,24 @@ node tests/ai.js         # prompt y parseo de ai.js (sin red real)
 node tests/tracking.js   # payload y manejo de localStorage de tracking.js (sin red real)
 node tests/market-matrix.js # 18 roles y mercados representativos, sin red
 node tests/pdf-text.js      # preservación de líneas del PDF, validación y recomendaciones
+node tests/review-quality.js # JDs variadas, brief libre y controles de documento
+node tests/docx.js           # lectura local de Word y flujo de revisión
 ```
 
-Los tests corren sin dependencias ni framework. `tests/run.js` cubre las
-funciones puras una por una (detección de país, extracción de rol, armado
+## Cypress E2E
+
+La suite de navegador cubre el relevamiento en pantalla, los bloqueos previos a
+completar cargo/señales/ubicación, la conservación de Islas Canarias y los
+destinos construidos para LinkedIn, GitHub, Stack Overflow, Xing, Behance, CVs
+públicos y dominios personalizados. Intercepta el webhook de analítica para que
+la ejecución de QA no escriba eventos en la planilla real.
+
+Para correr localmente: `npm install`, iniciar `npm run start:test` y ejecutar
+`npm run test:e2e` en otra terminal. GitHub Actions inicia el servidor y corre
+Cypress en cada push y pull request.
+
+Los scripts de lógica corren sin dependencias ni framework. `tests/run.js` cubre
+las funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
 de Argentina, México, Colombia, Chile, Perú, Uruguay, Brasil, España,
 Alemania, Reino Unido, Países Bajos e Italia, en español e inglés, con
@@ -40,6 +54,28 @@ línea y espacios propios del PDF, identifica `Auditor`, `Ekahau`, `nPerf`,
 `Baja tensión` y `telecomunicaciones`. `TIER II/III` se interpreta como
 posibilidad de promoción, no como cargo. España aparece solo en el nombre del
 archivo: RADAR solicita confirmación antes de usarla como ubicación.
+
+En la iteración siguiente se volvió a subir el mismo PDF en la interfaz
+local. El formulario pidió confirmar cargo, señales y ubicación; solo tras
+esas respuestas permitió aplicar y generó rutas con y sin título. También
+se probó el texto de Tier I con Islas Canarias, la promoción de una skill
+a deseable y una búsqueda sin título que conservó la región.
+
+## Brief libre, Word y control de datos mínimos
+
+- Un brief escrito como «Quiero alguien para atender caja y reponer mercadería
+  en Rosario» no convierte «alguien» en cargo. Pregunta si es un brief,
+  permite completar «Cajero/a» y «atención de caja», y exige confirmar la
+  ubicación antes de aplicar.
+- Un Word `.docx` de prueba se subió como archivo real en la interfaz local:
+  extrajo Auditor de telecomunicaciones, Ekahau, nPerf y Madrid, y dejó
+  deshabilitada la aplicación hasta confirmar los datos.
+- En campos RADAR manuales, «Recepcionista» solo no genera; al agregar
+  «atención al cliente» todavía exige una decisión geográfica. Con Rosario
+  y Argentina genera la consulta y tres rutas claras de LinkedIn.
+- La suite `review-quality.js` cubre documentos con páginas pobres o lectura
+  posiblemente desordenada, CVs, briefs breves, búsquedas sin título y
+  búsquedas demasiado amplias.
 
 ## Comprobaciones externas recientes
 
@@ -359,15 +395,13 @@ pueda reabrirse en silencio.
 
 ## "¿Esto es una JD?"
 
-Si el texto pegado o subido no tiene ninguna señal real de ser una
-descripción de puesto (ni rol, ni país, ni skills, ni dominio, ni una
-palabra típica como "requisitos"/"responsabilidades"), "Analizar JD"
-muestra un error en vez de completar los campos con ruido o dejarlos
-vacíos en silencio (`isJobPosting` en `extractor.js`, umbral en
-`countJobPostingSignals`). Un rol real detectado alcanza por sí solo
-(ya pasó por los filtros anti-falso-positivo de `guessRol`), así que una
-consulta corta manual como "busco un Backend Developer" sigue
-aceptándose aunque no tenga ubicación ni skills.
+Si el texto pegado o subido no tiene señales suficientes de una JD,
+"Analizar JD" ofrece identificarlo como un brief escrito por el reclutador.
+No aplica nada hasta que la persona confirma la intención y completa
+un cargo o suficientes señales concretas, además de decidir el alcance.
+Una consulta corta como "busco un Backend Developer" puede analizarse,
+pero necesita una habilidad/tarea diferenciadora y una decisión geográfica
+antes de generar. Ver `review.js` y `review-quality.js`.
 
 **Actualizado:** ahora sí distingue un CV de una JD. Un currículum de
 verdad casi siempre arranca con el nombre, teléfono y mail del candidato —
@@ -443,14 +477,14 @@ origen, no del extractor.
       y se analiza solo, igual que un `.txt`.
 - [ ] Subir un `.pdf` escaneado (solo imagen, sin texto) → aviso de que no
       se pudo extraer texto, no rompe nada.
-- [ ] Subir un archivo que no sea `.txt` ni `.pdf` (ej. `.docx`) → mensaje
-      de error, no rompe nada.
-- [ ] Subir un `.txt` de más de 500 KB, o un `.pdf` de más de 8 MB →
+- [ ] Subir un `.docx` válido → se lee y se revisa como una JD pegada.
+- [ ] Subir un `.doc` antiguo o una imagen → mensaje que pide pegar texto.
+- [ ] Subir un `.txt` de más de 500 KB, o un `.pdf`/`.docx` de más de 8 MB →
       mensaje de error, no lo lee.
 - [ ] JD vacía + "Analizar JD" → no crashea, no agrega campos basura.
-- [ ] Pegar texto claramente no relacionado (una noticia, una receta) y
-      analizar → mensaje de error ("no parece una descripción de puesto"),
-      ningún campo se completa con ruido.
+- [ ] Pegar texto no relacionado (una noticia, una receta) y analizar →
+      no se aplica automáticamente; pide confirmar si es un brief y relevar
+      señales concretas antes de buscar.
 - [ ] Pegar una JD de Tier I para técnico/a instalador/a en Islas Canarias →
       el nivel no contamina el título, la localidad queda específica y los
       requisitos no se mezclan con los deseables.
@@ -476,7 +510,9 @@ origen, no del extractor.
       (país + localidad), con acentos y mayúsculas correctos.
 
 **Generar booleano**
-- [ ] Generar sin cargar Rol → error inline, no genera.
+- [ ] Generar solo con Rol, sin señal concreta → error inline, no genera.
+- [ ] Generar sin Rol con dos señales y sector, o tres señales → permite
+      búsqueda sin título tras decidir la ubicación.
 - [ ] Generar con los 5 campos cargados → booleano universal + X-Ray
       correctos, comillas solo en términos con espacio.
 - [ ] Cambiar de red (LinkedIn → GitHub → Stack Overflow → CVs sueltos →

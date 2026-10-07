@@ -6,8 +6,8 @@ Herramienta de sourcing de Mindata, creada por **Ale Gorino**.
 Convierte una JD en un booleano preciso y en variantes listas para LinkedIn,
 Google/Bing (X-Ray), GitHub, Behance, CVs sueltos en PDF/Word y otras redes.
 
-Pensada para el uso diario de un reclutador: sin cuentas, sin backend, sin
-dependencias externas más allá de una librería vendorizada para leer PDF.
+Pensada para el uso diario de un reclutador: sin cuentas ni backend. Incluye
+lectores locales vendorizados para PDF y Word `.docx`.
 Corre igual abierto como archivo local, en Netlify, en Vercel, en GitHub
 Pages o publicada como página estática en cualquier lado.
 
@@ -15,10 +15,17 @@ Pages o publicada como página estática en cualquier lado.
 
 - **Método RADAR**: Rol, Atributos, Dominio, Alcance, Refinar — cinco campos
   que arman el booleano.
-- **Analizador de JD con revisión**: pegá el texto, o arrastrá/subí un `.txt` o
-  `.pdf` (se lee en el navegador). RADAR muestra cargo, requisitos, industria,
-  ubicación y evidencia antes de aplicar nada. Pregunta por los datos que faltan.
+- **Analizador de JD y briefs libres**: pegá o escribí la necesidad con tus
+  palabras, o arrastrá/subí un `.txt`, `.pdf` o `.docx` (se lee en el navegador).
+  RADAR muestra cargo, señales del perfil, industria, ubicación y evidencia.
+  Pide confirmar esas decisiones y completar datos concretos antes de aplicar.
   Si el país está solo en el nombre del archivo, pide confirmarlo.
+- **Relevamiento mínimo también en modo manual**: exige una señal concreta del
+  perfil, además de decidir ubicación o búsqueda sin límite geográfico. Para
+  buscar sin título hacen falta varias señales específicas.
+- **Control de lectura**: avisa si un PDF tiene páginas con poco texto, posible
+  orden mezclado o caracteres dañados. Un PDF sin texto legible no se aplica;
+  los escaneos aún requieren que se pegue una versión en texto.
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
 - **Sugerencias con IA (opcional)**: cargando tu propia key gratuita de
@@ -27,6 +34,8 @@ Pages o publicada como página estática en cualquier lado.
   atributos de nicho adicionales a los del diccionario estático. La key
   vive solo en el `localStorage` de tu navegador; sin key, la función
   directamente no aparece.
+- **LinkedIn con tres rutas claras**: propone como máximo tres búsquedas y
+  explica cuándo usar el cargo o buscar solo por habilidades.
 - **Redes soportadas**: LinkedIn (búsqueda nativa + X-Ray), GitHub (búsqueda
   nativa de personas o repos), Stack Overflow, Xing, Behance, búsqueda de
   CVs sueltos (PDF/Word en toda la web) y cualquier sitio custom. Todas
@@ -63,6 +72,7 @@ radar-tool/
     networks.js           datos: redes soportadas
     extractor.js            parsing de la JD → campos RADAR (funciones puras)
     pdf-text.js             conserva líneas y espacios de los PDF leídos por pdf.js
+    review.js               reglas del relevamiento obligatorio (funciones puras)
     generator.js              construcción de booleanos y URLs (funciones puras)
     ai.js                       capa opcional de sugerencias con Gemini (prompt + parseo, funciones puras)
     tracking.js                   registro de uso por nombre (payload + fetch, funciones puras)
@@ -73,6 +83,7 @@ radar-tool/
   js/vendor/
     pdf.min.js           pdf.js, vendorizado localmente (sin CDN)
     pdf.worker.min.js
+    mammoth.browser.min.js  lectura local de Word .docx (licencia en mammoth.LICENSE)
   tests/
     run.js               suite unitaria (node tests/run.js, sin dependencias)
     jd-bank.js            banco de regresion con JDs reales (node tests/jd-bank.js)
@@ -80,6 +91,8 @@ radar-tool/
     tracking.js                tests de tracking.js (node tests/tracking.js)
     market-matrix.js          roles y mercados de IT, no IT y telecomunicaciones
     pdf-text.js               regresión de extracción, validación y ubicación
+    review-quality.js         JDs variadas, briefs y documentos defectuosos
+    docx.js                   extracción de Word y revisión posterior
 ```
 
 `extractor.js` y `generator.js` no tocan el DOM ni hacen llamadas de red:
@@ -96,7 +109,13 @@ node tests/ai.js
 node tests/tracking.js
 node tests/market-matrix.js
 node tests/pdf-text.js
+node tests/review-quality.js
+node tests/docx.js
 ```
+
+Las pruebas de navegador usan Cypress y están configuradas para GitHub Actions. Para
+correrlas localmente, instalá las dependencias con `npm install`; después abrí
+una terminal con `npm run start:test` y ejecutá `npm run test:e2e` en otra.
 
 Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
@@ -134,9 +153,9 @@ y abrir `http://localhost:8080` (o el puerto que corresponda).
 - El texto ingresado por el usuario siempre se inserta en la página con
   `textContent`, nunca con `innerHTML`, así que no hay forma de inyectar
   HTML o JavaScript pegando una JD maliciosa.
-- El archivo subido se valida por tipo y tamaño (.txt hasta 500 KB, .pdf
-  hasta 8 MB) antes de leerlo. El PDF se parsea en el navegador con pdf.js
-  vendorizado localmente — nunca se sube a ningún servidor.
+- El archivo subido se valida por tipo y tamaño (.txt hasta 500 KB, .pdf y
+  .docx hasta 8 MB) antes de leerlo. PDF y Word se parsean en el navegador
+  con librerías vendorizadas localmente — nunca se suben a un servidor.
 - Todas las URLs armadas (Google, Bing, GitHub) codifican el query con
   `encodeURIComponent`.
 

@@ -140,7 +140,7 @@
       if (filters) {
         const domain = usefulAttributes.length ? orGroup((state.dominio || []).slice(0, 1)) : "";
         const query = appendExclusions((siteDomain ? `site:${siteDomain} ` : "") + [filters, domain, location].filter(Boolean).join(" "), state);
-        tiers.push({ label: usefulAttributes.length ? "Skills + dominio + ubicación · sin título" : "Dominio + ubicación · sin título", query });
+        tiers.push({ label: usefulAttributes.length ? (domain ? "Skills + dominio + ubicación · sin título" : "Skills + ubicación · sin título") : "Dominio + ubicación · sin título", query });
       }
     }
     if ((state.rol || []).some((term) => /[a-záéíóúñ]\/a\b/i.test(term))) {
@@ -260,7 +260,10 @@
         if (usable.length < 2 || !usable[usable.length - 1]) return;
         let query = usable.join(" AND ");
         (state.refinar || []).forEach((term) => { query += ` NOT ${quoteIfPhrase(term)}`; });
-        tiers.push({ label: hasRole ? "Requisitos + dominio + ubicación · sin título" : ["Skills + dominio + ubicación", "1 skill + dominio + ubicación", "Dominio + ubicación"][index], query });
+        const rolelessLabel = rolelessDomain
+          ? ["Skills + dominio + ubicación", "1 skill + dominio + ubicación", "Dominio + ubicación"][index]
+          : ["Skills + ubicación", "1 skill + ubicación", "Dominio + ubicación"][index];
+        tiers.push({ label: hasRole ? (rolelessDomain ? "Requisitos + dominio + ubicación · sin título" : "Requisitos + ubicación · sin título") : rolelessLabel, query });
       });
     }
     if (!location) {

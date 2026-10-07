@@ -1,5 +1,18 @@
 # Próximas iteraciones de RADAR
 
+## Entregado en la iteración de octubre de 2026
+
+- Revisión obligatoria de cargo, señales del perfil y alcance antes de aplicar
+  una JD o un brief libre; el generador manual también exige ese mínimo.
+- Detección de páginas PDF con poco texto, posible desorden de lectura y
+  caracteres dañados. Los PDF sin texto suficiente quedan bloqueados.
+- Lectura local de Word `.docx`, además de PDF, TXT y texto pegado/escrito.
+- Banco de regresión ampliado para IT, telecom, RRHH, finanzas, diseño y
+  escritos libres. LinkedIn muestra hasta tres rutas con una explicación breve.
+
+La precisión de candidatos reales, OCR de escaneos y acceso a resultados de
+portales siguen pendientes y requieren una etapa separada.
+
 ## Prioridad 1: calidad verificable
 
 1. Ampliar el banco de JDs anonimizadas con ejemplos de RRHH, telecom, finanzas,

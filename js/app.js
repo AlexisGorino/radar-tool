@@ -46,6 +46,7 @@
   const FIELDS = ["rol", "atributos", "dominio", "alcance", "refinar"];
   const MAX_TXT_BYTES = 500 * 1024;
   const MAX_PDF_BYTES = 8 * 1024 * 1024;
+  const MAX_DOCX_BYTES = 8 * 1024 * 1024;
 
   if (typeof pdfjsLib !== "undefined") {
     pdfjsLib.GlobalWorkerOptions.workerSrc = "js/vendor/pdf.worker.min.js";
@@ -91,6 +92,7 @@
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
   const countrySelect = document.getElementById("countrySelect");
+  const noLocationCheckbox = document.getElementById("noLocationCheckbox");
   const networkTabsEl = document.getElementById("networkTabs");
   const networkDescriptionEl = document.getElementById("networkDescription");
   const customSiteRow = document.getElementById("customSiteRow");
@@ -120,7 +122,10 @@
   const xrayTiersEl = document.getElementById("xrayTiers");
   const generatorWarning = document.getElementById("generatorWarning");
   let pendingAnalysis = null;
+  let jdNeedsReview = false;
   let currentFileName = "";
+  let currentSourceMeta = null;
+  let uploadSequence = 0;
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
   const aiPanel = document.getElementById("aiPanel");
@@ -152,6 +157,7 @@
       removeBtn.textContent = "×";
       removeBtn.addEventListener("click", () => {
         state[field].splice(i, 1);
+        if (field === "alcance") countrySelect.value = RadarCountries.detectCountry(state.alcance.join(" ")) || "";
         renderChips(field);
         if (field === "rol") renderSynonyms();
       });
@@ -247,7 +253,18 @@
     const value = rawValue.trim().replace(/,$/, "");
     if (!value) return;
     if (state[field].some((t) => t.toLowerCase() === value.toLowerCase())) return;
-    state[field].push(value);
+    const canonicalCountry = field === "alcance" ? RadarCountries.countryList().find((country) => country.toLowerCase() === value.toLowerCase()) : null;
+    if (canonicalCountry) {
+      const previousCountry = state.alcance.find((term) => RadarCountries.countryList().some((country) => country.toLowerCase() === term.toLowerCase()));
+      const localities = !previousCountry || previousCountry.toLowerCase() === canonicalCountry.toLowerCase()
+        ? state.alcance.filter((term) => !RadarCountries.countryList().some((country) => country.toLowerCase() === term.toLowerCase()))
+        : [];
+      state.alcance = [canonicalCountry, ...localities];
+      countrySelect.value = canonicalCountry;
+    } else {
+      state[field].push(value);
+    }
+    if (field === "alcance") noLocationCheckbox.checked = false;
     renderChips(field);
     if (field === "rol") renderSynonyms();
   }
@@ -289,6 +306,12 @@
     if (countrySelect.value) {
       addTerm("alcance", countrySelect.value);
     }
+  });
+  noLocationCheckbox.addEventListener("change", () => {
+    if (!noLocationCheckbox.checked) return;
+    state.alcance = [];
+    countrySelect.value = "";
+    renderChips("alcance");
   });
 
   // ---------------------------------------------------------------
@@ -350,23 +373,25 @@
       empty.className = "jd-review-empty";
       empty.textContent = "No detectado";
       list.appendChild(empty);
-      return list;
     }
-    items.forEach((term) => {
+    (items || []).forEach((term) => {
       const item = document.createElement("li");
       const value = document.createElement("button");
       if (fieldName) {
         value.type = "button";
         value.className = "jd-review-term";
-        value.textContent = (promotable ? "+ Usar: " : "× Quitar: ") + term;
-        value.title = promotable ? "Agregar a los filtros requeridos" : "Quitar este término de los filtros";
+        value.textContent = (promotable ? "+ Usar: " : fieldName === "atributos" ? "↘ Pasar a deseables: " : "× Quitar: ") + term;
+        value.title = promotable ? "Agregar a las señales de búsqueda" : fieldName === "atributos" ? "Dejar como deseable sin filtrar" : "Quitar este término de los filtros";
         value.addEventListener("click", () => {
           if (promotable) {
             result.atributos = [...(result.atributos || []), term];
             result.atributosDeseables = (result.atributosDeseables || []).filter((entry) => entry !== term);
           } else {
             result[fieldName] = (result[fieldName] || []).filter((entry) => entry !== term);
+            if (fieldName === "atributos") result.atributosDeseables = [...(result.atributosDeseables || []), term];
           }
+          if (fieldName === "atributos" || promotable) RadarReview.accept(result, "requirements");
+          if (fieldName === "alcance") RadarReview.accept(result, "location");
           pendingAnalysis = result;
           renderJdReview(result);
         });
@@ -402,6 +427,11 @@
         const term = input.value.trim();
         if (!term || (result[fieldName] || []).some((entry) => entry.toLowerCase() === term.toLowerCase())) return;
         result[fieldName] = [...(result[fieldName] || []), term];
+        if (fieldName === "atributos") RadarReview.accept(result, "requirements");
+        if (fieldName === "alcance") {
+          result.country = RadarCountries.detectCountry(result.alcance.join(" ")) || result.country;
+          RadarReview.accept(result, "location");
+        }
         pendingAnalysis = result;
         renderJdReview(result);
       };
@@ -414,12 +444,7 @@
   }
 
   function reviewGaps(result) {
-    const accepted = result.reviewAccepted || {};
-    return [
-      !accepted.role ? "role" : null,
-      !result.atributos.length && !accepted.requirements ? "requirements" : null,
-      !result.alcance.length && !accepted.location ? "location" : null,
-    ].filter(Boolean);
+    return RadarReview.pendingQuestions(result);
   }
 
   function renderReviewQuestions(result) {
@@ -427,11 +452,17 @@
     container.textContent = "";
     const gaps = reviewGaps(result);
     const descriptions = {
+      source: ["¿El texto leído coincide con la JD original?", "Detectamos caracteres dañados o señales de lectura incompleta. Compará el texto de arriba con el original antes de seguir."],
+      intent: ["¿Es un brief de búsqueda escrito con tus palabras?", "No encontramos estructura suficiente para reconocer una JD. Si es una necesidad de contratación, completá cargo, señales del perfil y ubicación abajo."],
       role: result.rol.length
         ? [`¿Se trata de ${result.rol[0]}?`, "Confirmá el cargo, corregilo arriba o elegí una búsqueda por requisitos sin título."]
         : ["No encontramos un cargo confiable.", "Podés escribir el cargo arriba o buscar solo por requisitos."],
-      requirements: ["No encontramos requisitos específicos.", "Agregá una herramienta, certificación o experiencia clave, o confirmá que querés continuar así."],
-      location: [result.fileCountrySuggestion ? `El archivo dice ${result.fileCountrySuggestion}; el texto de la JD no lo confirma.` : "La JD no indica ubicación.", "Agregá una ubicación arriba o confirmá que querés buscar sin ese filtro."],
+      requirements: result.atributos.length
+        ? ["¿Estas habilidades orientan la búsqueda?", "Revisá los atributos de arriba. Se combinan como alternativas (OR); las variantes precisas priorizan los primeros. Pasá a deseables lo que no deba filtrar."]
+        : ["¿Qué diferencia a este perfil?", "Agregá al menos una habilidad, tarea clave, certificación o experiencia concreta. Para buscar sin título hacen falta dos señales y un sector, o tres señales."],
+      location: result.alcance.length
+        ? [`¿La ubicación correcta es ${result.alcance[result.alcance.length - 1]}?`, "Confirmá el alcance exacto; también podés ampliarlo al país o buscar sin ubicación." ]
+        : [result.fileCountrySuggestion ? `El archivo dice ${result.fileCountrySuggestion}; el texto de la JD no lo confirma.` : "La JD no indica ubicación.", "Agregá una ubicación arriba o confirmá que querés buscar sin ese filtro."],
     };
     gaps.forEach((gap) => {
       const row = document.createElement("div");
@@ -447,10 +478,66 @@
         confirmRole.className = "jd-review-choice";
         confirmRole.textContent = "Sí, es este perfil";
         confirmRole.addEventListener("click", () => {
-          result.reviewAccepted = { ...(result.reviewAccepted || {}), role: true };
-          renderReviewQuestions(result);
+          RadarReview.accept(result, "role");
+          renderJdReview(result);
         });
         row.appendChild(confirmRole);
+      }
+      if (gap === "source") {
+        const confirmSource = document.createElement("button");
+        confirmSource.type = "button";
+        confirmSource.className = "jd-review-choice";
+        confirmSource.textContent = "Revisé el texto extraído";
+        confirmSource.addEventListener("click", () => {
+          RadarReview.accept(result, "source");
+          renderJdReview(result);
+        });
+        row.appendChild(confirmSource);
+      }
+      if (gap === "intent") {
+        const confirmBrief = document.createElement("button");
+        confirmBrief.type = "button";
+        confirmBrief.className = "jd-review-choice";
+        confirmBrief.textContent = "Sí, es un brief de búsqueda";
+        confirmBrief.addEventListener("click", () => {
+          result.isBrief = true;
+          renderJdReview(result);
+        });
+        row.appendChild(confirmBrief);
+      }
+      if (gap === "requirements" && result.atributos.length) {
+        const confirmRequirements = document.createElement("button");
+        confirmRequirements.type = "button";
+        confirmRequirements.className = "jd-review-choice";
+        confirmRequirements.textContent = "Sí, usar estas señales";
+        confirmRequirements.addEventListener("click", () => {
+          RadarReview.accept(result, "requirements");
+          renderJdReview(result);
+        });
+        row.appendChild(confirmRequirements);
+      }
+      if (gap === "location" && result.alcance.length) {
+        const exact = document.createElement("button");
+        exact.type = "button";
+        exact.className = "jd-review-choice";
+        exact.textContent = "Sí, limitar a esta ubicación";
+        exact.addEventListener("click", () => {
+          RadarReview.accept(result, "location");
+          renderJdReview(result);
+        });
+        row.appendChild(exact);
+        if (result.country && result.alcance.some((term) => term !== result.country)) {
+          const country = document.createElement("button");
+          country.type = "button";
+          country.className = "jd-review-choice";
+          country.textContent = `Ampliar a ${result.country}`;
+          country.addEventListener("click", () => {
+            result.alcance = [result.country];
+            RadarReview.accept(result, "location");
+            renderJdReview(result);
+          });
+          row.appendChild(country);
+        }
       }
       if (gap === "location" && result.fileCountrySuggestion) {
         const useCountry = document.createElement("button");
@@ -460,6 +547,7 @@
         useCountry.addEventListener("click", () => {
           result.country = result.fileCountrySuggestion;
           result.alcance = [result.fileCountrySuggestion];
+          RadarReview.accept(result, "location");
           if (result.quality && Array.isArray(result.quality.warnings)) {
             result.quality.warnings = result.quality.warnings.filter((warning) =>
               !warning.startsWith("No detectamos una ubicación") && !warning.startsWith("El nombre del archivo menciona")
@@ -469,40 +557,57 @@
         });
         row.appendChild(useCountry);
       }
-      const proceed = document.createElement("button");
-      proceed.type = "button";
-      proceed.className = "jd-review-choice";
-      proceed.textContent = { role: "Buscar sin título", requirements: "Continuar sin requisitos", location: "Buscar sin ubicación" }[gap];
-      proceed.addEventListener("click", () => {
-        if (gap === "role") result.rol = [];
-        result.reviewAccepted = { ...(result.reviewAccepted || {}), [gap]: true };
-        if (gap === "role") renderJdReview(result);
-        else renderReviewQuestions(result);
-      });
-      row.appendChild(proceed);
+      if (gap !== "source" && gap !== "intent" && gap !== "requirements") {
+        const proceed = document.createElement("button");
+        proceed.type = "button";
+        proceed.className = "jd-review-choice";
+        proceed.textContent = { role: "Buscar sin título", location: "Buscar sin ubicación" }[gap];
+        proceed.addEventListener("click", () => {
+          if (gap === "role") result.rol = [];
+          if (gap === "location") {
+            result.alcance = [];
+            result.country = null;
+          }
+          RadarReview.accept(result, gap);
+          renderJdReview(result);
+        });
+        row.appendChild(proceed);
+      }
       container.appendChild(row);
     });
-    const hasSearchAnchor = result.rol.length || result.atributos.length;
     const apply = document.getElementById("applyJdBtn");
-    apply.disabled = !result.isJobPosting || result.isResume || gaps.length > 0 || !hasSearchAnchor;
-    if (!hasSearchAnchor && result.isJobPosting) {
+    apply.disabled = !RadarReview.canApply(result);
+    if (result.quality && result.quality.blocked) {
       const message = document.createElement("p");
       message.className = "jd-review-warning";
-      message.textContent = "Para generar una búsqueda útil, agregá al menos un cargo o un requisito específico.";
+      message.textContent = "El archivo no es legible para una búsqueda fiable. Pegá una versión en texto o subí otro PDF.";
       container.appendChild(message);
     }
+    const issue = result.isResume || (result.quality && result.quality.blocked) ? "" : RadarReview.profileIssue(result);
+    if (issue) {
+      const message = document.createElement("p");
+      message.className = "jd-review-warning";
+      message.textContent = issue;
+      container.appendChild(message);
+    }
+  }
+
+  function updateReviewBadge(result) {
+    const level = result.quality ? result.quality.level : "Revisar";
+    const ready = RadarReview.canApply(result);
+    jdReviewBadge.textContent = ready ? "Listo para aplicar" : level;
+    jdReviewBadge.className = "jd-review-badge" + (ready || level === "Buena señal" ? " is-good" : " is-warn");
   }
 
   function renderJdReview(result) {
     pendingAnalysis = result;
     const quality = result.quality || { level: "Revisar", warnings: [], evidence: {} };
-    jdReviewBadge.textContent = quality.level;
-    jdReviewBadge.className = "jd-review-badge" + (quality.level === "Buena señal" ? " is-good" : " is-warn");
+    updateReviewBadge(result);
     jdReviewSummary.textContent = result.isResume
       ? "El documento parece un CV. No lo vamos a aplicar a los campos de búsqueda."
-      : result.isJobPosting
+      : result.isJobPosting || result.isBrief
         ? `Detectamos ${quality.wordCount || 0} palabras. Revisá título, requisitos y ubicación antes de continuar.`
-        : "No pudimos confirmar que el texto sea una descripción de puesto. Revisá la extracción o usá Gemini para una segunda lectura.";
+        : "No pudimos confirmar que el texto sea una descripción de puesto. Si lo escribiste con tus palabras, completá el relevamiento de abajo.";
 
     jdReviewGrid.textContent = "";
     const fields = [
@@ -530,9 +635,10 @@
         input.addEventListener("input", () => {
           const alternatives = result.rol.slice(1);
           result.rol = input.value.trim() ? [input.value.trim(), ...alternatives] : alternatives;
-          result.reviewAccepted = { ...(result.reviewAccepted || {}), role: true };
+          RadarReview.accept(result, "role");
           pendingAnalysis = result;
           renderReviewQuestions(result);
+          updateReviewBadge(result);
         });
         card.appendChild(input);
         const excerpt = evidence && evidence[0] && evidence[0].text;
@@ -579,9 +685,14 @@
       jdReviewGrid.appendChild(alternativesCard);
     }
 
-    const warnings = quality.warnings || [];
+    const warnings = (quality.warnings || []).filter((warning) =>
+      !(result.atributos.length && warning.startsWith("No detectamos requisitos")) &&
+      !(result.alcance.length && warning.startsWith("No detectamos una ubicación")) &&
+      !(result.reviewAccepted && result.reviewAccepted.location && warning.startsWith("No detectamos una ubicación")) &&
+      !((result.rol.length || (result.reviewAccepted && result.reviewAccepted.role)) && warning.startsWith("No pudimos identificar el título"))
+    );
     jdReviewWarning.textContent = warnings.join(" ");
-    jdReviewWarning.classList.toggle("hidden", warnings.length === 0 && result.isJobPosting);
+    jdReviewWarning.classList.toggle("hidden", warnings.length === 0 && (result.isJobPosting || result.isBrief));
     if (!result.isJobPosting && !result.isResume && warnings.length === 0) {
       jdReviewWarning.textContent = "Faltan señales suficientes para reconocer una vacante. No apliques estos campos sin revisarlos.";
       jdReviewWarning.classList.remove("hidden");
@@ -594,32 +705,43 @@
   }
 
   function applyPendingAnalysis() {
-    if (!pendingAnalysis || !pendingAnalysis.isJobPosting || pendingAnalysis.isResume || reviewGaps(pendingAnalysis).length || (!pendingAnalysis.rol.length && !pendingAnalysis.atributos.length)) return;
+    if (!RadarReview.canApply(pendingAnalysis)) return;
     FIELDS.forEach((field) => {
       state[field] = (pendingAnalysis[field] || []).slice();
     });
     renderAllChips();
     countrySelect.value = pendingAnalysis.country || RadarCountries.detectCountry(pendingAnalysis.alcance.join(" ")) || "";
+    noLocationCheckbox.checked = !pendingAnalysis.alcance.length;
     renderRefinarSuggestions(pendingAnalysis.refinarSuggestion || []);
     resultsEl.classList.remove("show");
     jdReview.classList.add("hidden");
     pendingAnalysis = null;
+    jdNeedsReview = false;
     document.getElementById("chips-rol").scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
-  function runAnalysis(fileName) {
+  function runAnalysis(fileName, sourceMeta) {
     const text = jdInput.value;
     if (!text.trim()) {
       showError("Pegá o subí una JD antes de analizar.", "file");
       return;
     }
-    const result = RadarExtractor.analyzeJD(text, { fileName: typeof fileName === "string" ? fileName : currentFileName });
+    jdNeedsReview = true;
+    const result = RadarExtractor.analyzeJD(text, {
+      fileName: typeof fileName === "string" ? fileName : currentFileName,
+      sourceMeta: sourceMeta === undefined ? currentSourceMeta : sourceMeta,
+    });
     renderJdReview(result);
   }
   jdInput.addEventListener("input", () => {
     currentFileName = "";
+    currentSourceMeta = null;
+    uploadSequence++;
+    fileInput.value = "";
     pendingAnalysis = null;
+    jdNeedsReview = !!jdInput.value.trim();
     jdReview.classList.add("hidden");
+    resultsEl.classList.remove("show");
   });
   document.getElementById("analyzeBtn").addEventListener("click", () => runAnalysis());
   document.getElementById("applyJdBtn").addEventListener("click", applyPendingAnalysis);
@@ -697,25 +819,35 @@
       return pageNumbers
         .reduce(
           (chain, pageNum) =>
-            chain.then((textSoFar) =>
+            chain.then((pages) =>
               pdf
                 .getPage(pageNum)
                 .then((page) => page.getTextContent())
-                .then((content) => textSoFar + RadarPdfText.extractTextItems(content.items) + "\n")
+                .then((content) => [...pages, RadarPdfText.inspectPage(content.items, pageNum)])
             ),
-          Promise.resolve("")
-        );
+          Promise.resolve([])
+        ).then((pages) => ({
+          text: pages.map((page) => page.text).join("\n"),
+          sourceMeta: RadarPdfText.summarizePages(pages),
+        }));
     });
   }
 
   function loadTextFile(file) {
     if (!file) return;
+    const sequence = ++uploadSequence;
     currentFileName = file.name;
+    currentSourceMeta = null;
+    pendingAnalysis = null;
+    jdNeedsReview = true;
+    jdReview.classList.add("hidden");
+    resultsEl.classList.remove("show");
     const isTxt = file.type === "text/plain" || /\.txt$/i.test(file.name);
     const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const isDocx = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx$/i.test(file.name);
 
-    if (!isTxt && !isPdf) {
-      showError("Solo se aceptan archivos .txt o .pdf por ahora. Copiá y pegá el texto si viene de Word.", "file");
+    if (!isTxt && !isPdf && !isDocx) {
+      showError("Se aceptan .txt, .pdf y .docx. Para .doc antiguo, imágenes u otros formatos, copiá y pegá el texto legible.", "file");
       return;
     }
 
@@ -726,11 +858,45 @@
       }
       const reader = new FileReader();
       reader.onload = () => {
+        if (sequence !== uploadSequence) return;
         jdInput.value = String(reader.result || "").slice(0, 20000);
         runAnalysis(file.name);
       };
       reader.onerror = () => showError("No se pudo leer el archivo.", "file");
       reader.readAsText(file);
+      return;
+    }
+
+    if (isDocx) {
+      if (file.size > MAX_DOCX_BYTES) {
+        showError("El Word pesa más de 8 MB. Copiá y pegá el texto directamente en el cuadro.", "file");
+        return;
+      }
+      if (typeof mammoth === "undefined") {
+        showError("No se pudo cargar el lector de Word. Copiá y pegá el texto directamente.", "file");
+        return;
+      }
+      showError("Leyendo el Word…", "file");
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (sequence !== uploadSequence) return;
+        mammoth.extractRawText({ arrayBuffer: reader.result })
+          .then((result) => {
+            if (sequence !== uploadSequence) return;
+            const trimmed = String(result.value || "").trim();
+            if (!trimmed) {
+              showError("El Word no contiene texto legible. Pegá una versión en texto.", "file");
+              return;
+            }
+            jdInput.value = trimmed.slice(0, 20000);
+            currentSourceMeta = { docxWarnings: (result.messages || []).filter((message) => message.type === "warning" || message.type === "error").map((message) => message.message) };
+            showError("", "file");
+            runAnalysis(file.name, currentSourceMeta);
+          })
+          .catch(() => { if (sequence === uploadSequence) showError("No se pudo leer ese Word. Puede estar dañado o protegido.", "file"); });
+      };
+      reader.onerror = () => showError("No se pudo leer el archivo de Word.", "file");
+      reader.readAsArrayBuffer(file);
       return;
     }
 
@@ -746,18 +912,21 @@
     showError("Leyendo el PDF…", "file");
     const reader = new FileReader();
     reader.onload = () => {
+      if (sequence !== uploadSequence) return;
       extractPdfText(reader.result)
-        .then((text) => {
+        .then(({ text, sourceMeta }) => {
+          if (sequence !== uploadSequence) return;
           const trimmed = text.trim();
           if (!trimmed) {
             showError("No se pudo extraer texto de ese PDF (¿es un escaneo/imagen?). Pegalo a mano.", "file");
             return;
           }
           jdInput.value = trimmed.slice(0, 20000);
+          currentSourceMeta = sourceMeta;
           showError("", "file");
-          runAnalysis(file.name);
+          runAnalysis(file.name, sourceMeta);
         })
-        .catch(() => showError("No se pudo leer ese PDF. Puede estar dañado o protegido.", "file"));
+        .catch(() => { if (sequence === uploadSequence) showError("No se pudo leer ese PDF. Puede estar dañado o protegido.", "file"); });
     };
     reader.onerror = () => showError("No se pudo leer el archivo.", "file");
     reader.readAsArrayBuffer(file);
@@ -826,16 +995,34 @@
     resultLinkedinNative.classList.toggle("hidden", selectedNetwork !== "linkedin");
     if (selectedNetwork === "linkedin") {
       const tiers = RadarGenerator.buildLinkedinBooleanTiers(state);
-      document.getElementById("out-linkedin").textContent = tiers[0] ? tiers[0].query : "—";
+      const roleless = tiers.find((tier) => tier.label.includes("sin título"));
+      const visibleTiers = tiers.slice(0, 2);
+      if (tiers.length > 2) {
+        const third = roleless && !visibleTiers.includes(roleless) ? roleless : tiers.find((tier) => !visibleTiers.includes(tier));
+        if (third) visibleTiers.push(third);
+      }
+      document.getElementById("out-linkedin").textContent = visibleTiers[0] ? visibleTiers[0].query : "—";
       const tiersWrap = document.getElementById("linkedinTiers");
       tiersWrap.innerHTML = "";
-      tiers.forEach((tier, i) => {
+      visibleTiers.forEach((tier, i) => {
         const a = document.createElement("a");
-        a.className = "btn btn-engine" + (i === 0 ? " btn-engine-primary" : "");
+        a.className = "btn btn-engine linkedin-route" + (i === 0 ? " btn-engine-primary" : "");
         a.href = RadarGenerator.linkedinSearchUrl(tier.query);
         a.target = "_blank";
         a.rel = "noopener noreferrer";
-        a.textContent = tiers.length > 1 ? `Buscar en LinkedIn — ${tier.label}` : "Buscar en LinkedIn";
+        const title = document.createElement("strong");
+        const detail = document.createElement("small");
+        const hasRole = state.rol.length > 0;
+        const isRoleless = tier.label.includes("sin título");
+        const name = hasRole
+          ? isRoleless ? "Sin título" : tier.label.includes("Amplia") ? "Solo cargo" : tier.label.includes("Equilibrada") ? "Cargo + 1 señal" : "Cargo + señales"
+          : ["Por habilidades", "Más amplia", "Por sector"][i];
+        title.textContent = `${i + 1} · ${name}`;
+        detail.textContent = hasRole
+          ? isRoleless ? "Busca por habilidades sin exigir cargo" : tier.label.includes("Amplia") ? "Cargo y ubicación" : tier.label.includes("Equilibrada") ? "Cargo, una habilidad y ubicación" : "Cargo, habilidades y ubicación"
+          : ["Habilidades, sector y ubicación", "Una habilidad y sector", "Sector y ubicación"][i];
+        a.append(title, detail);
+        a.setAttribute("aria-label", `Buscar en LinkedIn: ${title.textContent}. ${detail.textContent}`);
         tiersWrap.appendChild(a);
       });
     }
@@ -885,12 +1072,21 @@
   }
 
   document.getElementById("generateBtn").addEventListener("click", () => {
+    if (jdNeedsReview && jdInput.value.trim()) {
+      showError("La JD o el brief cambió. Analizalo y aplicá el relevamiento, o borrá el texto para seguir con los campos manuales.");
+      return;
+    }
     if (selectedNetwork === "custom" && !customSiteInput.value.trim()) {
       showError("Indicá el dominio público donde querés buscar perfiles.");
       return;
     }
-    if (!state.rol.length && !state.atributos.length && !state.dominio.length && !state.alcance.length) {
-      showError("Agregá al menos un criterio de búsqueda: rol, skill, industria o ubicación.");
+    const profileIssue = RadarReview.profileIssue(state);
+    if (profileIssue) {
+      showError(profileIssue);
+      return;
+    }
+    if (!state.alcance.length && !noLocationCheckbox.checked) {
+      showError("Indicá una ciudad, región o país; si no debe limitarse, marcá ‘Buscar sin restricción geográfica’.");
       return;
     }
     const universal = renderResults();
@@ -937,9 +1133,14 @@
     });
     jdInput.value = "";
     currentFileName = "";
+    currentSourceMeta = null;
+    uploadSequence++;
+    fileInput.value = "";
     pendingAnalysis = null;
+    jdNeedsReview = false;
     jdReview.classList.add("hidden");
     countrySelect.value = "";
+    noLocationCheckbox.checked = false;
     customSiteInput.value = "";
     minStarsInput.value = "";
     relaxedModeCheckbox.checked = false;
@@ -1033,10 +1234,16 @@
   }
 
   function restoreFromHistory(entry) {
+    jdInput.value = "";
+    fileInput.value = "";
+    pendingAnalysis = null;
+    jdNeedsReview = false;
+    jdReview.classList.add("hidden");
     FIELDS.forEach((f) => {
       state[f] = (entry[f] || []).slice();
     });
     renderAllChips();
+    noLocationCheckbox.checked = !state.alcance.length;
     relaxedModeCheckbox.checked = false;
     if (entry.network && RadarNetworks.NETWORKS[entry.network]) {
       selectNetwork(entry.network);

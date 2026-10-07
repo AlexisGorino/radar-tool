@@ -1,5 +1,8 @@
 name: tests
 
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
@@ -19,3 +22,20 @@ jobs:
       - run: node tests/tracking.js
       - run: node tests/market-matrix.js
       - run: node tests/pdf-text.js
+      - run: node tests/review-quality.js
+      - run: node tests/docx.js
+
+  browser-e2e:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - uses: cypress-io/github-action@v7
+        with:
+          install: false
+          start: npm run start:test
+          wait-on: http://127.0.0.1:8766
+          command: npm run test:e2e

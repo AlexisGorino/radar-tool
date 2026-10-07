@@ -13,7 +13,7 @@ que el deploy sea arrastrar una carpeta a un hosting estático.
 ├─────────────────────────────────────────┤
 │  app.js                                  │  capa de UI (único módulo con DOM)
 ├─────────────────────────────────────────┤
-│  extractor.js   generator.js             │  núcleo: funciones puras
+│  extractor.js   generator.js review.js   │  núcleo: funciones puras
 ├─────────────────────────────────────────┤
 │  ai.js         tracking.js               │  capas opcionales: red a Gemini / registro de uso
 ├─────────────────────────────────────────┤
@@ -27,7 +27,7 @@ skills/industrias/seniority, sinónimos de rol y catálogo de redes buscables.
 No tienen lógica más allá de un par de funciones de consulta (`detectCountry`,
 `getSynonyms`).
 
-**Núcleo** (`extractor.js`, `generator.js`): toda la lógica de negocio vive
+**Núcleo** (`extractor.js`, `generator.js`, `review.js`): toda la lógica de negocio vive
 acá, como funciones puras — mismo input, mismo output, sin tocar el DOM ni
 el estado global. `extractor.js` convierte texto libre de una JD en los
 cinco campos del método RADAR (Rol, Atributos, Dominio, Alcance, Refinar) y
@@ -71,12 +71,12 @@ Cada módulo se expone como global (`RadarCountries`, `RadarKeywords`, etc.)
 via el patrón UMD que también soporta `require()`, así los mismos archivos
 corren en el navegador y en los tests de Node sin duplicar código.
 
-## La única dependencia externa
+## Lectores locales
 
 `js/vendor/pdf.min.js` (pdf.js, de Mozilla) para leer texto de PDFs
-subidos. Vendorizada como archivo local, no cargada desde un CDN — sigue
-sin haber llamadas de red en ningún flujo del sitio. Todo lo demás del
-proyecto es JavaScript propio sin dependencias.
+subidos y `js/vendor/mammoth.browser.min.js` para extraer texto de `.docx`.
+Ambos están vendorizados como archivos locales, sin CDN. El texto de esos
+documentos no sale del navegador durante el análisis determinístico.
 
 ## Por qué no hay framework
 

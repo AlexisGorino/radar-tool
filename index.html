@@ -11,7 +11,7 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=27">
+<link rel="stylesheet" href="css/styles.css?v=28">
 <script src="js/gate.js?v=27"></script>
 </head>
 <body>
@@ -56,17 +56,17 @@
 
   <section class="card">
     <h2>1 · Job description</h2>
-    <p class="hint">Pegá o adjuntá la JD. RADAR detecta señales y te muestra qué entendió para que puedas corregirlo antes de buscar.</p>
+    <p class="hint">Pegá una JD o escribí lo que necesitás con tus palabras. RADAR pedirá cargo, señales concretas del perfil y alcance antes de buscar.</p>
 
     <div id="dropzone" class="dropzone">
-      <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description" placeholder="Pegá el texto de la JD acá, o soltá un archivo .txt o .pdf en esta zona..."></textarea>
+      <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description o brief de búsqueda" placeholder="Ej: Busco una persona que audite instalaciones de telecom en Canarias, con Ekahau y nPerf. También podés pegar una JD o soltar un archivo..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <div class="row-actions">
       <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar JD</button>
       <label class="file-label">
-        o subí un archivo .txt o .pdf
-        <input type="file" id="fileInput" accept=".txt,.pdf,text/plain,application/pdf">
+        o subí un archivo .txt, .pdf o .docx
+        <input type="file" id="fileInput" accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
       </label>
       <button class="btn btn-ghost" id="clearAllBtn" type="button">Borrar todo</button>
     </div>
@@ -77,7 +77,7 @@
       </div>
       <div class="jd-review-grid" id="jdReviewGrid"></div>
       <div class="jd-review-questions" id="jdReviewQuestions"></div>
-      <p class="jd-review-help">Los términos detectados se pueden quitar o completar antes de aplicar. Los deseables solo filtran si los promovés.</p>
+      <p class="jd-review-help">Confirmá las señales antes de buscar. Podés pasar requisitos a deseables, corregir el cargo y ajustar la ubicación. Los deseables solo filtran si los promovés.</p>
       <p class="jd-review-warning hidden" id="jdReviewWarning"></p>
       <div class="jd-review-actions">
         <button class="btn btn-primary" id="applyJdBtn" type="button">Usar estos campos en RADAR</button>
@@ -91,7 +91,7 @@
 
   <section class="card">
     <h2>2 · Campos RADAR</h2>
-    <p class="hint">Escribí un término y Enter para agregarlo. Click en la × para sacarlo. El generador avisa si una red limita términos.</p>
+    <p class="hint">Relevamiento mínimo: cargo y una señal concreta del perfil, o varias señales si buscás sin título. Definí la ubicación o indicá expresamente que no debe limitarse. Escribí un término y Enter para agregarlo.</p>
 
     <div class="radar-grid">
       <div class="field">
@@ -112,7 +112,7 @@
       <div class="field field-alt">
         <div class="field-letter">A</div>
         <div class="field-label">Atributos</div>
-        <div class="field-desc">Skills, herramientas</div>
+        <div class="field-desc">Habilidades, tareas o experiencia clave</div>
         <div class="chips" id="chips-atributos"></div>
         <input type="text" class="field-input" data-field="atributos" placeholder="Escribí y Enter" maxlength="80">
         <div class="synonyms-row hidden" id="aiAtributosRow">
@@ -138,6 +138,7 @@
         </div>
         <div class="chips" id="chips-alcance"></div>
         <input type="text" class="field-input" data-field="alcance" placeholder="Escribí y Enter" maxlength="80">
+        <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Buscar sin restricción geográfica</label>
       </div>
       <div class="field">
         <div class="field-letter field-letter-exclude">R</div>
@@ -195,7 +196,7 @@
       </div>
       <div class="boolean-box" id="out-linkedin">—</div>
       <div class="engine-buttons" id="linkedinTiers"></div>
-      <p class="platform-note">RADAR propone búsquedas progresivas y, cuando el título es demasiado literal, prioriza requisitos sin exigirlo. La ubicación escrita en la consulta no reemplaza el filtro “Ubicación” de LinkedIn: seleccioná allí la ciudad o región antes de evaluar perfiles.</p>
+      <p class="platform-note">Empezá por la primera ruta sugerida y probá las otras si necesitás ampliar o cambiar el enfoque. “Sin título” busca habilidades sin exigir el cargo literal. La ubicación escrita en la consulta no reemplaza el filtro “Ubicación” de LinkedIn: seleccioná allí la ciudad o región antes de evaluar perfiles.</p>
     </div>
 
     <div class="result-secondary" id="resultXray">
@@ -336,14 +337,16 @@
 </div>
 
 <script src="js/vendor/pdf.min.js"></script>
-<script src="js/pdf-text.js?v=27"></script>
-<script src="js/countries.js?v=27"></script>
-<script src="js/keywords.js?v=27"></script>
-<script src="js/networks.js?v=27"></script>
-<script src="js/extractor.js?v=27"></script>
-<script src="js/generator.js?v=27"></script>
-<script src="js/ai.js?v=27"></script>
-<script src="js/tracking.js?v=27"></script>
-<script src="js/app.js?v=27"></script>
+<script src="js/vendor/mammoth.browser.min.js"></script>
+<script src="js/pdf-text.js?v=28"></script>
+<script src="js/countries.js?v=28"></script>
+<script src="js/keywords.js?v=28"></script>
+<script src="js/networks.js?v=28"></script>
+<script src="js/extractor.js?v=28"></script>
+<script src="js/generator.js?v=28"></script>
+<script src="js/review.js?v=28"></script>
+<script src="js/ai.js?v=28"></script>
+<script src="js/tracking.js?v=28"></script>
+<script src="js/app.js?v=28"></script>
 </body>
 </html>

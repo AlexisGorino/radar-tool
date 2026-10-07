@@ -1,0 +1,13 @@
+{
+  "name": "radar-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RADAR talent search query builder",
+  "scripts": {
+    "test:e2e": "cypress run",
+    "start:test": "node tests/serve.js"
+  },
+  "devDependencies": {
+    "cypress": "16.1.1"
+  }
+}
