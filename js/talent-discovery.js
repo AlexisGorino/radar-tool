@@ -197,6 +197,13 @@
     if (payload.error === "hourly_quota_exhausted") throw new Error("Se alcanzó el cupo horario del proveedor; RADAR no inició la búsqueda. Esperá a que se renueve y volvé a intentar.");
     if (payload.error === "rate_limited") throw new Error("La red compartida alcanzó el límite temporal de RADAR. Esperá un minuto y probá de nuevo.");
     if (payload.error === "provider_rate_limited") throw new Error("SerpApi rechazó temporalmente la consulta por su límite de uso. Revisá el cupo horario o mensual y reintentá más tarde.");
+    if (payload.error === "sources_unavailable") {
+      const codes = new Set((Array.isArray(payload.sourceErrors) ? payload.sourceErrors : []).map((item) => item.code));
+      if (codes.has("provider_credentials_rejected")) throw new Error("El proveedor rechazó la credencial configurada. La consulta no pudo completarse; revisá el secreto SERPAPI_KEY en Cloudflare.");
+      if (codes.has("provider_request_rejected")) throw new Error("El proveedor rechazó la consulta. Revisá la ubicación o los términos y probá una búsqueda más breve.");
+      if (codes.has("provider_unavailable")) throw new Error("El proveedor de búsqueda no respondió correctamente. No se obtuvieron perfiles; probá de nuevo más tarde.");
+      throw new Error("Las fuentes públicas no respondieron. No se obtuvieron perfiles; probá de nuevo más tarde.");
+    }
     if (payload.error === "free_plan_required") throw new Error("La búsqueda está pausada: el proveedor debe tener un plan gratuito activo para mantener el costo en USD 0.");
     if (payload.error === "budget_unavailable") throw new Error("RADAR no pudo verificar que la cuenta siga dentro del plan gratuito; no inició la búsqueda.");
     if (response.status === 429) throw new Error("El proveedor limitó temporalmente esta búsqueda. Revisá el cupo horario o mensual y probá más tarde.");

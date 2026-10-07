@@ -60,6 +60,8 @@ async function main() {
       assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "free_plan_required" });
       globalThis.fetch = async () => new Response("provider unavailable", { status: 503 });
       assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "budget_unavailable" });
+      globalThis.fetch = async () => { throw new Error("network unavailable"); };
+      assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "budget_unavailable" });
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -146,6 +148,33 @@ async function main() {
     assert.equal(response.status, 429);
     assert.equal(response.headers.get("Retry-After"), "60");
     assert.deepEqual(await response.json(), { error: "rate_limited" });
+  });
+
+  await test("reports safe provider failure categories without leaking upstream details", async () => {
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) {
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      }
+      return new Response("credential detail must stay hidden", { status: 401 });
+    };
+    try {
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+        SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 502);
+      assert.equal(payload.error, "sources_unavailable");
+      assert.ok(payload.sourceErrors.every((entry) => entry.code === "provider_credentials_rejected"));
+      assert.doesNotMatch(JSON.stringify(payload), /credential detail|server-secret/);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
   });
 
   console.log(`\n${passed} backend-worker tests passed.`);

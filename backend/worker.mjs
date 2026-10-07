@@ -73,37 +73,43 @@ async function lookup(query, location, source, apiKey) {
   if (location) url.searchParams.set("location", location);
   const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(18_000) });
   if (response.status === 429) throw new Error("provider_rate_limited");
-  if (!response.ok) throw new Error(`provider_${response.status}`);
+  if (response.status === 401 || response.status === 403) throw new Error("provider_credentials_rejected");
+  if (response.status === 400) throw new Error("provider_request_rejected");
+  if (!response.ok) throw new Error("provider_unavailable");
   const data = await response.json();
-  if (data.error) throw new Error("provider_error");
+  if (data.error) throw new Error("provider_request_rejected");
   return (Array.isArray(data.organic_results) ? data.organic_results : [])
     .map((item) => safeResult(item, source)).filter(Boolean).slice(0, MAX_RESULTS);
 }
 
 async function freeBudgetAllows(apiKey, searchesNeeded) {
-  const url = new URL("https://serpapi.com/account.json");
-  url.searchParams.set("api_key", apiKey);
-  const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10_000) });
-  if (!response.ok) return { allowed: false, reason: "budget_unavailable" };
-  const account = await response.json();
-  if (account.plan_monthly_price === undefined || account.plan_monthly_price === null || account.plan_monthly_price === "") {
-    return { allowed: false, reason: "free_plan_required" };
-  }
-  const monthlyPrice = Number(account.plan_monthly_price);
-  const remaining = Number(account.plan_searches_left);
-  const searchesThisHour = Number(account.this_hour_searches);
-  const hourlyLimit = Number(account.account_rate_limit_per_hour);
-  if (account.account_status !== "Active" || !Number.isFinite(monthlyPrice) || monthlyPrice !== 0 || !Number.isFinite(remaining)) {
-    return { allowed: false, reason: "free_plan_required" };
-  }
-  if (remaining < searchesNeeded) return { allowed: false, reason: "free_quota_exhausted" };
-  if (!Number.isFinite(searchesThisHour) || !Number.isFinite(hourlyLimit)) {
+  try {
+    const url = new URL("https://serpapi.com/account.json");
+    url.searchParams.set("api_key", apiKey);
+    const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) return { allowed: false, reason: "budget_unavailable" };
+    const account = await response.json();
+    if (account.plan_monthly_price === undefined || account.plan_monthly_price === null || account.plan_monthly_price === "") {
+      return { allowed: false, reason: "free_plan_required" };
+    }
+    const monthlyPrice = Number(account.plan_monthly_price);
+    const remaining = Number(account.plan_searches_left);
+    const searchesThisHour = Number(account.this_hour_searches);
+    const hourlyLimit = Number(account.account_rate_limit_per_hour);
+    if (account.account_status !== "Active" || !Number.isFinite(monthlyPrice) || monthlyPrice !== 0 || !Number.isFinite(remaining)) {
+      return { allowed: false, reason: "free_plan_required" };
+    }
+    if (remaining < searchesNeeded) return { allowed: false, reason: "free_quota_exhausted" };
+    if (!Number.isFinite(searchesThisHour) || !Number.isFinite(hourlyLimit)) {
+      return { allowed: false, reason: "budget_unavailable" };
+    }
+    if (searchesThisHour + searchesNeeded > hourlyLimit) {
+      return { allowed: false, reason: "hourly_quota_exhausted" };
+    }
+    return { allowed: true };
+  } catch {
     return { allowed: false, reason: "budget_unavailable" };
   }
-  if (searchesThisHour + searchesNeeded > hourlyLimit) {
-    return { allowed: false, reason: "hourly_quota_exhausted" };
-  }
-  return { allowed: true };
 }
 
 function takeBalanced(resultsBySource, maximum = MAX_RESULTS) {
@@ -170,7 +176,8 @@ export default {
       try {
         resultsBySource.push(await lookup(entry.query, plan.location, entry.source, env.SERPAPI_KEY));
       } catch (error) {
-        sourceErrors.push({ source: entry.source, code: error.message === "provider_rate_limited" ? "provider_rate_limited" : "source_unavailable" });
+        const safeCodes = new Set(["provider_rate_limited", "provider_credentials_rejected", "provider_request_rejected", "provider_unavailable"]);
+        sourceErrors.push({ source: entry.source, code: safeCodes.has(error.message) ? error.message : "source_unavailable" });
       }
     }
     const results = takeBalanced(resultsBySource);
