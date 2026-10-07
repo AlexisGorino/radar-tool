@@ -6,10 +6,10 @@ Herramienta de sourcing de Mindata, creada por **Ale Gorino**.
 Convierte una JD en un booleano preciso y en variantes listas para LinkedIn,
 Google/Bing (X-Ray), GitHub, Behance, CVs sueltos en PDF/Word y otras redes.
 
-Pensada para el uso diario de un reclutador: sin cuentas ni backend. Incluye
-lectores locales vendorizados para PDF y Word `.docx`.
-Corre igual abierto como archivo local, en Netlify, en Vercel, en GitHub
-Pages o publicada como página estática en cualquier lado.
+Pensada para el uso diario de un reclutador: sin cuentas ni backend. La nueva
+interfaz se compila con Angular 21; los documentos siguen procesándose en el
+navegador mediante lectores locales vendorizados para PDF y Word `.docx`.
+GitHub Pages sirve el build optimizado desde GitHub Actions.
 
 ## Funcionalidad
 
@@ -74,8 +74,13 @@ Pages o publicada como página estática en cualquier lado.
 
 ```
 radar-tool/
-  index.html          punto de entrada
-  css/styles.css       estilos (paleta e identidad Mindata)
+  src/
+    main.ts                 bootstrap Angular 21
+    app/                    shell Angular y adaptador gradual del DOM existente
+    styles.css              sistema visual RADAR
+  angular.json              build estático con base /radar-tool/
+  index.html                entrada estática de compatibilidad y desarrollo
+  css/styles.css            estilos previos para esa entrada
   js/
     countries.js        datos: países LATAM + Europa, detección de ubicación
     keywords.js          datos: skills, industrias, seniority, sinónimos de rol
@@ -87,7 +92,7 @@ radar-tool/
     ai.js                       capa opcional de sugerencias con Gemini (prompt + parseo, funciones puras)
     tracking.js                   registro de uso por nombre (payload + fetch, funciones puras)
     outcome.js                    conteos anónimos locales de resultado por fuente
-    app.js                          conecta el motor con el DOM
+    app.js                          capa de compatibilidad para los flujos existentes
   assets/
     mindata-logo.png
     favicon.svg
@@ -108,7 +113,11 @@ radar-tool/
 
 `extractor.js` y `generator.js` no tocan el DOM ni hacen llamadas de red:
 son funciones puras, lo que permite testearlas directamente con Node sin
-levantar un navegador. `app.js` es la única capa que conoce el HTML.
+levantar un navegador. La migración a Angular se hace por etapas:
+`AppComponent` controla el arranque y `LegacyDomBridge` carga la capa DOM
+existente en orden explícito. Así se conserva la experiencia de hunting mientras
+cada interacción se migra a componentes y servicios tipados, sin cambiar las
+reglas de búsqueda de golpe.
 
 ## Correr los tests
 
@@ -132,26 +141,30 @@ una terminal con `npm run start:test` y ejecutá `npm run test:e2e` en otra.
 Ver [`TESTING.md`](TESTING.md) para el detalle y
 el checklist de QA manual.
 
-## Probarlo en local
+## Desarrollo y build
 
-No hace falta build. Basta con levantar cualquier servidor estático desde
-la carpeta del proyecto, por ejemplo:
-
-```
-npx serve .
-```
-
-o, si tenés Python:
+Requiere Node 22.12 o superior y npm:
 
 ```
-python -m http.server 8080
+npm ci
+npm run start:dev
 ```
 
-y abrir `http://localhost:8080` (o el puerto que corresponda).
+El build de producción genera `dist/radar-tool/browser` con el prefijo público
+`/radar-tool/` utilizado por GitHub Pages:
+
+```
+npm run build
+npm run check:angular
+```
+
+Para probar Cypress contra el build de Angular, primero compilá; después abrí
+una terminal con `npm run start:angular` y ejecutá `npm run test:e2e` en otra.
+`npm run start:test` conserva el servidor estático de compatibilidad.
 
 ## Seguridad y privacidad
 
-- Todo corre en el navegador. El `Content-Security-Policy` del `index.html`
+- Todo corre en el navegador. El `Content-Security-Policy` de `src/index.html`
   restringe `connect-src` al propio origen más tres excepciones puntuales:
   FormSubmit (botón de feedback), la API de Gemini (solo si activaste
   "Sugerir con IA" con tu propia key) y un Apps Script propio de Mindata
@@ -173,10 +186,10 @@ y abrir `http://localhost:8080` (o el puerto que corresponda).
 
 ## Dónde está desplegado
 
-GitHub Pages, sirviendo directo desde la rama `main` de este repo:
+GitHub Pages, compilando con el workflow `deploy-radar-pages`:
 **https://alexisgorino.github.io/radar-tool/**. Los cambios publicados en
-`main` se despliegan mediante GitHub Pages. Algunas redes externas requieren
-iniciar sesión para consultar sus resultados.
+`main` generan un build Angular 21 y se publican como artefacto de Pages.
+Algunas redes externas requieren iniciar sesión para consultar sus resultados.
 
 ## Desplegarlo en otro lado
 
@@ -185,9 +198,10 @@ más cómoda:
 
 ### Opción A — Netlify Drop (más rápida, sin cuenta)
 
-1. Andá a **app.netlify.com/drop**
-2. Arrastrá la carpeta `radar-tool` completa a la página
-3. En unos segundos te da una URL pública (algo como
+1. Generá un build para raíz: `npm run build -- --base-href /`
+2. Andá a **app.netlify.com/drop**
+3. Arrastrá `dist/radar-tool/browser` a la página
+4. En unos segundos te da una URL pública (algo como
    `nombre-random.netlify.app`)
 
 Para que la URL quede fija y no se pierda, creá una cuenta gratuita
@@ -196,7 +210,8 @@ después (te lo ofrece la misma pantalla).
 ### Opción B — Vercel
 
 1. Instalá la CLI una sola vez: `npm i -g vercel`
-2. Desde adentro de la carpeta `radar-tool`, corré:
+2. Generá el build para la raíz del dominio: `npm run build -- --base-href /`
+3. Desde adentro de la carpeta `radar-tool`, corré:
    ```
    vercel
    ```

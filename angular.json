@@ -1,0 +1,55 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "radar-tool": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "radar",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/radar-tool",
+            "index": "src/index.html",
+            "browser": "src/main.ts",
+            "polyfills": ["zone.js"],
+            "tsConfig": "tsconfig.app.json",
+            "assets": [
+              { "glob": "**/*", "input": "assets", "output": "assets" },
+              { "glob": "**/*", "input": "js", "output": "js" }
+            ],
+            "styles": ["src/styles.css"],
+            "scripts": [],
+            "outputMode": "static"
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "1.5mb", "maximumError": "2mb" },
+                { "type": "anyComponentStyle", "maximumWarning": "24kb", "maximumError": "32kb" }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": { "buildTarget": "radar-tool:build:production" },
+            "development": { "buildTarget": "radar-tool:build:development" }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  }
+}

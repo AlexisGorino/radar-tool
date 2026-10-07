@@ -1,0 +1,338 @@
+<div id="radarBootError" class="radar-boot-error hidden" role="alert">No pudimos iniciar todos los módulos de RADAR. Recargá la página; si el problema continúa, avisá al equipo.</div>
+<div id="authGate" class="auth-gate" role="dialog" aria-modal="true" aria-labelledby="authGateTitle">
+  <form class="auth-gate-box" id="authGateForm">
+    <img src="assets/mindata-logo.png" alt="Mindata" class="auth-gate-logo">
+    <h2 id="authGateTitle">Acceso del equipo</h2>
+    <p class="hint">RADAR es de uso interno de Mindata. Contanos quién sos e ingresá la contraseña del equipo para entrar.</p>
+    <label class="auth-gate-label" for="authGateNombre">Nombre</label>
+    <input type="text" id="authGateNombre" autocomplete="given-name" placeholder="Tu nombre">
+    <label class="auth-gate-label" for="authGateApellido">Apellido</label>
+    <input type="text" id="authGateApellido" autocomplete="family-name" placeholder="Tu apellido">
+    <label class="auth-gate-label" for="authGatePassword">Contraseña</label>
+    <input type="password" id="authGatePassword" autocomplete="current-password" placeholder="Contraseña del equipo">
+    <button class="btn btn-primary" id="authGateSubmit" type="submit">Entrar</button>
+    <p class="hint auth-gate-error" id="authGateError" role="alert"></p>
+  </form>
+</div>
+
+<div id="appShell" class="app-shell">
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-left">
+      <img src="assets/mindata-logo.png" alt="Mindata" class="brand-logo">
+      <div class="brand-titles">
+        <span class="brand-kicker">MÉTODO</span>
+        <h1 class="brand-title">RADAR</h1>
+      </div>
+    </div>
+    <div class="brand-right">
+      <button class="btn btn-ghost btn-small" id="historyToggleBtn" type="button">Historial</button>
+      <button class="btn btn-ghost btn-small" id="aiSettingsBtn" type="button">IA (opcional)</button>
+      <button class="btn btn-ghost btn-small" id="helpBtn" type="button">¿Cómo se usa?</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="intro">RADAR convierte una búsqueda en criterios revisables, separa requisitos de deseables y propone rutas de búsqueda para cada red. Antes de generar, vas a poder corregir el cargo, las skills y el alcance geográfico.</p>
+
+  <section class="card">
+    <h2>1 · Job description</h2>
+    <p class="hint">Pegá una JD o escribí lo que necesitás con tus palabras. RADAR pedirá cargo, señales concretas del perfil y alcance antes de buscar.</p>
+
+    <div id="dropzone" class="dropzone">
+      <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description o brief de búsqueda" placeholder="Ej: Busco una persona que audite instalaciones de telecom en Canarias, con Ekahau y nPerf. También podés pegar una JD o soltar un archivo..."></textarea>
+      <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
+    </div>
+    <div class="row-actions">
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar JD</button>
+      <label class="file-label">
+        o subí un archivo .txt, .pdf o .docx
+        <input type="file" id="fileInput" accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      </label>
+      <button class="btn btn-ghost" id="clearAllBtn" type="button">Borrar todo</button>
+    </div>
+    <section class="jd-review hidden" id="jdReview" aria-live="polite" aria-labelledby="jdReviewTitle">
+      <div class="jd-review-head">
+        <div><h3 id="jdReviewTitle">Revisá la vacante detectada</h3><p class="hint" id="jdReviewSummary"></p></div>
+        <span class="jd-review-badge" id="jdReviewBadge"></span>
+      </div>
+      <div class="jd-review-grid" id="jdReviewGrid"></div>
+      <div class="jd-review-questions" id="jdReviewQuestions"></div>
+      <p class="jd-review-help">Confirmá las señales antes de buscar. Podés pasar requisitos a deseables, corregir el cargo y ajustar la ubicación. Los deseables solo filtran si los promovés.</p>
+      <p class="jd-review-warning hidden" id="jdReviewWarning"></p>
+      <div class="jd-review-actions">
+        <button class="btn btn-primary" id="applyJdBtn" type="button">Usar estos campos en RADAR</button>
+        <button class="btn btn-ghost" id="dismissJdBtn" type="button">Seguir editando la JD</button>
+        <button class="btn btn-ghost hidden" id="aiAnalyzeJdBtn" type="button">✨ Mejorar análisis con Gemini</button>
+      </div>
+      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">Al tocar “Mejorar análisis”, se enviará el texto de esta JD directamente a Google Gemini usando tu API key. RADAR no lo envía a Mindata.</p>
+      <p class="jd-review-ai-status" id="jdReviewAiStatus" role="status"></p>
+    </section>
+  </section>
+
+  <section class="card">
+    <h2>2 · Campos RADAR</h2>
+    <p class="hint">Relevamiento mínimo: cargo y una señal concreta del perfil, o varias señales si buscás sin título. Marcá solo los verdaderos requisitos excluyentes como imprescindibles; usá alternativas para equivalencias y deseables para ampliar después. Definí la ubicación o indicá expresamente que no debe limitarse.</p>
+
+    <div class="radar-grid">
+      <div class="field">
+        <div class="field-letter">R</div>
+        <div class="field-label">Rol</div>
+        <div class="field-desc">Título del puesto</div>
+        <div class="chips" id="chips-rol"></div>
+        <input type="text" class="field-input" data-field="rol" placeholder="Escribí y Enter" maxlength="80">
+        <div class="synonyms-row hidden" id="synonymsRow">
+          <span class="synonyms-label">+ sinónimos:</span>
+          <div class="synonyms-list" id="synonymsList"></div>
+        </div>
+        <div class="ai-suggest-row hidden" id="aiRoleSuggestRow">
+          <button class="btn btn-ghost btn-small" type="button" id="aiSuggestBtn">✨ Sugerir con IA</button>
+          <span class="hint" id="aiSuggestHint"></span>
+        </div>
+      </div>
+      <div class="field field-alt">
+        <div class="field-letter">A</div>
+        <div class="field-label">Señales del perfil</div>
+        <div class="field-desc">Alternativas: cualquiera puede coincidir (OR)</div>
+        <div class="chips" id="chips-atributos"></div>
+        <input type="text" class="field-input" data-field="atributos" placeholder="Escribí y Enter" maxlength="80">
+        <span class="priority-subhead">Imprescindibles · se exigen todas (AND)</span>
+        <div class="chips" id="chips-imprescindibles"></div>
+        <input type="text" class="field-input" data-field="imprescindibles" placeholder="Solo requisitos excluyentes" maxlength="80">
+        <span class="priority-subhead">Deseables · se usan en rutas amplias</span>
+        <div class="chips" id="chips-deseables"></div>
+        <input type="text" class="field-input" data-field="deseables" placeholder="Opcional; no filtra la ruta específica" maxlength="80">
+        <div class="synonyms-row hidden" id="aiAtributosRow">
+          <span class="synonyms-label">+ sugeridos por IA:</span>
+          <div class="synonyms-list" id="aiAtributosList"></div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-letter">D</div>
+        <div class="field-label">Dominio</div>
+        <div class="field-desc">Industria</div>
+        <div class="chips" id="chips-dominio"></div>
+        <input type="text" class="field-input" data-field="dominio" placeholder="Escribí y Enter" maxlength="80">
+      </div>
+      <div class="field field-alt">
+        <div class="field-letter">A</div>
+        <div class="field-label">Alcance</div>
+        <div class="field-desc">País y localidad</div>
+        <div class="alcance-country-row">
+          <select id="countrySelect" aria-label="País">
+            <option value="">País...</option>
+          </select>
+        </div>
+        <div class="chips" id="chips-alcance"></div>
+        <input type="text" class="field-input" data-field="alcance" placeholder="Escribí y Enter" maxlength="80">
+        <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Buscar sin restricción geográfica</label>
+      </div>
+      <div class="field">
+        <div class="field-letter field-letter-exclude">R</div>
+        <div class="field-label field-label-exclude">Refinar</div>
+        <div class="field-desc">Excluir (NOT)</div>
+        <div class="chips" id="chips-refinar"></div>
+        <input type="text" class="field-input" data-field="refinar" placeholder="Escribí y Enter" maxlength="80">
+        <div class="synonyms-row hidden" id="refinarSuggestionsRow">
+          <span class="synonyms-label">Sugerencias (click para excluir):</span>
+          <div class="synonyms-list" id="refinarSuggestionsList"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3 · Dónde buscar</h2>
+    <p class="hint">Elegí la red. Cada una tiene su propia sintaxis, ya ajustada.</p>
+    <div class="network-recommendations" id="networkRecommendations" aria-live="polite"></div>
+    <div class="network-tabs" id="networkTabs"></div>
+    <p class="network-description" id="networkDescription"></p>
+    <div class="custom-site-row hidden" id="customSiteRow">
+      <label>Dominio con perfiles públicos <input type="text" id="customSiteInput" placeholder="ej: portfolio.ejemplo.com"></label>
+    </div>
+    <div class="github-mode-row hidden" id="githubModeRow">
+      <label><input type="radio" name="ghmode" value="people" checked> Buscar personas</label>
+      <label><input type="radio" name="ghmode" value="repos"> Buscar repositorios</label>
+      <label class="stars-input hidden" id="starsInputWrap">Mín. estrellas <input type="number" id="minStars" min="0" placeholder="100"></label>
+    </div>
+  </section>
+
+  <div class="generate-row">
+    <button class="btn btn-primary" id="generateBtn" type="button">Armar booleano</button>
+  </div>
+
+  <section class="results" id="results">
+
+    <div class="result-hero" id="resultHero">
+      <div class="result-hero-label">Booleano universal</div>
+      <div class="boolean-box boolean-box-lg" id="out-universal">—</div>
+      <p class="platform-note platform-note-warn hidden" id="generatorWarning"></p>
+      <p class="platform-note strategy-note" id="strategyNote" aria-live="polite"></p>
+      <p class="platform-note">AND / OR / NOT y comillas. Sirve tal cual en LinkedIn Recruiter y en la mayoría de los buscadores internos de portales y ATS.</p>
+      <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
+      <label class="relaxed-toggle">
+        <input type="checkbox" id="relaxedModeCheckbox">
+        Ampliar búsqueda
+      </label>
+      <p class="platform-note">Quita el filtro de sector y conserva el cargo, las señales del perfil y la ubicación elegida. Usalo si la búsqueda precisa trae pocos resultados; la localidad nunca se elimina al ampliar.</p>
+    </div>
+
+    <div class="result-secondary hidden" id="resultLinkedinNative">
+      <div class="platform-head">
+        <div class="platform-name">LinkedIn — búsqueda directa (recomendado)</div>
+        <button class="btn btn-copy" data-copy="out-linkedin" type="button">Copiar</button>
+      </div>
+      <div class="boolean-box" id="out-linkedin">—</div>
+      <div class="engine-buttons" id="linkedinTiers"></div>
+      <p class="platform-note">Empezá por la primera ruta sugerida y probá las otras si necesitás ampliar o cambiar el enfoque. “Sin título” busca habilidades sin exigir el cargo literal. La ubicación escrita en la consulta no reemplaza el filtro “Ubicación” de LinkedIn: seleccioná allí la ciudad o región antes de evaluar perfiles.</p>
+    </div>
+
+    <div class="result-secondary" id="resultXray">
+      <div class="platform-head">
+        <div class="platform-name" id="xrayNetworkLabel">X-Ray</div>
+        <button class="btn btn-copy" data-copy="out-xray" type="button">Copiar</button>
+      </div>
+      <div class="boolean-box" id="out-xray">—</div>
+      <div class="engine-buttons">
+        <a class="btn btn-engine btn-engine-primary" id="openGoogle" href="#" target="_blank" rel="noopener noreferrer">Abrir en Google</a>
+        <a class="btn btn-engine" id="openBing" href="#" target="_blank" rel="noopener noreferrer">Abrir en Bing (menos confiable hoy)</a>
+      </div>
+      <div class="engine-buttons" id="xrayTiers"></div>
+      <p class="platform-note" id="xrayNote"></p>
+      <p class="platform-note platform-note-warn">Probado en vivo: Bing viene ignorando el <code>site:</code> en X-Ray (devuelve resultados sin relación, de cualquier sitio). Empezá siempre por Google — si tampoco trae nada, copiá el booleano y pegalo directo en el buscador del sitio.</p>
+    </div>
+
+    <div class="result-secondary hidden" id="resultGithub">
+      <div class="platform-head">
+        <div class="platform-name">GitHub</div>
+      </div>
+      <div class="engine-buttons">
+        <a class="btn btn-engine" id="openGithub" href="#" target="_blank" rel="noopener noreferrer">Abrir en GitHub</a>
+      </div>
+      <p class="platform-note">Búsqueda nativa de GitHub, no X-Ray: usa sus propios calificadores (language:, location:, stars:).</p>
+    </div>
+
+    <section class="outcome-panel" id="outcomePanel" aria-labelledby="outcomeTitle">
+      <h3 id="outcomeTitle">¿Cómo te fue con esta fuente?</h3>
+      <p class="platform-note">Tu señal ayuda a calibrar las rutas. Guardamos solo el conteo por fuente en este navegador; no se guardan la búsqueda ni datos de candidatos.</p>
+      <div class="outcome-actions" role="group" aria-label="Evaluar resultados de búsqueda">
+        <button class="btn btn-engine" type="button" data-outcome="relevant">Encontré perfiles útiles</button>
+        <button class="btn btn-engine" type="button" data-outcome="noisy">Hubo mucho ruido</button>
+        <button class="btn btn-engine" type="button" data-outcome="empty">No encontré perfiles</button>
+      </div>
+      <p class="outcome-status hint" id="outcomeStatus" aria-live="polite"></p>
+    </section>
+
+  </section>
+
+  <p class="privacy-note">La JD se analiza en este navegador y no se guarda en un servidor de Mindata. El historial y los conteos agregados de resultados quedan en este navegador. Al entrar y generar búsquedas, RADAR registra en una hoja de uso tu nombre, apellido, fecha, acción y red, nunca el contenido de la JD. El feedback escrito se envía a la persona elegida al tocar Enviar. Si usás Gemini, el texto de la JD se envía directamente a Google al tocar “Mejorar análisis” o “Sugerir con IA”.</p>
+
+  <div class="feedback-row">
+    <button class="btn btn-ghost btn-small" id="feedbackBtn" type="button">¿Sugerencias o encontraste un bug?</button>
+  </div>
+
+</main>
+
+<aside class="side-panel hidden" id="historyPanel" role="dialog" aria-modal="true" aria-labelledby="historyPanelTitle">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3 id="historyPanelTitle">Historial de búsquedas</h3>
+      <button class="btn-close" id="closeHistoryBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <p class="hint">Últimas búsquedas en este navegador. Click para recuperar los campos.</p>
+    <div id="historyList" class="history-list"></div>
+    <button class="btn btn-ghost btn-small" id="clearHistoryBtn" type="button">Borrar historial</button>
+  </div>
+</aside>
+
+<aside class="side-panel hidden" id="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpPanelTitle">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3 id="helpPanelTitle">Cómo se usa</h3>
+      <button class="btn-close" id="closeHelpBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <dl class="help-dl">
+      <dt>R — Rol</dt><dd>Como lo pondría el candidato en su propio perfil, no como lo llama la empresa puertas adentro.</dd>
+      <dt>A — Atributos</dt><dd>2 o 3 skills que de verdad filtran, no la lista entera de la JD.</dd>
+      <dt>D — Dominio</dt><dd>La industria (banca, retail, fintech...), solo si pesa tanto como el skill técnico.</dd>
+      <dt>A — Alcance</dt><dd>País y localidad, nada más. Modalidad y seniority casi nunca están escritos tal cual en un perfil — meterlos en el booleano filtra buenos candidatos en vez de acercarte a ellos. Si el JD los menciona, aparecen como sugerencia en Refinar para que decidas vos.</dd>
+      <dt>R — Refinar</dt><dd>Lo que querés sacar de en medio — típico: excluir "junior" cuando buscás senior.</dd>
+    </dl>
+    <p class="hint">Pegá la JD entera y tocá "Analizar JD": arma los cinco campos solo. No es infalible, revisalo antes de generar.</p>
+    <p class="hint">El historial es local a este navegador — nadie más lo ve, ni vos desde otra PC.</p>
+    <p class="hint"><strong>Ctrl/Cmd + Enter</strong> arma el booleano sin tocar el mouse.</p>
+  </div>
+</aside>
+
+<aside class="side-panel hidden" id="aiPanel" role="dialog" aria-modal="true" aria-labelledby="aiPanelTitle">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3 id="aiPanelTitle">IA para sugerencias (opcional)</h3>
+      <button class="btn-close" id="closeAiBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <p class="ai-panel-question">¿Querés cargar una API gratuita para mejorar el RADAR?</p>
+    <p class="hint">Con una key propia de Gemini, RADAR sugiere sinónimos de rol y atributos de nicho. Es gratuita, no pide tarjeta:</p>
+    <ol class="ai-steps">
+      <li>Entrá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> y tocá "Create API key".</li>
+      <li>Copiá la key que te genera (algo como <code>AIzaSy...</code>).</li>
+      <li>Pegala en el campo de abajo y tocá "Guardar".</li>
+    </ol>
+    <p class="hint">La key se guarda solo en este navegador (<code>localStorage</code>), nunca en el código ni en ningún servidor de Mindata — la única llamada de red va directo de tu navegador a Gemini.</p>
+    <div class="feedback-form">
+      <label class="feedback-label" for="aiKeyInput">Tu key de AI Studio</label>
+      <input type="password" id="aiKeyInput" autocomplete="off" placeholder="Pegá tu key acá">
+      <button class="btn btn-primary" id="saveAiKeyBtn" type="button">Guardar</button>
+      <button class="btn btn-ghost" id="clearAiKeyBtn" type="button">Borrar key guardada</button>
+      <p class="hint" id="aiKeyHint"></p>
+    </div>
+  </div>
+</aside>
+<aside class="side-panel hidden" id="feedbackPanel" role="dialog" aria-modal="true" aria-labelledby="feedbackPanelTitle">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3 id="feedbackPanelTitle">Reportar un bug o sugerencia</h3>
+      <button class="btn-close" id="closeFeedbackBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <p class="hint">Se manda directo, sin abrir tu mail. Elegí a quién.</p>
+    <div class="feedback-form">
+      <label class="feedback-label" for="feedbackTo">Enviar a</label>
+      <select id="feedbackTo">
+        <option value="alexis">Alexis</option>
+        <option value="franco">Franco</option>
+        <option value="ambos">Ambos</option>
+      </select>
+      <label class="feedback-label" for="feedbackType">Tipo</label>
+      <select id="feedbackType">
+        <option value="Bug">Bug — algo no funciona bien</option>
+        <option value="Sugerencia">Sugerencia — una idea para mejorarla</option>
+      </select>
+      <label class="feedback-label" for="feedbackText">Contame qué pasó o qué se te ocurrió</label>
+      <textarea id="feedbackText" rows="6" maxlength="2000" placeholder="Ej: al generar el booleano con la red Xing seleccionada, el botón..."></textarea>
+      <label class="feedback-label hidden" for="feedbackWebsite">No completar</label>
+      <input type="text" id="feedbackWebsite" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button class="btn btn-primary" id="sendFeedbackBtn" type="button">Enviar</button>
+      <p class="hint" id="feedbackHint"></p>
+    </div>
+  </div>
+</aside>
+<aside class="side-panel hidden" id="jdWarningPanel" role="dialog" aria-modal="true" aria-labelledby="jdWarningPanelTitle">
+  <div class="side-panel-inner">
+    <div class="side-panel-head">
+      <h3 id="jdWarningPanelTitle">No pudimos leer bien esta JD</h3>
+      <button class="btn-close" id="closeJdWarningBtn" type="button" aria-label="Cerrar">×</button>
+    </div>
+    <p id="jdWarningMessage"></p>
+    <p class="hint">Completá o corregí los campos de Rol, Atributos, Dominio y Alcance a mano abajo, o revisá que el texto pegado/subido no venga con el formato roto (pasa con algunos PDF escaneados o con columnas).</p>
+    <button class="btn btn-primary" id="closeJdWarningBtnBottom" type="button">Entendido</button>
+  </div>
+</aside>
+<div class="side-panel-backdrop hidden" id="sidePanelBackdrop"></div>
+
+<footer class="page-footer">
+  <img src="assets/mindata-logo.png" alt="Mindata" class="footer-logo">
+  <p class="footer-credit">Hecho con amor para el equipo de Mindata.</p>
+  <p class="footer-rights">© <span id="footerYear"></span> Mindata. Todos los derechos reservados.</p>
+</footer>
+</div>

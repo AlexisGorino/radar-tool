@@ -34,6 +34,12 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("boots the search flow on the pinned Angular 21 runtime", () => {
+    cy.get("radar-root").should("have.attr", "ng-version", "21.2.25");
+    cy.get("#jdInput").should("be.visible");
+    cy.get("html").should("have.attr", "data-radar-ready", "true");
+  });
+
   it("blocks vague manual searches until role signals and geography are entered", () => {
     cy.get("#generateBtn").click();
     cy.get("#generateBtn + .inline-error").should("contain.text", "Sin título");

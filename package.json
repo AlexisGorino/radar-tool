@@ -4,10 +4,26 @@
   "private": true,
   "description": "RADAR talent search query builder",
   "scripts": {
+    "build": "ng build",
+    "check:angular": "ngc -p tsconfig.app.json",
+    "start:dev": "ng serve --base-href /",
     "test:e2e": "cypress run",
-    "start:test": "node tests/serve.js"
+    "start:test": "node tests/serve.js",
+    "start:angular": "node tests/serve.js --dist"
   },
   "devDependencies": {
-    "cypress": "16.1.1"
+    "@angular/build": "21.2.26",
+    "@angular/cli": "21.2.26",
+    "@angular/compiler-cli": "21.2.25",
+    "cypress": "16.1.1",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "@angular/common": "21.2.25",
+    "@angular/compiler": "21.2.25",
+    "@angular/core": "21.2.25",
+    "@angular/platform-browser": "21.2.25",
+    "rxjs": "7.8.2",
+    "zone.js": "0.16.1"
   }
 }

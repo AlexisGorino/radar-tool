@@ -1,17 +1,18 @@
 # Arquitectura
 
-Monolito estático de una sola capa de presentación. Sin backend, sin build
-step, sin bundler. Se eligió a propósito: el objetivo es que cualquiera del
-equipo pueda abrir `index.html` y entender el flujo completo en minutos, y
-que el deploy sea arrastrar una carpeta a un hosting estático.
+Aplicación cliente sin backend. La presentación de producción se compila con
+Angular 21 y GitHub Actions publica el resultado estático; los documentos y
+las búsquedas continúan en el navegador. La lógica RADAR permanece separada
+en módulos puros para conservar sus pruebas y facilitar una migración por
+etapas de las interacciones del DOM a componentes tipados.
 
 ## Capas
 
 ```
 ┌─────────────────────────────────────────┐
-│  index.html                              │  markup + puntos de montaje
+│  src/app/                                │  shell Angular 21
 ├─────────────────────────────────────────┤
-│  app.js                                  │  capa de UI (único módulo con DOM)
+│  LegacyDomBridge + app.js                │  transición para el UI existente
 ├─────────────────────────────────────────┤
 │  extractor.js   generator.js review.js   │  núcleo: funciones puras
 ├─────────────────────────────────────────┤
@@ -128,3 +129,18 @@ Firefox, así que su compatibilidad cross-browser viene garantizada desde
 el origen. Verificado por lectura de código, no con un navegador Firefox/
 Safari real corriendo la app — si algo se ve distinto en esos navegadores,
 probablemente sea un detalle visual de CSS, no una función rota.
+## Angular 21 migration
+
+The Angular application is the production entry point. `AppComponent` owns
+startup and reports boot failures; `LegacyDomBridge` loads the established
+document, extraction, review, generation, AI, tracking, and feedback scripts in
+dependency order after Angular has rendered the existing view. This explicit
+adapter preserves behavior during the migration and avoids dependence on
+undocumented script-tag ordering in the published `index.html`.
+
+This is a compatibility phase, not the end state: DOM-facing interactions in
+`js/app.js` should move into focused Angular components and typed services in
+small, behavior-preserving slices. Keep the pure extraction, review, and query
+generation modules covered by their regression suites until each slice has
+parity. The browser suite serves the compiled Angular build to catch broken
+asset paths and bootstrap errors at the GitHub Pages subpath.

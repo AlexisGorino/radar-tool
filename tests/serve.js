@@ -3,7 +3,10 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const root = path.resolve(__dirname, "..");
+const root = path.resolve(
+  __dirname,
+  process.argv.includes("--dist") ? "../dist/radar-tool/browser" : ".."
+);
 const types = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -29,6 +32,9 @@ http.createServer((req, res) => {
     return;
   }
   if (pathname === "/") pathname = "/index.html";
+  if (process.argv.includes("--dist") && pathname.startsWith("/radar-tool/")) {
+    pathname = pathname.slice("/radar-tool".length);
+  }
   const file = path.resolve(root, "." + pathname);
   if (file !== root && !file.startsWith(root + path.sep)) {
     res.writeHead(403).end();
