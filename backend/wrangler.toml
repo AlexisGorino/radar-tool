@@ -11,5 +11,5 @@ name = "SEARCH_LIMITER"
 namespace_id = "742019"
 
   [ratelimits.simple]
-  limit = 3
+  limit = 10
   period = 60

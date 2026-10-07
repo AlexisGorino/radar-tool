@@ -164,6 +164,14 @@ test("search omits credentials, does not send the JD, and reports provider error
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 429, json: async () => ({ error: "rate_limited" }) })),
     /límite temporal/
   );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 429, json: async () => ({ error: "hourly_quota_exhausted" }) })),
+    /cupo horario/
+  );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 429, json: async () => ({ error: "provider_rate_limited" }) })),
+    /SerpApi rechazó temporalmente/
+  );
 });
 
 console.log(`\n${passed} talent-discovery tests passed.`);

@@ -194,9 +194,12 @@
     });
     const payload = await response.json();
     if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito mensual; RADAR no inició consultas que pudieran generar cargos.");
+    if (payload.error === "hourly_quota_exhausted") throw new Error("Se alcanzó el cupo horario del proveedor; RADAR no inició la búsqueda. Esperá a que se renueve y volvé a intentar.");
+    if (payload.error === "rate_limited") throw new Error("La red compartida alcanzó el límite temporal de RADAR. Esperá un minuto y probá de nuevo.");
+    if (payload.error === "provider_rate_limited") throw new Error("SerpApi rechazó temporalmente la consulta por su límite de uso. Revisá el cupo horario o mensual y reintentá más tarde.");
     if (payload.error === "free_plan_required") throw new Error("La búsqueda está pausada: el proveedor debe tener un plan gratuito activo para mantener el costo en USD 0.");
     if (payload.error === "budget_unavailable") throw new Error("RADAR no pudo verificar que la cuenta siga dentro del plan gratuito; no inició la búsqueda.");
-    if (response.status === 429) throw new Error("Se alcanzó el límite temporal de búsquedas. Probá más tarde.");
+    if (response.status === 429) throw new Error("El proveedor limitó temporalmente esta búsqueda. Revisá el cupo horario o mensual y probá más tarde.");
     if (response.status === 503) throw new Error("La búsqueda pública no está disponible ahora. Revisá la configuración del proveedor.");
     if (!response.ok) throw new Error(`El proveedor de búsqueda respondió con un error (${response.status}).`);
     return {
