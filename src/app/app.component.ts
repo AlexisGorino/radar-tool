@@ -18,7 +18,11 @@ export class AppComponent implements AfterViewInit {
       console.error('RADAR interface initialization failed.', error);
       document.documentElement.dataset['radarReady'] = 'error';
       const message = document.getElementById('radarBootError');
-      message?.classList.remove('hidden');
+      if (message) {
+        const detail = error instanceof Error ? error.message : String(error);
+        message.textContent = `No pudimos iniciar todos los módulos de RADAR (${detail}). Recargá la página; si el problema continúa, avisá al equipo.`;
+        message.classList.remove('hidden');
+      }
     }
   }
 }
