@@ -93,7 +93,8 @@
     const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix);
     const rolBlock = looseRol ? orGroupRaw(rol) : orGroup(rol);
     const alcance = searchLocationTerms(state).flatMap(expandLocationTerm);
-    const blocks = [rolBlock, orGroup(state.atributos)];
+    const alternatives = relaxed ? [...(state.atributos || []), ...(state.deseables || [])] : state.atributos;
+    const blocks = [rolBlock, andGroup(state.imprescindibles), orGroup(alternatives)];
     if (!relaxed) blocks.push(orGroup(state.dominio));
     blocks.push(orGroup(alcance));
     return blocks.filter(Boolean);
@@ -133,17 +134,19 @@
     const role = looseRol ? orGroupRaw(state.rol) : orGroup(state.rol);
     const location = orGroup((state.alcance || []).slice(-1).flatMap(expandLocationTerm));
     const usefulAttributes = (state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase()));
+    const expandedAttributes = [...usefulAttributes, ...(state.deseables || [])].filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase()));
+    const essential = andGroup(state.imprescindibles);
     if (role && location) {
-      const balanced = [role, orGroup(usefulAttributes.slice(0, 1)), location].filter(Boolean).join(" ");
+      const balanced = [role, essential, orGroup(expandedAttributes.slice(0, 1)), location].filter(Boolean).join(" ");
       const query = appendExclusions((siteDomain ? `site:${siteDomain} ` : "") + balanced, state);
-      tiers.push({ label: "Equilibrada (rol + skill + ubicación)", query });
+      tiers.push({ label: "Equilibrada (cargo + esencial + señal + ubicación)", query });
     }
     if (location) {
-      const filters = orGroup(usefulAttributes.slice(0, 2)) || orGroup(state.dominio);
+      const filters = [essential, orGroup(expandedAttributes.slice(0, 2)) || orGroup(state.dominio)].filter(Boolean).join(" ");
       if (filters) {
-        const domain = usefulAttributes.length ? orGroup((state.dominio || []).slice(0, 1)) : "";
+        const domain = expandedAttributes.length ? orGroup((state.dominio || []).slice(0, 1)) : "";
         const query = appendExclusions((siteDomain ? `site:${siteDomain} ` : "") + [filters, domain, location].filter(Boolean).join(" "), state);
-        tiers.push({ label: usefulAttributes.length ? (domain ? "Skills + dominio + ubicación · sin título" : "Skills + ubicación · sin título") : "Dominio + ubicación · sin título", query });
+        tiers.push({ label: expandedAttributes.length ? (domain ? "Señales + dominio + ubicación · sin título" : "Señales + ubicación · sin título") : essential ? "Imprescindibles + ubicación · sin título" : "Dominio + ubicación · sin título", query });
       }
     }
     if ((state.rol || []).some((term) => /[a-záéíóúñ]\/a\b/i.test(term))) {
@@ -208,7 +211,7 @@
     return alcance.length ? [alcance[alcance.length - 1]] : [];
   }
 
-  function buildLinkedinBooleanTier(state, maxAtributos) {
+  function buildLinkedinBooleanTier(state, maxAtributos, includeDeseables) {
     const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix);
     // A bare title such as "Auditor" matches many unrelated professions.
     // Keep the JD's industry attached in every tier when the title is broad.
@@ -216,7 +219,11 @@
     const blocks = [
       orGroup(rol),
       broadRole ? orGroup((state.dominio || []).slice(0, 1)) : "",
-      orGroup((state.atributos || []).slice(0, maxAtributos)),
+      andGroup(state.imprescindibles),
+      orGroup([
+        ...(state.atributos || []).slice(0, maxAtributos),
+        ...(includeDeseables ? (state.deseables || []).slice(0, 1) : []),
+      ]),
       orGroup(linkedinLocationTerm(state)),
     ].filter(Boolean);
     if (!blocks.length) return "";
@@ -243,20 +250,29 @@
   function buildLinkedinBooleanTiers(state) {
     const location = orGroup(linkedinLocationTerm(state));
     const hasRole = (state.rol || []).some((term) => term && term.trim());
+    const balancedLabel = state.deseables && state.deseables.length
+      ? "Equilibrada (incluye 1 deseable + ubicación)"
+      : state.atributos && state.atributos.length
+        ? "Equilibrada (cargo + 1 señal alternativa + ubicación)"
+        : "Equilibrada (cargo + imprescindibles + ubicación)";
     const tiers = hasRole ? [
-      { label: location ? "Específica (rol + requisitos + ubicación)" : "Específica (rol + requisitos)", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA) },
-      { label: location ? "Equilibrada (rol + 1 requisito + ubicación)" : "Equilibrada (rol + 1 requisito)", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_MEDIA) },
-      { label: location ? "Amplia (rol + ubicación)" : "Amplia (rol + dominio si aplica)", query: buildLinkedinBooleanTier(state, 0) },
+      { label: location ? "Específica (cargo + filtros confirmados + ubicación)" : "Específica (cargo + filtros confirmados)", query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA, false) },
+      { label: location ? balancedLabel : balancedLabel.replace(" + ubicación", ""), query: buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_MEDIA, true) },
+      { label: location ? "Amplia (cargo + imprescindibles + ubicación)" : "Amplia (cargo + imprescindibles)", query: buildLinkedinBooleanTier(state, 0, false) },
     ] : [];
-    const rolelessAttributes = orGroup((state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase())).slice(0, 2));
+    const essential = andGroup(state.imprescindibles);
+    const rolelessAttributes = orGroup([
+      ...(state.atributos || []),
+      ...(state.deseables || []),
+    ].filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase())).slice(0, 2));
     const rolelessDomain = orGroup((state.dominio || []).slice(0, 1));
     if (location) {
       const rolelessVariants = hasRole
-        ? [[rolelessAttributes || rolelessDomain, rolelessAttributes ? rolelessDomain : "", location]]
+        ? [[essential, rolelessAttributes || rolelessDomain, rolelessAttributes ? rolelessDomain : "", location]]
         : [
-            [rolelessAttributes, rolelessDomain, location],
-            [orGroup((state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase())).slice(0, 1)), rolelessDomain, location],
-            [rolelessDomain, location],
+            [essential, rolelessAttributes, rolelessDomain, location],
+            [essential, orGroup((state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase())).slice(0, 1)), rolelessDomain, location],
+            [essential, rolelessDomain, location],
           ];
       rolelessVariants.forEach((blocks, index) => {
         const usable = blocks.filter(Boolean);
@@ -264,13 +280,16 @@
         let query = usable.join(" AND ");
         (state.refinar || []).forEach((term) => { query += ` NOT ${quoteIfPhrase(term)}`; });
         const rolelessLabel = rolelessDomain
-          ? ["Skills + dominio + ubicación", "1 skill + dominio + ubicación", "Dominio + ubicación"][index]
-          : ["Skills + ubicación", "1 skill + ubicación", "Dominio + ubicación"][index];
+          ? ["Señales + dominio + ubicación", "1 señal + dominio + ubicación", "Dominio + ubicación"][index]
+          : rolelessAttributes
+            ? ["Señales + ubicación", "1 señal + ubicación", "Solo ubicación"][index]
+            : essential ? ["Imprescindibles + ubicación", "Imprescindibles + ubicación", "Imprescindibles + ubicación"][index]
+              : ["Dominio + ubicación", "Dominio + ubicación", "Dominio + ubicación"][index];
         tiers.push({ label: hasRole ? (rolelessDomain ? "Requisitos + dominio + ubicación · sin título" : "Requisitos + ubicación · sin título") : rolelessLabel, query });
       });
     }
     if (!location) {
-      const filters = rolelessAttributes ? [orGroup((state.dominio || []).slice(0, 1)), rolelessAttributes].filter(Boolean).join(" AND ") : orGroup(state.dominio);
+      const filters = [essential, rolelessAttributes, orGroup(state.dominio)].filter(Boolean).join(" AND ");
       if (filters) {
         let query = filters;
         (state.refinar || []).forEach((term) => { query += ` NOT ${quoteIfPhrase(term)}`; });
@@ -303,7 +322,8 @@
 
   /** Native GitHub search (people). */
   function buildGithubPeopleUrl(state) {
-    const lang = detectGithubLanguage(state.atributos);
+    const searchableAttributes = [...(state.imprescindibles || []), ...(state.atributos || []), ...(state.deseables || [])];
+    const lang = detectGithubLanguage(searchableAttributes);
     const cityLike = searchLocationTerms(state).slice(-1).find(
       (a) => !Keywords.SENIOR_WORDS.includes(a.toLowerCase()) && !Keywords.JUNIOR_WORDS.includes(a.toLowerCase()) && isNaN(parseInt(a, 10))
     );
@@ -313,7 +333,7 @@
     // GitHub's free-text search still matches on rol/atributos even without a
     // recognized language qualifier — dropping them left non-technical roles
     // (sales, recruiting, etc.) with a location-only query and no real signal.
-    const rawFreeText = (state.rol || [])[0] || (state.atributos || [])[0] || "";
+    const rawFreeText = (state.rol || [])[0] || searchableAttributes[0] || "";
     const freeText = stripAbbreviatedTitlePrefix(rawFreeText);
     const q = [freeText, qualifiers.join(" ")].filter(Boolean).join(" ").trim();
     return "https://github.com/search?q=" + encodeURIComponent(q) + "&type=users";
@@ -321,17 +341,18 @@
 
   /** Native GitHub search (repositories) — for "buscar por repositorio". */
   function buildGithubRepoUrl(state, minStars) {
-    const lang = detectGithubLanguage(state.atributos);
+    const searchableAttributes = [...(state.imprescindibles || []), ...(state.atributos || []), ...(state.deseables || [])];
+    const lang = detectGithubLanguage(searchableAttributes);
     const parts = [];
     if (state.rol && state.rol[0]) parts.push(stripAbbreviatedTitlePrefix(state.rol[0]));
     if (lang) parts.push(`language:${lang}`);
     if (minStars) parts.push(`stars:>${minStars}`);
-    const q = parts.join(" ") || (state.atributos || [])[0] || "";
+    const q = parts.join(" ") || searchableAttributes[0] || "";
     return "https://github.com/search?q=" + encodeURIComponent(q) + "&type=repositories";
   }
 
   function getTruncatedFields(state) {
-    return ["rol", "atributos", "dominio", "alcance"].filter((field) => (state[field] || []).length > MAX_TERMS_PER_GROUP);
+    return ["rol", "imprescindibles", "atributos", "deseables", "dominio", "alcance"].filter((field) => (state[field] || []).length > MAX_TERMS_PER_GROUP);
   }
 
   return {

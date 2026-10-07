@@ -60,6 +60,29 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("separates required signals, alternatives, and desirables across search routes", () => {
+    cy.get('[data-field="rol"]').type("QA Engineer{enter}");
+    cy.get('[data-field="atributos"]').type("Selenium{enter}");
+    cy.get("#chips-atributos").contains("button", "!").click();
+    cy.get("#chips-imprescindibles").should("contain.text", "Selenium");
+    cy.get('[data-field="atributos"]').type("Cypress{enter}");
+    cy.get('[data-field="deseables"]').type("Playwright{enter}");
+    cy.get('[data-field="dominio"]').type("retail{enter}");
+    cy.get('[data-field="alcance"]').type("Rosario{enter}");
+    cy.get("#generateBtn").click();
+
+    cy.get("#out-universal").should("contain.text", "Selenium").and("contain.text", "Cypress").and("not.contain.text", "Playwright");
+    cy.contains("#linkedinTiers a", "2 · Equilibrada").should("contain.text", "deseable");
+    cy.get("#linkedinTiers a").eq(1).should(($route) => {
+      const query = decodeURIComponent(new URL($route.prop("href")).searchParams.get("keywords"));
+      expect(query).to.include("Selenium");
+      expect(query).to.include("Playwright");
+      expect(query).to.include("Rosario");
+    });
+    cy.get("#relaxedModeCheckbox").check();
+    cy.get("#out-universal").should("contain.text", "Selenium").and("contain.text", "Playwright").and("contain.text", "Rosario").and("not.contain.text", "retail");
+  });
+
   it("routes LinkedIn, GitHub, X-Ray networks, CV search, and custom sites to their intended destinations", () => {
     cy.get('[data-field="rol"]').type("UX Designer{enter}");
     cy.get('[data-field="atributos"]').type("Figma{enter}");

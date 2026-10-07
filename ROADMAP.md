@@ -11,6 +11,8 @@
   escritos libres. LinkedIn muestra hasta tres rutas con una explicación breve.
 - La ampliación del booleano elimina el sector y conserva la ubicación.
 - Feedback agregado por fuente, guardado localmente sin consultas ni perfiles.
+- Prioridades explícitas para requisitos: imprescindibles, alternativas y
+  deseables, con rutas de búsqueda que explican qué señales conservan.
 
 La precisión de candidatos reales, OCR de escaneos y acceso a resultados de
 portales siguen pendientes y requieren una etapa separada.

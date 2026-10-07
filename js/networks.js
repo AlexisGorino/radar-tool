@@ -26,7 +26,7 @@
   // Suggestions are based on the type of public profile each network holds.
   // They describe a useful starting point, not a claim that candidates exist.
   function recommendNetworks(state) {
-    const terms = [...(state.rol || []), ...(state.atributos || []), ...(state.dominio || [])].join(" ").toLowerCase();
+    const terms = [...(state.rol || []), ...(state.imprescindibles || []), ...(state.atributos || []), ...(state.deseables || []), ...(state.dominio || [])].join(" ").toLowerCase();
     const country = (state.country || (state.alcance || [])[0] || "").toLowerCase();
     const result = [{ id: "linkedin", reason: "Perfiles profesionales de múltiples rubros" }];
     if (/developer|desarrollador|programador|software|devops|sre|data engineer|ingenier[oa] de datos|python|java|kubernetes|github|react/.test(terms)) {

@@ -21,7 +21,7 @@
 
   function profileIssue(result) {
     const roles = result.rol || [];
-    const skills = result.atributos || [];
+    const skills = [...(result.imprescindibles || []), ...(result.atributos || []), ...(result.atributosDeseables || [])];
     const domains = result.dominio || [];
     if (!roles.length && skills.length < 2) return "Sin título, agregá al menos dos habilidades, tareas o experiencias concretas.";
     if (!roles.length && !domains.length && skills.length < 3) return "Sin título, agregá el sector o una tercera señal específica para distinguir el perfil.";

@@ -11,7 +11,7 @@
 <meta property="og:type" content="website">
 <title>Radar Tool - Mindata</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/styles.css?v=29">
+<link rel="stylesheet" href="css/styles.css?v=30">
 <script src="js/gate.js?v=27"></script>
 </head>
 <body>
@@ -91,7 +91,7 @@
 
   <section class="card">
     <h2>2 · Campos RADAR</h2>
-    <p class="hint">Relevamiento mínimo: cargo y una señal concreta del perfil, o varias señales si buscás sin título. Definí la ubicación o indicá expresamente que no debe limitarse. Escribí un término y Enter para agregarlo.</p>
+    <p class="hint">Relevamiento mínimo: cargo y una señal concreta del perfil, o varias señales si buscás sin título. Marcá solo los verdaderos requisitos excluyentes como imprescindibles; usá alternativas para equivalencias y deseables para ampliar después. Definí la ubicación o indicá expresamente que no debe limitarse.</p>
 
     <div class="radar-grid">
       <div class="field">
@@ -111,10 +111,16 @@
       </div>
       <div class="field field-alt">
         <div class="field-letter">A</div>
-        <div class="field-label">Atributos</div>
-        <div class="field-desc">Habilidades, tareas o experiencia clave</div>
+        <div class="field-label">Señales del perfil</div>
+        <div class="field-desc">Alternativas: cualquiera puede coincidir (OR)</div>
         <div class="chips" id="chips-atributos"></div>
         <input type="text" class="field-input" data-field="atributos" placeholder="Escribí y Enter" maxlength="80">
+        <span class="priority-subhead">Imprescindibles · se exigen todas (AND)</span>
+        <div class="chips" id="chips-imprescindibles"></div>
+        <input type="text" class="field-input" data-field="imprescindibles" placeholder="Solo requisitos excluyentes" maxlength="80">
+        <span class="priority-subhead">Deseables · se usan en rutas amplias</span>
+        <div class="chips" id="chips-deseables"></div>
+        <input type="text" class="field-input" data-field="deseables" placeholder="Opcional; no filtra la ruta específica" maxlength="80">
         <div class="synonyms-row hidden" id="aiAtributosRow">
           <span class="synonyms-label">+ sugeridos por IA:</span>
           <div class="synonyms-list" id="aiAtributosList"></div>
@@ -180,6 +186,7 @@
       <div class="result-hero-label">Booleano universal</div>
       <div class="boolean-box boolean-box-lg" id="out-universal">—</div>
       <p class="platform-note platform-note-warn hidden" id="generatorWarning"></p>
+      <p class="platform-note strategy-note" id="strategyNote" aria-live="polite"></p>
       <p class="platform-note">AND / OR / NOT y comillas. Sirve tal cual en LinkedIn Recruiter y en la mayoría de los buscadores internos de portales y ATS.</p>
       <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
       <label class="relaxed-toggle">
@@ -349,16 +356,16 @@
 
 <script src="js/vendor/pdf.min.js"></script>
 <script src="js/vendor/mammoth.browser.min.js"></script>
-<script src="js/pdf-text.js?v=29"></script>
-<script src="js/countries.js?v=29"></script>
-<script src="js/keywords.js?v=29"></script>
-<script src="js/networks.js?v=29"></script>
-<script src="js/extractor.js?v=29"></script>
-<script src="js/generator.js?v=29"></script>
-<script src="js/review.js?v=29"></script>
-<script src="js/ai.js?v=29"></script>
-<script src="js/tracking.js?v=29"></script>
-<script src="js/outcome.js?v=29"></script>
-<script src="js/app.js?v=29"></script>
+<script src="js/pdf-text.js?v=30"></script>
+<script src="js/countries.js?v=30"></script>
+<script src="js/keywords.js?v=30"></script>
+<script src="js/networks.js?v=30"></script>
+<script src="js/extractor.js?v=30"></script>
+<script src="js/generator.js?v=30"></script>
+<script src="js/review.js?v=30"></script>
+<script src="js/ai.js?v=30"></script>
+<script src="js/tracking.js?v=30"></script>
+<script src="js/outcome.js?v=30"></script>
+<script src="js/app.js?v=30"></script>
 </body>
 </html>

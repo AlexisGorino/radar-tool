@@ -43,7 +43,7 @@
     authGateError.textContent = "";
   });
 
-  const FIELDS = ["rol", "atributos", "dominio", "alcance", "refinar"];
+  const FIELDS = ["rol", "atributos", "imprescindibles", "deseables", "dominio", "alcance", "refinar"];
   const MAX_TXT_BYTES = 500 * 1024;
   const MAX_PDF_BYTES = 8 * 1024 * 1024;
   const MAX_DOCX_BYTES = 8 * 1024 * 1024;
@@ -52,7 +52,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = "js/vendor/pdf.worker.min.js";
   }
 
-  const state = { rol: [], atributos: [], dominio: [], alcance: [], refinar: [] };
+  const state = { rol: [], atributos: [], imprescindibles: [], deseables: [], dominio: [], alcance: [], refinar: [] };
   let selectedNetwork = "linkedin";
 
   // Qué tipo de perfil aparece en cada red y con qué confianza, según pruebas
@@ -150,6 +150,23 @@
 
       const span = document.createElement("span");
       span.textContent = term;
+
+      if (["atributos", "imprescindibles", "deseables"].includes(field)) {
+        const moveBtn = document.createElement("button");
+        moveBtn.type = "button";
+        const target = field === "atributos" ? "imprescindibles" : field === "deseables" ? "imprescindibles" : "atributos";
+        moveBtn.textContent = field === "atributos" ? "!" : field === "imprescindibles" ? "↔" : "↗";
+        moveBtn.className = "chip-priority";
+        moveBtn.title = field === "atributos" ? "Marcar como imprescindible; se exigirá junto con los demás" : field === "imprescindibles" ? "Pasar a señal alternativa; alcanzará con una de las alternativas" : "Promover a imprescindible; se exigirá junto con los demás";
+        moveBtn.setAttribute("aria-label", moveBtn.title + ": " + term);
+        moveBtn.addEventListener("click", () => {
+          state[field].splice(i, 1);
+          if (!state[target].some((existing) => existing.toLowerCase() === term.toLowerCase())) state[target].push(term);
+          renderChips(field);
+          renderChips(target);
+        });
+        chip.appendChild(moveBtn);
+      }
 
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
@@ -253,6 +270,8 @@
     const value = rawValue.trim().replace(/,$/, "");
     if (!value) return;
     if (state[field].some((t) => t.toLowerCase() === value.toLowerCase())) return;
+    const priorityBuckets = ["atributos", "imprescindibles", "deseables"];
+    if (priorityBuckets.includes(field) && priorityBuckets.some((bucket) => bucket !== field && state[bucket].some((term) => term.toLowerCase() === value.toLowerCase()))) return;
     const canonicalCountry = field === "alcance" ? RadarCountries.countryList().find((country) => country.toLowerCase() === value.toLowerCase()) : null;
     if (canonicalCountry) {
       const previousCountry = state.alcance.find((term) => RadarCountries.countryList().some((country) => country.toLowerCase() === term.toLowerCase()));
@@ -320,7 +339,7 @@
   function renderNetworkRecommendations() {
     const container = document.getElementById("networkRecommendations");
     container.textContent = "";
-    if (!state.rol.length && !state.atributos.length) return;
+    if (!state.rol.length && !state.atributos.length && !state.imprescindibles.length && !state.deseables.length) return;
     RadarNetworks.recommendNetworks(state).forEach((suggestion) => {
       const button = document.createElement("button");
       button.type = "button";
@@ -380,17 +399,22 @@
       if (fieldName) {
         value.type = "button";
         value.className = "jd-review-term";
-        value.textContent = (promotable ? "+ Usar: " : fieldName === "atributos" ? "↘ Pasar a deseables: " : "× Quitar: ") + term;
-        value.title = promotable ? "Agregar a las señales de búsqueda" : fieldName === "atributos" ? "Dejar como deseable sin filtrar" : "Quitar este término de los filtros";
+        value.textContent = promotable ? "+ Pasar a señales alternativas: " + term : fieldName === "atributos" ? "! Marcar imprescindible: " + term : fieldName === "imprescindibles" ? "↔ Pasar a alternativa: " + term : "× Quitar: " + term;
+        value.title = promotable ? "Incluir este deseable en la ruta equilibrada, no en la específica" : fieldName === "atributos" ? "Exigir esta señal junto con los demás imprescindibles" : fieldName === "imprescindibles" ? "Dejar de exigir esta señal; cualquiera de las alternativas podrá coincidir" : "Quitar este término de los filtros";
         value.addEventListener("click", () => {
           if (promotable) {
             result.atributos = [...(result.atributos || []), term];
             result.atributosDeseables = (result.atributosDeseables || []).filter((entry) => entry !== term);
+          } else if (fieldName === "atributos") {
+            result.imprescindibles = [...(result.imprescindibles || []), term];
+            result.atributos = (result.atributos || []).filter((entry) => entry !== term);
+          } else if (fieldName === "imprescindibles") {
+            result.atributos = [...(result.atributos || []), term];
+            result.imprescindibles = (result.imprescindibles || []).filter((entry) => entry !== term);
           } else {
             result[fieldName] = (result[fieldName] || []).filter((entry) => entry !== term);
-            if (fieldName === "atributos") result.atributosDeseables = [...(result.atributosDeseables || []), term];
           }
-          if (fieldName === "atributos" || promotable) RadarReview.accept(result, "requirements");
+          if (["atributos", "imprescindibles", "atributosDeseables"].includes(fieldName)) RadarReview.accept(result, "requirements");
           if (fieldName === "alcance") RadarReview.accept(result, "location");
           pendingAnalysis = result;
           renderJdReview(result);
@@ -457,8 +481,8 @@
       role: result.rol.length
         ? [`¿Se trata de ${result.rol[0]}?`, "Confirmá el cargo, corregilo arriba o elegí una búsqueda por requisitos sin título."]
         : ["No encontramos un cargo confiable.", "Podés escribir el cargo arriba o buscar solo por requisitos."],
-      requirements: result.atributos.length
-        ? ["¿Estas habilidades orientan la búsqueda?", "Revisá los atributos de arriba. Se combinan como alternativas (OR); las variantes precisas priorizan los primeros. Pasá a deseables lo que no deba filtrar."]
+      requirements: result.atributos.length || (result.imprescindibles || []).length || (result.atributosDeseables || []).length
+        ? ["¿Qué condiciones son realmente obligatorias?", "Por defecto, las señales detectadas son alternativas: alcanza con que el perfil coincida con una. Marcá como imprescindibles solo las que deben cumplirse todas; dejá las equivalentes en alternativas y lo opcional como deseable."]
         : ["¿Qué diferencia a este perfil?", "Agregá al menos una habilidad, tarea clave, certificación o experiencia concreta. Para buscar sin título hacen falta dos señales y un sector, o tres señales."],
       location: result.alcance.length
         ? [`¿La ubicación correcta es ${result.alcance[result.alcance.length - 1]}?`, "Confirmá el alcance exacto; también podés ampliarlo al país o buscar sin ubicación." ]
@@ -612,8 +636,9 @@
     jdReviewGrid.textContent = "";
     const fields = [
       ["Rol", result.rol, result.rol[0] && quality.evidence && quality.evidence.rol ? [{ term: result.rol[0], text: quality.evidence.rol }] : []],
-      ["Atributos detectados", result.atributos, quality.evidence && quality.evidence.atributos, "atributos"],
-      ["Deseables / baja prioridad (elegí si deben filtrar)", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
+      ["Imprescindibles · se exigen todos (AND)", result.imprescindibles || [], quality.evidence && (quality.evidence.imprescindibles || quality.evidence.atributos), "imprescindibles"],
+      ["Señales alternativas · alcanza con una (OR)", result.atributos, quality.evidence && quality.evidence.atributos, "atributos"],
+      ["Deseables · solo ruta equilibrada", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
       ["Dominio", result.dominio, quality.evidence && quality.evidence.dominio, "dominio"],
       ["Ubicación", result.alcance, quality.evidence && quality.evidence.alcance, "alcance"],
       ["Contexto (no filtra la búsqueda)", [...(result.seniority || []), ...(result.modality || [])], []],
@@ -686,7 +711,7 @@
     }
 
     const warnings = (quality.warnings || []).filter((warning) =>
-      !(result.atributos.length && warning.startsWith("No detectamos requisitos")) &&
+      !((result.atributos.length || (result.imprescindibles || []).length) && warning.startsWith("No detectamos requisitos")) &&
       !(result.alcance.length && warning.startsWith("No detectamos una ubicación")) &&
       !(result.reviewAccepted && result.reviewAccepted.location && warning.startsWith("No detectamos una ubicación")) &&
       !((result.rol.length || (result.reviewAccepted && result.reviewAccepted.role)) && warning.startsWith("No pudimos identificar el título"))
@@ -707,7 +732,8 @@
   function applyPendingAnalysis() {
     if (!RadarReview.canApply(pendingAnalysis)) return;
     FIELDS.forEach((field) => {
-      state[field] = (pendingAnalysis[field] || []).slice();
+      const sourceField = field === "deseables" ? "atributosDeseables" : field;
+      state[field] = (pendingAnalysis[sourceField] || []).slice();
     });
     renderAllChips();
     countrySelect.value = pendingAnalysis.country || RadarCountries.detectCountry(pendingAnalysis.alcance.join(" ")) || "";
@@ -977,6 +1003,7 @@
   // ---------------------------------------------------------------
   const relaxedModeCheckbox = document.getElementById("relaxedModeCheckbox");
   const outcomeStatus = document.getElementById("outcomeStatus");
+  const strategyNote = document.getElementById("strategyNote");
 
   function renderOutcomeSummary() {
     const outcomes = RadarOutcome.read(localStorage);
@@ -1001,9 +1028,20 @@
     outcomeStatus.textContent = "";
     const universal = RadarGenerator.buildUniversalBoolean(state, relaxed);
     document.getElementById("out-universal").textContent = universal;
+    const requiredCount = state.imprescindibles.length;
+    const alternativeCount = state.atributos.length;
+    const requiredSummary = requiredCount ? `${requiredCount} imprescindible${requiredCount === 1 ? "" : "s"} (se exigen todas)` : "sin imprescindibles marcados";
+    const alternativeSummary = alternativeCount ? `${alternativeCount} alternativa${alternativeCount === 1 ? "" : "s"} (alcanza una)` : "sin alternativas";
+    const optionalSummary = state.deseables.length
+      ? relaxed ? "los deseables entran como alternativas" : "los deseables quedan fuera de esta consulta específica"
+      : "sin deseables";
+    const locationSummary = state.alcance.length ? `ubicación: ${state.alcance[state.alcance.length - 1]}` : "sin restricción geográfica";
+    const roleSummary = state.rol.length ? `cargo: ${state.rol.join(" / ")}` : "sin título, por señales";
+    strategyNote.textContent = `Esta ruta busca ${roleSummary}; combina ${requiredSummary}, ${alternativeSummary}; ${optionalSummary}; ${relaxed ? "sin filtro de sector" : state.dominio.length ? "con filtro de sector" : "sin filtro de sector indicado"}; ${locationSummary}.`;
     const truncated = RadarGenerator.getTruncatedFields(state);
+    const friendlyField = { rol: "Rol", imprescindibles: "Imprescindibles", atributos: "Alternativas", deseables: "Deseables", dominio: "Dominio", alcance: "Alcance" };
     generatorWarning.textContent = truncated.length
-      ? "Esta red admite hasta 6 términos por grupo. La búsqueda recortó términos de: " + truncated.join(", ") + ". Quitá los menos importantes o generá una estrategia más amplia."
+      ? "Esta red admite hasta 6 términos por grupo. Se recortaron términos de: " + truncated.map((field) => friendlyField[field] || field).join(", ") + ". Quitá los menos importantes para evitar cortes invisibles."
       : "";
     generatorWarning.classList.toggle("hidden", truncated.length === 0);
 
@@ -1031,13 +1069,15 @@
         const detail = document.createElement("small");
         const hasRole = state.rol.length > 0;
         const isRoleless = tier.label.includes("sin título");
-        const name = hasRole
-          ? isRoleless ? "Sin título" : tier.label.includes("Amplia") ? "Solo cargo" : tier.label.includes("Equilibrada") ? "Cargo + 1 señal" : "Cargo + señales"
-          : ["Por habilidades", "Más amplia", "Por sector"][i];
+        const name = isRoleless ? "Sin título" : tier.label.includes("Específica") ? "Específica" : tier.label.includes("Equilibrada") ? "Equilibrada" : "Amplia";
         title.textContent = `${i + 1} · ${name}`;
-        detail.textContent = hasRole
-          ? isRoleless ? "Busca por habilidades sin exigir cargo" : tier.label.includes("Amplia") ? "Cargo y ubicación" : tier.label.includes("Equilibrada") ? "Cargo, una habilidad y ubicación" : "Cargo, habilidades y ubicación"
-          : ["Habilidades, sector y ubicación", "Una habilidad y sector", "Sector y ubicación"][i];
+        detail.textContent = isRoleless
+          ? "Sin exigir cargo; mantiene imprescindibles y ubicación"
+          : tier.label.includes("Específica")
+            ? "Exige cargo, filtros confirmados y ubicación"
+            : tier.label.includes("Equilibrada")
+              ? state.deseables.length ? "Mantiene imprescindibles e incluye 1 deseable como alternativa" : state.atributos.length ? "Mantiene imprescindibles y usa 1 señal alternativa" : "Mantiene cargo, imprescindibles y ubicación"
+              : "Mantiene cargo, imprescindibles y ubicación";
         a.append(title, detail);
         a.setAttribute("aria-label", `Buscar en LinkedIn: ${title.textContent}. ${detail.textContent}`);
         tiersWrap.appendChild(a);
@@ -1211,6 +1251,8 @@
       ts: Date.now(),
       rol: state.rol.slice(),
       atributos: state.atributos.slice(),
+      imprescindibles: state.imprescindibles.slice(),
+      deseables: state.deseables.slice(),
       dominio: state.dominio.slice(),
       alcance: state.alcance.slice(),
       refinar: state.refinar.slice(),

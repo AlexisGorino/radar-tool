@@ -15,6 +15,10 @@ Pages o publicada como página estática en cualquier lado.
 
 - **Método RADAR**: Rol, Atributos, Dominio, Alcance, Refinar — cinco campos
   que arman el booleano.
+- **Prioridad de requisitos**: separa imprescindibles (todos se exigen con AND),
+  señales equivalentes (cualquiera puede coincidir con OR) y deseables (se omiten
+  de la ruta precisa y aparecen en rutas más amplias). El análisis nunca decide
+  por sí solo qué habilidad es excluyente: lo confirma quien recluta.
 - **Analizador de JD y briefs libres**: pegá o escribí la necesidad con tus
   palabras, o arrastrá/subí un `.txt`, `.pdf` o `.docx` (se lee en el navegador).
   RADAR muestra cargo, señales del perfil, industria, ubicación y evidencia.

@@ -36,8 +36,10 @@ como filtro — ver más abajo). También calcula `isJobPosting`: una sumatoria
 de señales (rol, país, atributos, dominio, palabras típicas de JD) para
 distinguir un texto pegado por error (una noticia, un CV) de una JD real,
 sin bloquear consultas manuales cortas legítimas. `generator.js` toma esos
-campos y arma el booleano y las URLs de búsqueda. Su modo `relaxed` quita
-Dominio y conserva Alcance al ampliar una consulta.
+campos y arma el booleano y las URLs de búsqueda. El generador conserva las
+señales imprescindibles como grupos AND, las alternativas como OR y omite los
+deseables de la consulta precisa. Su modo `relaxed` elimina Dominio, añade los
+deseables como alternativas y conserva Alcance.
 Que sean puras es lo que permite testearlas con Node sin levantar un
 navegador ni mockear nada.
 
@@ -70,7 +72,8 @@ servicio compartido con reglas explícitas de retención y acceso.
 
 **UI** (`app.js`): la única capa que conoce el DOM. Lee inputs, llama al
 núcleo, pinta el resultado. Mantiene un objeto `state` en memoria (los cinco
-campos + red seleccionada) que es la única fuente de verdad de la pantalla.
+campos y subgrupos de prioridad + red seleccionada) que es la única fuente de
+verdad de la pantalla.
 
 Cada módulo se expone como global (`RadarCountries`, `RadarKeywords`, etc.)
 via el patrón UMD que también soporta `require()`, así los mismos archivos

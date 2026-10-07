@@ -276,6 +276,44 @@ test("relaxed X-Ray and resumes queries drop domain but preserve location", () =
   assert.ok(!resumes.includes("retail") && resumes.includes("Argentina"));
 });
 
+test("universal query requires every explicitly marked essential and treats alternatives as OR", () => {
+  const state = {
+    rol: ["Analista de datos"], imprescindibles: ["SQL", "Power BI"],
+    atributos: ["Tableau", "Looker"], deseables: ["Python"],
+    dominio: [], alcance: ["Argentina"], refinar: [],
+  };
+  const query = Generator.buildUniversalBoolean(state, false);
+  assert.ok(query.includes("SQL AND \"Power BI\""), `all essentials should be required, got: ${query}`);
+  assert.ok(query.includes("(Tableau OR Looker)"), `alternatives should remain OR, got: ${query}`);
+  assert.ok(!query.includes("Python"), `desirable should not narrow the precise query, got: ${query}`);
+});
+
+test("wider query adds desirables as alternatives without relaxing essentials or location", () => {
+  const state = {
+    rol: ["Analista de datos"], imprescindibles: ["SQL"],
+    atributos: ["Power BI"], deseables: ["Python"],
+    dominio: ["finanzas"], alcance: ["Argentina"], refinar: [],
+  };
+  const precise = Generator.buildUniversalBoolean(state, false);
+  const wider = Generator.buildUniversalBoolean(state, true);
+  assert.ok(precise.includes("SQL") && !precise.includes("Python"));
+  assert.ok(wider.includes("SQL") && wider.includes("Python") && wider.includes("Argentina"));
+  assert.ok(!wider.includes("finanzas"));
+});
+
+test("LinkedIn strategy keeps must-haves in every tier and uses desirables only in balanced route", () => {
+  const tiers = Generator.buildLinkedinBooleanTiers({
+    rol: ["QA Engineer"], imprescindibles: ["Selenium"],
+    atributos: ["Cypress"], deseables: ["Playwright"], dominio: [],
+    alcance: ["Argentina"], refinar: [],
+  });
+  const roleTiers = tiers.filter((tier) => !tier.label.includes("sin título"));
+  assert.ok(roleTiers.length >= 2);
+  assert.ok(roleTiers.every((tier) => tier.query.includes("Selenium") && tier.query.includes("Argentina")));
+  assert.ok(!roleTiers[0].query.includes("Playwright"));
+  assert.ok(roleTiers[1].query.includes("Playwright"));
+});
+
 test("X-Ray query uses minus instead of NOT and includes site:", () => {
   const state = { rol: ["QA"], atributos: [], dominio: [], alcance: [], refinar: ["junior"] };
   const xray = Generator.buildXRayQuery(state, "linkedin.com/in");
