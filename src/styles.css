@@ -508,3 +508,116 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* RADAR: restrained editorial treatment. Hierarchy comes from type, spacing
+   and alignment; avoid decorative gradients, floating cards and pill overload. */
+:root {
+  --red: #c8202f;
+  --dark: #292927;
+  --gray: #686862;
+  --lightgray: #deded8;
+  --bg: #f5f4f0;
+  --white: #fff;
+  --surface-raised: #fff;
+  --focus-ring: 0 0 0 3px rgb(200 32 47 / 16%);
+  --card-shadow: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--dark);
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+}
+
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid #d9d8d2;
+  backdrop-filter: none;
+}
+.topbar-inner { max-width: 1080px; min-height: 66px; }
+.brand-title { letter-spacing: .025em; }
+.wrap { max-width: 1080px; padding-top: 30px; }
+.intro { max-width: 760px; color: #565650; line-height: 1.6; }
+
+.card,
+.result-secondary,
+.jd-review,
+.result-hero {
+  border: 1px solid #d9d8d2;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: none;
+}
+.card { padding: clamp(18px, 2.7vw, 26px); margin-bottom: 14px; }
+.card h2 { font-size: 15px; letter-spacing: 0; }
+.hint { color: #62625c; }
+
+.field { border-radius: 2px; border-top-width: 1px; background: #faf9f6; }
+.field input,
+.field textarea,
+textarea,
+select,
+.custom-site-row input,
+.stars-input input,
+.feedback-form select,
+.feedback-form textarea {
+  border-radius: 2px;
+  border-color: #c9c8c1;
+}
+textarea { background: #fff; }
+
+button,
+a.btn,
+.btn { border-radius: 2px; box-shadow: none; transition: background-color .14s ease, border-color .14s ease, color .14s ease; }
+button:hover:not(:disabled),
+a.btn:hover,
+.btn:hover:not(:disabled) { transform: none; box-shadow: none; }
+.btn-primary { box-shadow: none; }
+.network-tabs { gap: 0; border-bottom: 1px solid #d9d8d2; }
+.network-tab { border-radius: 2px 2px 0 0; }
+.network-tab.active { background: #292927; box-shadow: none; }
+.chip { border-radius: 2px; }
+
+.jd-review { background: #f8f7f3; border-left: 3px solid var(--red); padding: 17px; }
+.jd-review-field { border-radius: 2px; box-shadow: none; }
+.jd-review-badge { border-radius: 2px; }
+.jd-review-question { border-radius: 2px; }
+.network-recommendation { border-radius: 2px; }
+
+.result-hero {
+  border-left: 3px solid var(--red);
+  padding: 20px;
+  color: var(--dark);
+}
+.result-hero-label,
+.result-hero .platform-note { color: #5e5e58; }
+.result-hero .relaxed-toggle { color: var(--dark); }
+.boolean-box { border-radius: 2px; }
+.boolean-box-lg { border-radius: 2px; }
+
+.public-search-setup { background: #fff; }
+.public-search-method-note { max-width: 780px; margin: 10px 0 0; color: #65645e; font-size: 11px; line-height: 1.5; }
+.public-source-option { align-items: flex-start; flex: 1 1 240px; min-width: min(240px, 100%); padding: 10px 11px; }
+.public-source-option input { margin-top: 3px; }
+.public-source-copy { display: grid; gap: 3px; }
+.public-source-copy > span { font-weight: 700; }
+.public-source-copy small { color: #66665f; font-size: 10px; font-weight: 400; line-height: 1.4; }
+.public-search-refine { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 14px 16px; border: 1px solid #d8d6cc; border-left: 3px solid var(--red); background: #f8f7f3; }
+.public-search-refine strong { color: #282825; font-size: 12px; }
+.public-search-refine p { max-width: 740px; margin: 4px 0 0; color: #62615a; font-size: 11px; line-height: 1.5; }
+.public-search-refine .btn { flex: 0 0 auto; }
+.public-search-cap,
+.public-source-option,
+.public-profile-card,
+.public-profile-score,
+.public-profile-meta span { border-radius: 2px; box-shadow: none; }
+.public-profile-card { border-color: #d9d8d2; }
+.page-footer { background: transparent; }
+
+@media (max-width: 680px) {
+  .topbar-inner { padding: 11px 15px; }
+  .wrap { padding: 22px 14px 42px; }
+  .card { margin-bottom: 11px; }
+  .public-search-refine { align-items: flex-start; flex-direction: column; }
+}

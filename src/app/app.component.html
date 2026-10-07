@@ -157,13 +157,18 @@
     </div>
     <p class="hint">RADAR consulta resultados públicos indexados, valida que cada enlace parezca un perfil y ordena las señales visibles contra esta búsqueda. No accede a perfiles privados ni afirma que una persona esté disponible o sea la mejor contratación.</p>
     <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
+    <p class="public-search-method-note">Elegí hasta cuatro fuentes. Cada selección consulta páginas públicas de ese sitio; la lista no confirma que una persona siga en el puesto, resida hoy en esa localidad o esté buscando trabajo.</p>
     <div class="public-search-action">
       <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles públicos</button>
       <span class="hint" id="publicSearchConfigNote">La conexión segura con el proveedor todavía no está configurada.</span>
     </div>
     <p class="public-search-status" id="publicSearchStatus" role="status" aria-live="polite"></p>
     <div class="public-search-results" id="publicSearchResults" aria-live="polite"></div>
-    <p class="platform-note">El puntaje compara solo la evidencia visible en el título y fragmento: imprescindibles 45%, alternativas 25%, cargo 15% y ubicación 15% (si solo aparece el país, la ubicación suma parcialmente). Los pesos se redistribuyen entre los campos usados en la búsqueda. Si un dato no aparece, queda como no verificado: no demuestra que la persona no lo tenga. No mide desempeño ni calidad profesional. Confirmá cada dato en la fuente.</p>
+    <div class="public-search-refine hidden" id="publicSearchRefine" aria-live="polite">
+      <div><strong id="publicSearchRefineTitle"></strong><p id="publicSearchRefineText"></p></div>
+      <button class="btn btn-dark" id="broadenPublicSearchBtn" type="button">Probar perfiles equivalentes</button>
+    </div>
+    <p class="platform-note">El puntaje compara evidencia visible en el título y el fragmento; un dato ausente queda sin verificar, no se toma como ausencia del perfil. No mide desempeño ni calidad profesional. Confirmá los requisitos y la ubicación en la fuente antes de contactar.</p>
   </section>
 
   <div class="generate-row">

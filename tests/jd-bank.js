@@ -378,6 +378,17 @@ const cases = [
     expectSkills: ["Revenue Management", "PMS"],
     expectCountry: "España",
   },
+  {
+    name: "ES - ficha PDF Wicom, jefe de proyecto junior y Santiago de Compostela",
+    text: "PUESTO - CLIENTE Wicom - Jefe de Proyecto Junior (Santiago)\nUbicación: España,  Santiago\nSede de trabajo: Santiago de Compostela\nExperiencia requerida: 0–2 años en gestión de proyectos, PMO, operaciones o consultoría de gestión en telecomunicaciones, instalaciones o ingeniería.\nValorable: PMP y PRINCE2.\nRequisitos y funciones\nSe valoran prácticas. Uso de MS Project, Jira, PMBOK, Gantt, Power BI, Excel avanzado, PowerPoint, SharePoint, Confluence y Teams.",
+    expectRolContains: "jefe de proyecto",
+    expectCountry: "España",
+    expectLocation: "Santiago de Compostela",
+    expectSkills: ["MS Project", "Jira", "PMBOK", "Gantt", "Power BI"],
+    expectOptionalSkills: ["PMP", "PRINCE2"],
+    expectRequiredSkills: ["Jira", "MS Project"],
+    expectSeniority: "junior",
+  },
 ];
 
 let passed = 0;
@@ -436,6 +447,11 @@ cases.forEach((c) => {
   if (c.expectCountry) {
     check(`${c.name} :: country = "${c.expectCountry}"`, r.country === c.expectCountry, `got country="${r.country}"`);
   }
+
+  if (c.expectLocation) check(`${c.name} :: specific locality = "${c.expectLocation}"`, r.alcance.includes(c.expectLocation), `got alcance=[${r.alcance.join(", ")}]`);
+  if (c.expectSeniority) check(`${c.name} :: experience range informs seniority`, r.seniority.includes(c.expectSeniority), `got seniority=[${r.seniority.join(", ")}]`);
+  if (c.expectOptionalSkills) c.expectOptionalSkills.forEach((s) => check(`${c.name} :: ${s} remains desirable`, (r.atributosDeseables || []).some((term) => term.toLowerCase() === s.toLowerCase()), `required=[${r.atributos.join(", ")}], desirable=[${(r.atributosDeseables || []).join(", ")}]`));
+  if (c.expectRequiredSkills) c.expectRequiredSkills.forEach((s) => check(`${c.name} :: ${s} remains in required evidence`, r.atributos.some((term) => term.toLowerCase() === s.toLowerCase()), `required=[${r.atributos.join(", ")}], desirable=[${(r.atributosDeseables || []).join(", ")}]`));
 
   if (c.expectCountryNull) {
     check(`${c.name} :: country is null`, r.country === null, `got country="${r.country}"`);

@@ -101,6 +101,43 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchResults").should("contain.text", "Algunas fuentes no respondieron: GitHub");
   });
 
+  it("suggests a deliberate broader search after no results and keeps hard requirements and locality", () => {
+    const sentQueries = [];
+    cy.intercept("POST", "/mock-search", (request) => {
+      sentQueries.push(request.body.queries[0].query);
+      request.reply({ statusCode: 200, body: { count: 0, results: [], sourceErrors: [] } });
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Jefe de Proyecto{enter}");
+    cy.get('[data-field="imprescindibles"]').type("MS Project{enter}");
+    cy.get('[data-field="atributos"]').type("Jira{enter}");
+    cy.get('[data-field="alcance"]').type("España{enter}");
+    cy.get('[data-field="alcance"]').type("Santiago de Compostela{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Mantiene la localidad, los imprescindibles");
+    cy.get("#broadenPublicSearchBtn").click();
+    cy.then(() => {
+      expect(sentQueries).to.have.length(2);
+      expect(sentQueries[0]).to.match(/Jefe de Proyecto/i);
+      expect(sentQueries[1]).not.to.match(/Jefe de Proyecto|Project Manager/i);
+      expect(sentQueries[1]).to.match(/Santiago de Compostela/i);
+      expect(sentQueries[1]).to.match(/MS Project/i);
+    });
+    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "quita el cargo literal y el sector");
+    cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
+    cy.get("#publicSearchSources").should("contain.text", "Actividad y proyectos públicos");
+  });
+
   it("shows an actionable limit message when the public search provider rate-limits a request", () => {
     cy.intercept("POST", "/mock-search", { statusCode: 429, body: { error: "rate_limited" } });
     cy.visit("/", {
