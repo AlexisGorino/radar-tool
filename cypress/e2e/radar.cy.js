@@ -36,7 +36,7 @@ describe("RADAR talent search flow", () => {
 
   it("boots the search flow on the pinned Angular 21 runtime", () => {
     cy.get("radar-root").should("have.attr", "ng-version", "21.2.25");
-    cy.get("#radarBootError").should("not.be.visible");
+    cy.get("#radarBootError").should("not.exist");
     cy.get("#jdReview").should("not.be.visible");
     cy.get("#jdInput").should("be.visible");
     cy.get("html").should("have.attr", "data-radar-ready", "true");
