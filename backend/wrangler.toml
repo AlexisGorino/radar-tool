@@ -1,0 +1,15 @@
+name = "radar-public-profile-search"
+main = "worker.mjs"
+compatibility_date = "2026-10-07"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGIN = "https://alexisgorino.github.io"
+
+[[ratelimits]]
+name = "SEARCH_LIMITER"
+namespace_id = "742019"
+
+  [ratelimits.simple]
+  limit = 3
+  period = 60

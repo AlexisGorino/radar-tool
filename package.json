@@ -8,6 +8,7 @@
     "check:angular": "ngc -p tsconfig.app.json",
     "start:dev": "ng serve --base-href /",
     "test:e2e": "cypress run",
+    "test:discovery": "node tests/talent-discovery.js && node tests/backend-worker.mjs",
     "start:test": "node tests/serve.js",
     "start:angular": "node tests/serve.js --dist"
   },

@@ -1,8 +1,9 @@
 # Arquitectura
 
-Aplicación cliente sin backend. La presentación de producción se compila con
-Angular 21 y GitHub Actions publica el resultado estático; los documentos y
-las búsquedas continúan en el navegador. La lógica RADAR permanece separada
+Aplicación Angular 21 estática para el análisis local y generación de consultas,
+con un Worker opcional para buscar perfiles públicos por API. GitHub Actions
+publica la interfaz; la clave del proveedor vive solo en Cloudflare Worker.
+Los documentos continúan analizándose en el navegador. La lógica RADAR permanece separada
 en módulos puros para conservar sus pruebas y facilitar una migración por
 etapas de las interacciones del DOM a componentes tipados.
 
@@ -19,6 +20,8 @@ etapas de las interacciones del DOM a componentes tipados.
 │  ai.js tracking.js outcome.js            │  servicios opcionales: IA / uso / métricas locales
 ├─────────────────────────────────────────┤
 │  countries.js  keywords.js  networks.js  │  datos estáticos
+├─────────────────────────────────────────┤
+│  backend/worker.mjs                      │  proxy SERP opcional, secreto en Worker
 └─────────────────────────────────────────┘
 ```
 
@@ -71,6 +74,16 @@ para perfiles útiles, resultados ruidosos o búsquedas vacías. No almacena
 consultas, JDs, nombres ni datos de perfiles. Un tablero de equipo requeriría un
 servicio compartido con reglas explícitas de retención y acceso.
 
+**Descubrimiento público** (`talent-discovery.js` + `backend/worker.mjs`): la
+UI crea consultas independientes por fuente a partir de campos RADAR, nunca
+envía el documento completo. El Worker valida origen, tamaño, fuentes, dominio
+de búsqueda, presupuesto gratuito, rate limit y URLs; devuelve hasta 50 enlaces
+balanceados entre fuentes. El cliente valida URLs otra vez, deduplica y puntúa
+solo texto visible (título y snippet). La puntuación y la geografía son señales
+de evidencia, no una decisión sobre la persona. Los resultados viven solo en
+memoria. El proveedor puede retener las consultas hasta 31 días; ver
+`backend/README.md` y el aviso de privacidad en la interfaz.
+
 **UI** (`app.js`): la única capa que conoce el DOM. Lee inputs, llama al
 núcleo, pinta el resultado. Mantiene un objeto `state` en memoria (los cinco
 campos y subgrupos de prioridad + red seleccionada) que es la única fuente de
@@ -105,15 +118,17 @@ reintentar, sin manipular el DOM desde el componente.
 
 ## Persistencia
 
-No hay backend ni base de datos. El historial de búsquedas (opcional) usa
+El análisis no tiene base de datos. El historial de búsquedas (opcional) usa
 `localStorage` del navegador — por diseño, no sincroniza entre dispositivos
-ni personas. Ver `SECURITY.md` para el resto del modelo de privacidad.
+ni personas. El Worker de búsqueda no persiste resultados ni sustituye una
+autenticación corporativa. Ver `SECURITY.md` y `backend/README.md`.
 
 ## Deploy
 
-Carpeta estática pura: sirve igual desde un `file://`, un servidor local,
-o cualquier hosting estático (Netlify, Vercel, GitHub Pages, S3+CloudFront,
-nginx). No hay variables de entorno ni configuración de build.
+La interfaz se aloja de forma estática (GitHub Pages en producción); el Worker
+se despliega por separado. Sin el endpoint en la meta `radar-search-endpoint`,
+la consulta de perfiles permanece deshabilitada y el generador existente sigue
+operativo.
 
 En producción hoy: GitHub Pages publica el build de Angular desde la rama
 `main` en https://alexisgorino.github.io/radar-tool/. Cada push ejecuta

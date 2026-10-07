@@ -1,0 +1,140 @@
+import assert from "node:assert/strict";
+import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows } from "../backend/worker.mjs";
+
+let passed = 0;
+async function test(name, run) {
+  await run();
+  passed += 1;
+  console.log(`✓ ${name}`);
+}
+
+const validPlan = {
+  maxResults: 50,
+  location: "España, Islas Canarias",
+  queries: [
+    { source: "linkedin", query: 'site:linkedin.com/in "Telecom technician" FTTH Canarias' },
+    { source: "github", query: "site:github.com Python Canarias" },
+  ],
+};
+
+async function main() {
+  await test("accepts only bounded, source-bound query plans", () => {
+    assert.equal(validatePlan(validPlan), true);
+    assert.equal(validatePlan({ ...validPlan, maxResults: 500 }), false);
+    assert.equal(validatePlan({ ...validPlan, queries: [{ source: "linkedin", query: "site:example.com test" }] }), false);
+    assert.equal(validatePlan({ ...validPlan, queries: [...validPlan.queries, ...validPlan.queries] }), false);
+    assert.equal(validatePlan({ ...validPlan, location: "x".repeat(181) }), false);
+  });
+
+  await test("accepts public profile URLs only on their expected hosts and paths", () => {
+    assert.equal(validProfileUrl("https://linkedin.com/in/person", "linkedin"), true);
+    assert.equal(validProfileUrl("https://linkedin.com/jobs/view/123", "linkedin"), false);
+    assert.equal(validProfileUrl("https://notlinkedin.com/in/person", "linkedin"), false);
+    assert.equal(safeResult({ link: "https://stackoverflow.com/questions/1/q", title: "Bad" }, "stackoverflow"), null);
+  });
+
+  await test("balances source representation and returns at most 50 results", () => {
+    const lists = [
+      Array.from({ length: 50 }, (_, i) => ({ source: "linkedin", position: i + 1 })),
+      Array.from({ length: 50 }, (_, i) => ({ source: "github", position: i + 1 })),
+    ];
+    const chosen = takeBalanced(lists);
+    assert.equal(chosen.length, 50);
+    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 25);
+    assert.equal(chosen.filter((row) => row.source === "github").length, 25);
+  });
+
+  await test("requires a confirmed free plan and enough remaining monthly searches before querying", async () => {
+    const previousFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 4 }), { status: 200 });
+      assert.deepEqual(await freeBudgetAllows("server-secret", 4), { allowed: true });
+      assert.deepEqual(await freeBudgetAllows("server-secret", 5), { allowed: false, reason: "free_quota_exhausted" });
+      globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 10, plan_searches_left: 20 }), { status: 200 });
+      assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "free_plan_required" });
+      globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_searches_left: 20 }), { status: 200 });
+      assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "free_plan_required" });
+      globalThis.fetch = async () => new Response("provider unavailable", { status: 503 });
+      assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "budget_unavailable" });
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("rejects requests from other origins before consuming provider quota", async () => {
+    const previousFetch = globalThis.fetch;
+    let called = false;
+    globalThis.fetch = async () => { called = true; throw new Error("unexpected fetch"); };
+    try {
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://malicious.example", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+      }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "test", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+      assert.equal(response.status, 403);
+      assert.equal(called, false);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("returns a bounded, balanced, no-store response and keeps provider credentials server-side", async () => {
+    const previousFetch = globalThis.fetch;
+    const seen = [];
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) {
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250 }), { status: 200 });
+      }
+      seen.push(url);
+      const source = url.searchParams.get("q").includes("linkedin.com/in") ? "linkedin" : "github";
+      const host = source === "linkedin" ? "linkedin.com" : "github.com";
+      return new Response(JSON.stringify({ organic_results: Array.from({ length: 40 }, (_, index) => ({
+        position: index + 1,
+        title: `${source} profile ${index}`,
+        link: `https://${host}/${source === "linkedin" ? "in/" : ""}person-${index}`,
+        snippet: "Public profile",
+      })) }), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+    try {
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+        SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      const json = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(json.results.length, 50);
+      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 25);
+      assert.equal(json.results.filter((row) => row.source === "github").length, 25);
+      assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
+      assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://alexisgorino.github.io");
+      assert.equal(seen.length, 2);
+      seen.forEach((url) => {
+        assert.equal(url.searchParams.get("num"), "50");
+        assert.equal(url.searchParams.get("location"), "España, Islas Canarias");
+        assert.equal(url.searchParams.get("api_key"), "server-secret");
+      });
+      assert.doesNotMatch(JSON.stringify(json), /server-secret/);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("fails closed without a rate-limit binding or provider secret", async () => {
+    const base = new Request("https://radar-search.example/api/search", {
+      method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+    });
+    const noRate = await Worker.fetch(base.clone(), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "key" });
+    assert.equal(noRate.status, 503);
+    const noKey = await Worker.fetch(base.clone(), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+    assert.equal(noKey.status, 503);
+  });
+
+  console.log(`\n${passed} backend-worker tests passed.`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

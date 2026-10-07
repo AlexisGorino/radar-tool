@@ -6,10 +6,12 @@ Herramienta de sourcing de Mindata, creada por **Ale Gorino**.
 Convierte una JD en un booleano preciso y en variantes listas para LinkedIn,
 Google/Bing (X-Ray), GitHub, Behance, CVs sueltos en PDF/Word y otras redes.
 
-Pensada para el uso diario de un reclutador: sin cuentas ni backend. La nueva
-interfaz se compila con Angular 21; los documentos siguen procesándose en el
-navegador mediante lectores locales vendorizados para PDF y Word `.docx`.
-GitHub Pages sirve el build optimizado desde GitHub Actions.
+Pensada para el uso diario de un reclutador: el análisis de JD y la generación
+de consultas siguen funcionando en el navegador. La interfaz se compila con
+Angular 21; los documentos se leen localmente con lectores vendorizados para
+PDF y Word `.docx`. Una función opcional de perfiles públicos usa un Worker
+separado con la clave del proveedor en el servidor; requiere configuración
+operativa antes de habilitarse en GitHub Pages.
 
 ## Funcionalidad
 
@@ -51,6 +53,11 @@ GitHub Pages sirve el build optimizado desde GitHub Actions.
   perfiles técnicos, Behance para diseño y Xing para mercados DACH. Son puntos
   de partida; cada red conserva sus filtros y límites propios. Los portales que
   publican ofertas, pero no perfiles, no sirven como fuente de candidatos por X-Ray.
+- **Shortlist de perfiles públicos**: al configurar el Worker, consulta hasta
+  cuatro fuentes públicas indexadas y presenta hasta 50 perfiles con enlace,
+  fragmento visible, señales coincidentes y ubicación confirmada/parcial/no
+  confirmada. El resultado no prueba disponibilidad ni garantiza encaje; RADAR
+  no conserva la lista. Ver configuración, cuotas y límites en `backend/README.md`.
 - **Ampliación segura**: quita el sector cuando se necesitan más resultados y
   conserva la ubicación elegida para no abrir accidentalmente una búsqueda
   regional a todo un país.

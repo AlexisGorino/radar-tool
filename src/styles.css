@@ -466,6 +466,38 @@ select:focus-visible {
 }
 .radar-boot-error p { margin: 0 0 10px; }
 
+/* ---------- public-profile discovery ---------- */
+.public-search-setup { border: 1px solid #dce2eb; background: linear-gradient(155deg, #fff 0%, #f8faff 100%); }
+.public-search-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.public-search-heading h2 { margin: 3px 0 0; font-size: 18px; }
+.public-search-kicker { color: var(--red); font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+.public-search-cap { padding: 6px 10px; border: 1px solid #dce2eb; border-radius: 999px; color: #53627a; background: #fff; font-size: 11px; font-weight: 700; }
+.public-search-sources { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.public-source-option { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid #dce2eb; border-radius: 8px; background: #fff; color: var(--dark); font-size: 12px; cursor: pointer; }
+.public-source-option:has(input:checked) { border-color: #9caec7; background: #f1f5fb; }
+.public-source-option input { margin: 0; accent-color: var(--red); }
+.public-search-action { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.public-search-action .hint { margin: 0; max-width: 500px; }
+.public-search-action button:disabled { cursor: not-allowed; opacity: .55; }
+.public-search-status { min-height: 1.2em; margin: 12px 0 0; color: #26354c; font-size: 12px; font-weight: 700; }
+.public-search-results { margin-top: 12px; }
+.public-search-summary { color: #26354c; font-size: 12px; font-weight: 700; }
+.public-profile-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0; padding: 0; list-style: none; }
+.public-profile-card { min-width: 0; padding: 14px; border: 1px solid #e0e5ed; border-radius: 10px; background: #fff; box-shadow: 0 3px 10px rgb(25 39 62 / 4%); }
+.public-profile-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.public-profile-title { display: grid; gap: 3px; min-width: 0; }
+.public-profile-title strong { color: #18263b; font-size: 13px; }
+.public-profile-title span { overflow-wrap: anywhere; color: #52627b; font-size: 11px; line-height: 1.4; }
+.public-profile-score { flex: 0 0 auto; padding: 5px 7px; border-radius: 6px; background: #eef4ff; color: #244776; font-size: 10px; font-weight: 800; }
+.public-profile-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.public-profile-meta span { padding: 3px 7px; border-radius: 999px; background: #f1f3f6; color: #49566a; font-size: 10px; }
+.public-profile-snippet { margin: 9px 0 6px; color: #3e4a5d; font-size: 11px; line-height: 1.5; }
+.public-profile-evidence { margin: 6px 0 10px; color: #64728a; font-size: 10px; }
+.public-profile-card a { color: #1d518e; font-size: 11px; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.public-search-empty, .public-search-partial { padding: 10px 12px; border-left: 3px solid #b8c3d3; background: #f6f8fb; color: #52627b; font-size: 11px; }
+.public-search-partial { border-left-color: #d59620; }
+@media (max-width: 700px) { .public-profile-list { grid-template-columns: 1fr; } }
+
 @media (max-width: 680px) {
   .topbar-inner { padding: 12px 16px; }
   .brand-right { gap: 4px; }

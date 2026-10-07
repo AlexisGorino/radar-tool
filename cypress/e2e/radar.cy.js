@@ -49,6 +49,78 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("keeps the public-profile search disabled until its server endpoint is configured", () => {
+    cy.get("#publicSearchSetup").should("be.visible");
+    cy.get("#findProfilesBtn").should("be.disabled");
+    cy.get("#publicSearchConfigNote").should("contain.text", "La conexión segura con el proveedor todavía no está configurada");
+  });
+
+  it("builds a public-profile shortlist, preserves the selected locality, and labels missing evidence", () => {
+    cy.intercept("POST", "/mock-search", (request) => {
+      expect(request.body.location).to.equal("España, Islas Canarias");
+      expect(request.body.queries.map((query) => query.source)).to.include("linkedin");
+      request.reply({
+        statusCode: 200,
+        body: {
+          count: 3,
+          sourceErrors: [{ source: "github", code: "source_unavailable" }],
+          results: [
+            { source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Telecom Technician - LinkedIn", snippet: "FTTH, OTDR. Islas Canarias, España.", position: 1 },
+            { source: "linkedin", url: "https://www.linkedin.com/in/juan-gomez", title: "Juan Gómez - Technician - LinkedIn", snippet: "Telecomunicaciones · España", position: 2 },
+            { source: "linkedin", url: "https://www.linkedin.com/jobs/view/123", title: "Oferta laboral - LinkedIn", snippet: "FTTH Islas Canarias", position: 3 },
+          ],
+        },
+      });
+    });
+
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Técnico instalador{enter}");
+    cy.get('[data-field="imprescindibles"]').type("FTTH{enter}");
+    cy.get('[data-field="imprescindibles"]').type("OTDR{enter}");
+    cy.get('[data-field="alcance"]').type("España{enter}");
+    cy.get('[data-field="alcance"]').type("Islas Canarias{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="github"]').check();
+    cy.get("#findProfilesBtn").should("be.enabled").click();
+    cy.get(".public-profile-card").should("have.length", 2);
+    cy.contains("Ana Pérez").should("be.visible");
+    cy.contains("Localidad visible").should("be.visible");
+    cy.contains("Juan Gómez").parents(".public-profile-card").should("contain.text", "País o región visible; localidad sin confirmar");
+    cy.get(".public-profile-card a").each(($link) => {
+      expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
+    });
+    cy.get("#publicSearchStatus").should("contain.text", "perfiles públicos ordenados por evidencia");
+    cy.get("#publicSearchResults").should("contain.text", "Algunas fuentes no respondieron: GitHub");
+  });
+
+  it("shows an actionable limit message when the public search provider rate-limits a request", () => {
+    cy.intercept("POST", "/mock-search", { statusCode: 429, body: { error: "rate_limited" } });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get("#findProfilesBtn").should("be.enabled").click();
+    cy.get("#publicSearchStatus").should("contain.text", "límite temporal");
+    cy.get("#findProfilesBtn").should("be.enabled");
+  });
+
   it("shows a recoverable message when a legacy module fails to load", () => {
     cy.intercept("GET", "**/js/app.js?v=*", { forceNetworkError: true });
     cy.visit("/", {
