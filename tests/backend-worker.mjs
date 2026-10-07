@@ -47,9 +47,13 @@ async function main() {
   await test("requires a confirmed free plan and enough remaining monthly searches before querying", async () => {
     const previousFetch = globalThis.fetch;
     try {
-      globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 4 }), { status: 200 });
+      globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 4, this_hour_searches: 2, account_rate_limit_per_hour: 20 }), { status: 200 });
       assert.deepEqual(await freeBudgetAllows("server-secret", 4), { allowed: true });
       assert.deepEqual(await freeBudgetAllows("server-secret", 5), { allowed: false, reason: "free_quota_exhausted" });
+      globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 20, this_hour_searches: 18, account_rate_limit_per_hour: 20 }), { status: 200 });
+      assert.deepEqual(await freeBudgetAllows("server-secret", 4), { allowed: false, reason: "hourly_quota_exhausted" });
+      globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 20 }), { status: 200 });
+      assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "budget_unavailable" });
       globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 10, plan_searches_left: 20 }), { status: 200 });
       assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "free_plan_required" });
       globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_searches_left: 20 }), { status: 200 });
@@ -82,7 +86,7 @@ async function main() {
     globalThis.fetch = async (rawUrl) => {
       const url = new URL(rawUrl);
       if (url.pathname.endsWith("/account.json")) {
-        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250 }), { status: 200 });
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
       }
       seen.push(url);
       const source = url.searchParams.get("q").includes("linkedin.com/in") ? "linkedin" : "github";
@@ -129,6 +133,19 @@ async function main() {
     assert.equal(noRate.status, 503);
     const noKey = await Worker.fetch(base.clone(), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
     assert.equal(noKey.status, 503);
+  });
+
+  await test("returns a retry hint when the shared network limiter blocks a request", async () => {
+    const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+      method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+    }), {
+      ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+      SERPAPI_KEY: "server-secret",
+      SEARCH_LIMITER: { limit: async () => ({ success: false }) },
+    });
+    assert.equal(response.status, 429);
+    assert.equal(response.headers.get("Retry-After"), "60");
+    assert.deepEqual(await response.json(), { error: "rate_limited" });
   });
 
   console.log(`\n${passed} backend-worker tests passed.`);

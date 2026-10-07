@@ -19,9 +19,12 @@ solicitud, pide resultados públicos de Google, valida dominio/ruta y devuelve
 4. Cargar la clave sin imprimirla en consola ni guardarla en Git:
    `npx wrangler secret put SERPAPI_KEY`.
 5. Verificar `ALLOWED_ORIGIN` en `wrangler.toml` y cambiar el `namespace_id` de
-   rate limiting por un entero libre en la cuenta Cloudflare. La cuota fija del
-   Worker es tres solicitudes por IP por minuto y falla cerrada si el binding
-   o la clave no están configurados.
+   rate limiting por un entero libre en la cuenta Cloudflare. El Worker limita
+   diez solicitudes por IP por minuto para no bloquear tan rápido a equipos que
+   comparten red. Antes de llamar a Google, consulta la API gratuita de cuenta
+   para comprobar cupo mensual y horario; falla cerrada si no puede verificarlo.
+   Cloudflare cuenta por IP compartida y su limitador es una defensa aproximada,
+   no un medidor contable del proveedor.
 6. Copiar la URL `https://<worker>.<cuenta>.workers.dev/api/search` a la meta
    `radar-search-endpoint` en `src/index.html` y agregar **solo el origen exacto**
    (`https://<worker>.<cuenta>.workers.dev`) a `connect-src` en la CSP. Ejecutar

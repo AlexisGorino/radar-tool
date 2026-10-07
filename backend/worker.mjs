@@ -10,7 +10,7 @@ const MAX_RESULTS = 50;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
 
-function json(body, status, origin) {
+function json(body, status, origin, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -21,6 +21,7 @@ function json(body, status, origin) {
       "Access-Control-Allow-Headers": "Content-Type, Accept",
       "Vary": "Origin",
       "X-Content-Type-Options": "nosniff",
+      ...extraHeaders,
     },
   });
 }
@@ -90,10 +91,18 @@ async function freeBudgetAllows(apiKey, searchesNeeded) {
   }
   const monthlyPrice = Number(account.plan_monthly_price);
   const remaining = Number(account.plan_searches_left);
+  const searchesThisHour = Number(account.this_hour_searches);
+  const hourlyLimit = Number(account.account_rate_limit_per_hour);
   if (account.account_status !== "Active" || !Number.isFinite(monthlyPrice) || monthlyPrice !== 0 || !Number.isFinite(remaining)) {
     return { allowed: false, reason: "free_plan_required" };
   }
   if (remaining < searchesNeeded) return { allowed: false, reason: "free_quota_exhausted" };
+  if (!Number.isFinite(searchesThisHour) || !Number.isFinite(hourlyLimit)) {
+    return { allowed: false, reason: "budget_unavailable" };
+  }
+  if (searchesThisHour + searchesNeeded > hourlyLimit) {
+    return { allowed: false, reason: "hourly_quota_exhausted" };
+  }
   return { allowed: true };
 }
 
@@ -136,7 +145,7 @@ export default {
 
     const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
     const limit = await env.SEARCH_LIMITER.limit({ key: clientIp });
-    if (!limit.success) return json({ error: "rate_limited" }, 429, allowedOrigin);
+    if (!limit.success) return json({ error: "rate_limited" }, 429, allowedOrigin, { "Retry-After": "60" });
 
     const contentLength = Number(request.headers.get("Content-Length") || 0);
     if (contentLength > MAX_BODY_BYTES) return json({ error: "request_too_large" }, 413, allowedOrigin);
@@ -151,7 +160,8 @@ export default {
     const budget = await freeBudgetAllows(env.SERPAPI_KEY, plan.queries.length);
     if (!budget.allowed) {
       const exhausted = budget.reason === "free_quota_exhausted";
-      return json({ error: budget.reason }, exhausted ? 429 : 503, allowedOrigin);
+      const hourlyExhausted = budget.reason === "hourly_quota_exhausted";
+      return json({ error: budget.reason }, exhausted || hourlyExhausted ? 429 : 503, allowedOrigin);
     }
 
     const resultsBySource = [];

@@ -1211,7 +1211,10 @@
     if (sourceErrors && sourceErrors.length) {
       const partial = document.createElement("p");
       partial.className = "public-search-partial";
-      partial.textContent = `Algunas fuentes no respondieron: ${sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source).join(", ")}.`;
+      const hitProviderLimit = sourceErrors.some((item) => item.code === "provider_rate_limited");
+      partial.textContent = hitProviderLimit
+        ? `El proveedor limitó algunas consultas (${sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source).join(", ")}). Los resultados son parciales; esperá a que se renueve el cupo horario y volvé a intentar.`
+        : `Algunas fuentes no respondieron: ${sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source).join(", ")}.`;
       publicSearchResults.appendChild(partial);
     }
   }
