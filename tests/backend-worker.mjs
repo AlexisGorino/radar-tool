@@ -9,7 +9,7 @@ async function test(name, run) {
 }
 
 const validPlan = {
-  maxResults: 50,
+  maxResults: 40,
   location: "España, Islas Canarias",
   queries: [
     { source: "linkedin", query: 'site:linkedin.com/in "Telecom technician" FTTH Canarias' },
@@ -75,15 +75,15 @@ async function main() {
     }
   });
 
-  await test("balances source representation and returns at most 50 results", () => {
+  await test("balances source representation and returns at most 40 results", () => {
     const lists = [
-      Array.from({ length: 50 }, (_, i) => ({ source: "linkedin", position: i + 1 })),
-      Array.from({ length: 50 }, (_, i) => ({ source: "github", position: i + 1 })),
+      Array.from({ length: 40 }, (_, i) => ({ source: "linkedin", position: i + 1 })),
+      Array.from({ length: 40 }, (_, i) => ({ source: "github", position: i + 1 })),
     ];
     const chosen = takeBalanced(lists);
-    assert.equal(chosen.length, 50);
-    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 25);
-    assert.equal(chosen.filter((row) => row.source === "github").length, 25);
+    assert.equal(chosen.length, 40);
+    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 20);
+    assert.equal(chosen.filter((row) => row.source === "github").length, 20);
   });
 
   await test("requires a confirmed free plan and enough remaining monthly searches before querying", async () => {
@@ -155,15 +155,15 @@ async function main() {
       });
       const json = await response.json();
       assert.equal(response.status, 200);
-      assert.equal(json.results.length, 50);
-      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 25);
-      assert.equal(json.results.filter((row) => row.source === "github").length, 25);
+      assert.equal(json.results.length, 40);
+      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 20);
+      assert.equal(json.results.filter((row) => row.source === "github").length, 20);
       assert.deepEqual(json.locationContext, { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" });
       assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
       assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://alexisgorino.github.io");
       assert.equal(seen.length, 2);
       seen.forEach((url) => {
-        assert.equal(url.searchParams.get("num"), "50");
+        assert.equal(url.searchParams.has("num"), false);
         assert.match(url.searchParams.get("q"), /Canarias/);
         assert.equal(url.searchParams.get("location"), "Canary Islands,Spain");
         assert.equal(url.searchParams.get("gl"), "es");

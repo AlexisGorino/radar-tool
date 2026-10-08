@@ -17,7 +17,7 @@
     behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i, description: "Portfolios de diseño, UX/UI e ilustración; no es fuente adecuada para la mayoría de los otros puestos." },
   });
   const MAX_SOURCES = 4;
-  const MAX_RESULTS = 50;
+  const MAX_RESULTS = 40;
   const MAX_QUERY_LENGTH = 900;
 
   function cleanTerms(values) {
