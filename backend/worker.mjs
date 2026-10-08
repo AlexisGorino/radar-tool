@@ -14,6 +14,8 @@ const COUNTRY_CODE_CACHE = new Map();
 const PROVIDER_ERROR_CODES = new Set([
   "provider_rate_limited",
   "provider_credentials_rejected",
+  "provider_location_rejected",
+  "provider_query_rejected",
   "provider_request_rejected",
   "provider_unavailable",
 ]);
@@ -32,7 +34,7 @@ function json(body, status, origin, extraHeaders = {}) {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store, max-age=0",
       "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Accept",
       "Vary": "Origin",
       "X-Content-Type-Options": "nosniff",
@@ -208,10 +210,22 @@ async function lookup(query, location, source, apiKey) {
   const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(18_000) });
   if (response.status === 429) throw new Error("provider_rate_limited");
   if (response.status === 401 || response.status === 403) throw new Error("provider_credentials_rejected");
-  if (response.status === 400) throw new Error("provider_request_rejected");
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    if (response.status === 400) throw new Error("provider_request_rejected");
+    if (!response.ok) throw new Error("provider_unavailable");
+    throw new Error("provider_unavailable");
+  }
+  if (response.status === 400 || data.error) {
+    const detail = String(data.error || data.message || "").toLowerCase();
+    if (/api[ _-]?key|credential|unauthori[sz]ed/.test(detail)) throw new Error("provider_credentials_rejected");
+    if (/location|geograph|uule|latitude|longitude/.test(detail)) throw new Error("provider_location_rejected");
+    if (/query|parameter|invalid search|unsupported engine|search term/.test(detail)) throw new Error("provider_query_rejected");
+    throw new Error("provider_request_rejected");
+  }
   if (!response.ok) throw new Error("provider_unavailable");
-  const data = await response.json();
-  if (data.error) throw new Error("provider_request_rejected");
   return (Array.isArray(data.organic_results) ? data.organic_results : [])
     .map((item) => safeResult(item, source)).filter(Boolean).slice(0, MAX_RESULTS);
 }
@@ -273,19 +287,26 @@ export default {
       status: 204,
       headers: {
         "Access-Control-Allow-Origin": allowedOrigin,
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Accept",
         "Access-Control-Max-Age": "600",
         Vary: "Origin",
       },
     });
-    if (request.method !== "POST" || new URL(request.url).pathname !== "/api/search") return json({ error: "not_found" }, 404, allowedOrigin);
+    const pathname = new URL(request.url).pathname;
+    const isHealthCheck = request.method === "GET" && pathname === "/api/health";
+    if (!isHealthCheck && (request.method !== "POST" || pathname !== "/api/search")) return json({ error: "not_found" }, 404, allowedOrigin);
     if (!env.SERPAPI_KEY) return json({ error: "not_configured" }, 503, allowedOrigin);
     if (!env.SEARCH_LIMITER) return json({ error: "rate_limit_not_configured" }, 503, allowedOrigin);
 
     const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
     const limit = await env.SEARCH_LIMITER.limit({ key: clientIp });
     if (!limit.success) return json({ error: "rate_limited" }, 429, allowedOrigin, { "Retry-After": "60" });
+
+    if (isHealthCheck) {
+      const budget = await freeBudgetAllows(env.SERPAPI_KEY, 1);
+      return json({ ready: budget.allowed, error: budget.allowed ? null : budget.reason, usesSearchCredit: false }, budget.allowed ? 200 : 503, allowedOrigin);
+    }
 
     const contentLength = Number(request.headers.get("Content-Length") || 0);
     if (contentLength > MAX_BODY_BYTES) return json({ error: "request_too_large" }, 413, allowedOrigin);

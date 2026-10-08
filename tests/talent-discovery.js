@@ -182,6 +182,14 @@ test("search omits credentials, does not send the JD, and reports provider error
     /Revisá la ubicación o los términos/
   );
   await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_location_rejected" }] }) })),
+    /no reconoció la ubicación/
+  );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_query_rejected" }] }) })),
+    /rechazó el formato de búsqueda/
+  );
+  await assert.rejects(
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] }) })),
     /tardó demasiado en responder/
   );

@@ -205,6 +205,8 @@
     if (payload.error === "sources_unavailable") {
       const codes = new Set((Array.isArray(payload.sourceErrors) ? payload.sourceErrors : []).map((item) => item.code));
       if (codes.has("provider_credentials_rejected")) throw new Error("El proveedor rechazó la credencial configurada. La consulta no pudo completarse; revisá el secreto SERPAPI_KEY en Cloudflare.");
+      if (codes.has("provider_location_rejected")) throw new Error("El proveedor no reconoció la ubicación como contexto de búsqueda. La localidad sigue dentro de la consulta; probá elegir una localidad más específica o buscar solo con el país.");
+      if (codes.has("provider_query_rejected")) throw new Error("El proveedor rechazó el formato de búsqueda. RADAR conserva tus filtros; reducí la cantidad de términos y volvé a intentar.");
       if (codes.has("provider_request_rejected")) throw new Error("El proveedor rechazó la consulta. Revisá la ubicación o los términos y probá una búsqueda más breve.");
       if (codes.has("provider_timeout")) throw new Error("El proveedor tardó demasiado en responder. No se obtuvieron perfiles; revisá la conexión e intentá de nuevo manualmente.");
       if (codes.has("provider_network_error")) throw new Error("RADAR no pudo conectarse con el proveedor de búsqueda. Revisá la configuración y probá de nuevo.");
