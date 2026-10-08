@@ -24,7 +24,7 @@ test("builds source-specific queries and preserves the exact Canary Islands scop
   const plan = Discovery.buildPlan(canaryState, ["linkedin", "stackoverflow", "github", "behance", "resumes"], Generator);
   assert.equal(plan.queries.length, 4);
   assert.deepEqual(plan.queries.map((query) => query.source), ["linkedin", "stackoverflow", "github", "behance"]);
-  assert.equal(plan.maxResults, 50);
+  assert.equal(plan.maxResults, 40);
   assert.equal(plan.location, "España, Islas Canarias");
   plan.queries.forEach(({ query }) => {
     assert.match(query, /Canarias/i);
@@ -132,7 +132,7 @@ test("scores exact locality evidence separately from country-only evidence", () 
   assert.ok(exactLocality.score > countryOnly.score);
 });
 
-test("deduplicates canonical profile links, drops job/company pages and caps the shortlist at 50", () => {
+test("deduplicates canonical profile links, drops job/company pages and caps the shortlist at 40", () => {
   const results = Array.from({ length: 55 }, (_, index) => ({
     source: "linkedin",
     url: `https://linkedin.com/in/profile-${index}${index === 1 ? "?trk=duplicate" : ""}`,
@@ -143,13 +143,13 @@ test("deduplicates canonical profile links, drops job/company pages and caps the
   results[54] = { source: "linkedin", url: "https://linkedin.com/jobs/view/123", title: "Oferta - LinkedIn", snippet: "FTTH" };
   results.push({ ...results[1], url: "https://linkedin.com/in/profile-1#about" });
   const normalized = Discovery.normalizeResults({ results }, canaryState);
-  assert.equal(normalized.length, 50);
-  assert.equal(new Set(normalized.map((row) => row.url)).size, 50);
+  assert.equal(normalized.length, 40);
+  assert.equal(new Set(normalized.map((row) => row.url)).size, 40);
   assert.ok(normalized.every((row) => !row.url.includes("/jobs/")));
 });
 
 test("search omits credentials, does not send the JD, and reports provider errors clearly", async () => {
-  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 50, location: "Argentina" };
+  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 40, location: "Argentina" };
   let request;
   const found = await Discovery.search("https://radar.example/api/search", payload, canaryState, async (url, options) => {
     request = { url, options };

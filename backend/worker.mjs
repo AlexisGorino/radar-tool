@@ -6,7 +6,7 @@ const SOURCES = Object.freeze({
   behance: { domain: "behance.net", path: /^\/[^/]+\/?$/i },
 });
 const MAX_SOURCES = 4;
-const MAX_RESULTS = 50;
+const MAX_RESULTS = 40;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
 const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;
@@ -203,7 +203,9 @@ async function lookup(query, location, source, apiKey) {
   const url = new URL("https://serpapi.com/search.json");
   url.searchParams.set("engine", "google");
   url.searchParams.set("q", query);
-  url.searchParams.set("num", String(MAX_RESULTS));
+  // SerpApi's Google endpoint returns one page of organic results by default.
+  // Its documented pagination uses `start`; `num` is not a supported parameter.
+  // One page per selected source keeps the free-plan cost predictable.
   url.searchParams.set("api_key", apiKey);
   if (location.canonicalName) url.searchParams.set("location", location.canonicalName);
   if (location.countryCode) url.searchParams.set("gl", location.countryCode.toLowerCase());
