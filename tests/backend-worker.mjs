@@ -198,6 +198,31 @@ async function main() {
     assert.deepEqual(await response.json(), { error: "rate_limited" });
   });
 
+  await test("checks production search readiness without calling the paid search endpoint", async () => {
+    const previousFetch = globalThis.fetch;
+    const requestedPaths = [];
+    try {
+      globalThis.fetch = async (rawUrl) => {
+        const url = new URL(rawUrl);
+        requestedPaths.push(url.pathname);
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 25, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/health", {
+        method: "GET", headers: { Origin: "https://alexisgorino.github.io" },
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+        SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false });
+      assert.deepEqual(requestedPaths, ["/account.json"]);
+      assert.equal(response.headers.get("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   await test("reports safe provider failure categories without leaking upstream details", async () => {
     const previousFetch = globalThis.fetch;
     globalThis.fetch = async (rawUrl) => {
@@ -220,6 +245,38 @@ async function main() {
       assert.equal(payload.error, "sources_unavailable");
       assert.ok(payload.sourceErrors.every((entry) => entry.code === "provider_credentials_rejected"));
       assert.doesNotMatch(JSON.stringify(payload), /credential detail|server-secret/);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("separates provider location and query rejections without leaking upstream text", async () => {
+    const previousFetch = globalThis.fetch;
+    try {
+      for (const [message, code] of [
+        ["Invalid location requested", "provider_location_rejected"],
+        ["Invalid search query parameter", "provider_query_rejected"],
+      ]) {
+        globalThis.fetch = async (rawUrl) => {
+          const url = new URL(rawUrl);
+          if (url.pathname.endsWith("/account.json")) {
+            return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+          }
+          if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+          return new Response(JSON.stringify({ error: message }), { status: 400 });
+        };
+        const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+          method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+        }), {
+          ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+          SERPAPI_KEY: "server-secret",
+          SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+        });
+        const payload = await response.json();
+        assert.equal(response.status, 502);
+        assert.ok(payload.sourceErrors.every((entry) => entry.code === code));
+        assert.doesNotMatch(JSON.stringify(payload), new RegExp(message));
+      }
     } finally {
       globalThis.fetch = previousFetch;
     }

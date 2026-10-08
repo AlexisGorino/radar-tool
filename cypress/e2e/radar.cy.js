@@ -55,6 +55,28 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchConfigNote").should("contain.text", "La conexión segura con el proveedor todavía no está configurada");
   });
 
+  it("checks provider readiness without spending a search credit", () => {
+    let paidSearchCalls = 0;
+    cy.intercept("GET", "/mock-search/health", { statusCode: 200, body: { ready: true, error: null, usesSearchCredit: false } });
+    cy.intercept("POST", "/mock-search", () => { paidSearchCalls += 1; });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de datos{enter}");
+    cy.get('[data-field="imprescindibles"]').type("SQL{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get("#checkProfilesConnectionBtn").should("be.enabled").click();
+    cy.get("#publicSearchStatus").should("contain.text", "esta comprobación no consumió consultas");
+    cy.then(() => expect(paidSearchCalls).to.equal(0));
+  });
+
   it("builds a public-profile shortlist, preserves the selected locality, and labels missing evidence", () => {
     cy.intercept("POST", "/mock-search", (request) => {
       expect(request.body.location).to.equal("España, Islas Canarias");

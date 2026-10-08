@@ -61,6 +61,7 @@
   const minStarsInput = document.getElementById("minStars");
   const publicSearchSources = document.getElementById("publicSearchSources");
   const findProfilesBtn = document.getElementById("findProfilesBtn");
+  const checkProfilesConnectionBtn = document.getElementById("checkProfilesConnectionBtn");
   const publicSearchConfigNote = document.getElementById("publicSearchConfigNote");
   const publicSearchStatus = document.getElementById("publicSearchStatus");
   const publicSearchResults = document.getElementById("publicSearchResults");
@@ -111,6 +112,47 @@
 
   function getPublicSearchEndpoint() {
     return (document.querySelector('meta[name="radar-search-endpoint"]')?.content || "").trim();
+  }
+
+  function getPublicSearchHealthEndpoint() {
+    const endpoint = getPublicSearchEndpoint();
+    if (!endpoint) return "";
+    const url = new URL(endpoint, window.location.href);
+    url.pathname = url.pathname.endsWith("/api/search")
+      ? url.pathname.replace(/\/api\/search$/, "/api/health")
+      : `${url.pathname.replace(/\/$/, "")}/health`;
+    return url.toString();
+  }
+
+  async function checkPublicSearchConnection() {
+    const endpoint = getPublicSearchHealthEndpoint();
+    if (!endpoint) return;
+    checkProfilesConnectionBtn.disabled = true;
+    checkProfilesConnectionBtn.textContent = "Comprobando…";
+    publicSearchStatus.textContent = "Verificando el servicio y el cupo gratuito; esta comprobación no ejecuta búsquedas.";
+    try {
+      const response = await fetch(endpoint, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" });
+      const payload = await response.json();
+      if (payload.ready) {
+        publicSearchStatus.textContent = "Conexión correcta. El plan gratuito permite iniciar una búsqueda; esta comprobación no consumió consultas.";
+        return;
+      }
+      const messages = {
+        free_quota_exhausted: "El servicio responde, pero ya no quedan consultas gratuitas este mes. No se inició ninguna búsqueda.",
+        hourly_quota_exhausted: "El servicio responde, pero se alcanzó el límite horario. Esperá a que se renueve; no se consumió una búsqueda.",
+        free_plan_required: "El proveedor no informa un plan gratuito activo. RADAR no lanzará búsquedas que puedan generar cargos.",
+        budget_unavailable: "No se pudo verificar la cuenta del proveedor. No se inició ninguna búsqueda ni se consumió una consulta.",
+        rate_limited: "La red alcanzó el límite temporal de RADAR. Esperá un minuto y volvé a comprobar.",
+        not_configured: "El Worker no tiene configurada la clave de SerpApi.",
+        rate_limit_not_configured: "El Worker no tiene configurado el limitador de solicitudes.",
+      };
+      publicSearchStatus.textContent = messages[payload.error] || `No se pudo verificar la conexión (${response.status}). No se ejecutó una búsqueda.`;
+    } catch {
+      publicSearchStatus.textContent = "No se pudo conectar con el Worker. No se ejecutó una búsqueda ni se consumió una consulta.";
+    } finally {
+      checkProfilesConnectionBtn.disabled = false;
+      checkProfilesConnectionBtn.textContent = "Probar conexión sin buscar";
+    }
   }
 
   // ---------------------------------------------------------------
@@ -1122,6 +1164,7 @@
         const selected = [...publicSearchSources.querySelectorAll('input[name="publicSearchSource"]:checked')];
         const overLimit = selected.length > RadarTalentDiscovery.MAX_SOURCES;
         findProfilesBtn.disabled = !getPublicSearchEndpoint() || selected.length === 0 || overLimit;
+        checkProfilesConnectionBtn.disabled = !getPublicSearchEndpoint();
         if (overLimit) {
           publicSearchStatus.textContent = `Elegí hasta ${RadarTalentDiscovery.MAX_SOURCES} fuentes por consulta para cuidar el cupo mensual.`;
         } else {
@@ -1141,6 +1184,7 @@
     });
     const selectedCount = recommended.filter((source) => allowed.includes(source)).length;
     findProfilesBtn.disabled = !getPublicSearchEndpoint() || selectedCount === 0;
+    checkProfilesConnectionBtn.disabled = !getPublicSearchEndpoint();
     if (getPublicSearchEndpoint()) {
       publicSearchConfigNote.textContent = "La búsqueda usa consultas resumidas y no envía la JD completa.";
     } else {
@@ -1328,6 +1372,7 @@
   }
 
   findProfilesBtn.addEventListener("click", () => runPublicProfileSearch("precise"));
+  checkProfilesConnectionBtn.addEventListener("click", checkPublicSearchConnection);
   broadenPublicSearchBtn.addEventListener("click", () => runPublicProfileSearch(broadenPublicSearchBtn.dataset.strategy || "equivalent"));
 
   document.querySelectorAll("[data-outcome]").forEach((button) => {
