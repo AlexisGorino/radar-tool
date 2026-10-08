@@ -63,6 +63,7 @@ describe("RADAR talent search flow", () => {
         statusCode: 200,
         body: {
           count: 3,
+          locationContext: { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" },
           sourceErrors: [{ source: "github", code: "source_unavailable" }],
           results: [
             { source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Telecom Technician - LinkedIn", snippet: "FTTH, OTDR. Islas Canarias, España.", position: 1 },
@@ -103,6 +104,7 @@ describe("RADAR talent search flow", () => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
     cy.get("#publicSearchStatus").should("contain.text", "perfiles públicos ordenados por evidencia");
+    cy.get("#publicSearchResults").should("contain.text", "Contexto de búsqueda: Canary Islands,Spain");
     cy.get("#publicSearchResults").should("contain.text", "Algunas fuentes no respondieron: GitHub");
   });
 

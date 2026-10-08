@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows } from "../backend/worker.mjs";
+import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation } from "../backend/worker.mjs";
 
 let passed = 0;
 async function test(name, run) {
@@ -31,6 +31,48 @@ async function main() {
     assert.equal(validProfileUrl("https://linkedin.com/jobs/view/123", "linkedin"), false);
     assert.equal(validProfileUrl("https://notlinkedin.com/in/person", "linkedin"), false);
     assert.equal(safeResult({ link: "https://stackoverflow.com/questions/1/q", title: "Bad" }, "stackoverflow"), null);
+  });
+
+  await test("resolves a locality only to an exact provider result in the requested country", async () => {
+    assert.equal(countryCodeForLabel("España"), "ES");
+    assert.deepEqual(requestedLocationParts("España, Islas Canarias"), {
+      parts: ["España", "Islas Canarias"], countryCode: "ES", locality: "Islas Canarias",
+    });
+    assert.equal(exactLocationCandidate({ name: "Canary Islands", canonical_name: "Canary Islands,Spain", country_code: "ES", target_type: "Region" }, "Canary Islands", "ES"), true);
+    assert.equal(exactLocationCandidate({ name: "Canary Islands", canonical_name: "Canary Islands,Spain", country_code: "ES", target_type: "Region" }, "Islas Canarias", "ES"), true);
+    const previousFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async (rawUrl) => {
+        const url = new URL(rawUrl);
+        assert.equal(url.pathname, "/locations.json");
+        assert.ok(["Canary Islands", "Islas Canarias"].includes(url.searchParams.get("q")));
+        assert.equal(url.searchParams.get("limit"), "10");
+        return new Response(JSON.stringify([
+          { name: "Canary Islands", canonical_name: "Canary Islands,Spain", country_code: "ES", target_type: "Region", reach: 500000 },
+          { name: "Islas Canarias", canonical_name: "Islas Canarias, Mexico", country_code: "MX", target_type: "Region", reach: 1000 },
+        ]), { status: 200 });
+      };
+      assert.deepEqual(await resolveSearchLocation("España, Canary Islands"), {
+        canonicalName: "Canary Islands,Spain", countryCode: "ES", mode: "provider_location",
+      });
+      assert.deepEqual(await resolveSearchLocation("España, Islas Canarias"), {
+        canonicalName: "Canary Islands,Spain", countryCode: "ES", mode: "provider_location",
+      });
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("keeps geography in the query and safely omits an unresolved provider location", async () => {
+    const previousFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => { throw new Error("catalog unavailable"); };
+      assert.deepEqual(await resolveSearchLocation("España, Islas Canarias"), {
+        canonicalName: null, countryCode: "ES", mode: "query_only",
+      });
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
   });
 
   await test("balances source representation and returns at most 50 results", () => {
@@ -90,6 +132,9 @@ async function main() {
       if (url.pathname.endsWith("/account.json")) {
         return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
       }
+      if (url.pathname.endsWith("/locations.json")) {
+        return new Response(JSON.stringify([{ name: "Canary Islands", canonical_name: "Canary Islands,Spain", country_code: "ES", target_type: "Region", reach: 500000 }]), { status: 200 });
+      }
       seen.push(url);
       const source = url.searchParams.get("q").includes("linkedin.com/in") ? "linkedin" : "github";
       const host = source === "linkedin" ? "linkedin.com" : "github.com";
@@ -113,12 +158,15 @@ async function main() {
       assert.equal(json.results.length, 50);
       assert.equal(json.results.filter((row) => row.source === "linkedin").length, 25);
       assert.equal(json.results.filter((row) => row.source === "github").length, 25);
+      assert.deepEqual(json.locationContext, { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" });
       assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
       assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://alexisgorino.github.io");
       assert.equal(seen.length, 2);
       seen.forEach((url) => {
         assert.equal(url.searchParams.get("num"), "50");
-        assert.equal(url.searchParams.get("location"), "España, Islas Canarias");
+        assert.match(url.searchParams.get("q"), /Canarias/);
+        assert.equal(url.searchParams.get("location"), "Canary Islands,Spain");
+        assert.equal(url.searchParams.get("gl"), "es");
         assert.equal(url.searchParams.get("api_key"), "server-secret");
       });
       assert.doesNotMatch(JSON.stringify(json), /server-secret/);

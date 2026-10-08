@@ -1152,8 +1152,16 @@
     publicSearchRefine.classList.add("hidden");
   }
 
-  function renderPublicProfileResults(rows, sourceErrors) {
+  function renderPublicProfileResults(rows, sourceErrors, locationContext) {
     publicSearchResults.replaceChildren();
+    if (locationContext) {
+      const geography = document.createElement("p");
+      geography.className = "public-search-geography";
+      geography.textContent = locationContext.mode === "provider_location" && locationContext.canonicalName
+        ? `Contexto de búsqueda: ${locationContext.canonicalName}. La consulta también conserva la localidad; verificá la residencia en el perfil.`
+        : `La localidad se mantiene en la consulta${locationContext.countryCode ? ` y Google se orienta a ${locationContext.countryCode}` : ""}. El proveedor no confirmó una localidad exacta; no se amplió automáticamente a otro país.`;
+      publicSearchResults.appendChild(geography);
+    }
     if (!rows.length) {
       const empty = document.createElement("p");
       empty.className = "public-search-empty";
@@ -1289,7 +1297,7 @@
         if (!previous || row.score > previous.score) rowsByUrl.set(row.url, row);
       });
       publicSearchRows = [...rowsByUrl.values()].sort((a, b) => b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999)).slice(0, RadarTalentDiscovery.MAX_RESULTS);
-      renderPublicProfileResults(publicSearchRows, response.sourceErrors);
+      renderPublicProfileResults(publicSearchRows, response.sourceErrors, response.locationContext);
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
       publicSearchStatus.textContent = count
         ? `Listo: ${count} perfiles públicos ordenados por evidencia visible. Confirmá ubicación y requisitos en cada fuente.`

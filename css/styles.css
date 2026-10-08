@@ -383,6 +383,7 @@ html.authed #authGate{display:none;}
 .public-profile-snippet{margin:9px 0 6px;color:#3e4a5d;font-size:11px;line-height:1.5;}
 .public-profile-evidence{margin:6px 0 10px;color:#64728a;font-size:10px;}
 .public-profile-card a{color:#1d518e;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:2px;}
-.public-search-empty,.public-search-partial{padding:10px 12px;border-left:3px solid #b8c3d3;background:#f6f8fb;color:#52627b;font-size:11px;}
+.public-search-empty,.public-search-partial,.public-search-geography{padding:10px 12px;border-left:3px solid #b8c3d3;background:#f6f8fb;color:#52627b;font-size:11px;}
+.public-search-geography{border-left-color:#2c7a67;}
 .public-search-partial{border-left-color:#d59620;}
 @media(max-width:700px){.public-profile-list{grid-template-columns:1fr;}}

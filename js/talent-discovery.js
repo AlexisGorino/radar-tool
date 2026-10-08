@@ -221,6 +221,13 @@
       results: normalizeResults(payload, state),
       sourceErrors: Array.isArray(payload.sourceErrors) ? payload.sourceErrors : [],
       count: Number(payload.count) || 0,
+      locationContext: payload.locationContext && typeof payload.locationContext === "object"
+        ? {
+          mode: payload.locationContext.mode === "provider_location" ? "provider_location" : "query_only",
+          canonicalName: String(payload.locationContext.canonicalName || "").slice(0, 180) || null,
+          countryCode: /^[A-Z]{2}$/.test(payload.locationContext.countryCode || "") ? payload.locationContext.countryCode : null,
+        }
+        : null,
     };
   }
 

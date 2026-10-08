@@ -9,6 +9,8 @@ const MAX_SOURCES = 4;
 const MAX_RESULTS = 50;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
+const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;
+const COUNTRY_CODE_CACHE = new Map();
 const PROVIDER_ERROR_CODES = new Set([
   "provider_rate_limited",
   "provider_credentials_rejected",
@@ -77,13 +79,132 @@ function safeResult(item, source) {
   };
 }
 
+function normalizeLocation(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function countryCodeForLabel(value) {
+  const normalized = normalizeLocation(value);
+  if (COUNTRY_CODE_CACHE.has(normalized)) return COUNTRY_CODE_CACHE.get(normalized);
+  const aliases = {
+    "usa": "US", "eeuu": "US", "estados unidos": "US", "united states": "US",
+    "uk": "GB", "gran bretana": "GB", "reino unido": "GB", "united kingdom": "GB",
+    "espana": "ES", "spain": "ES", "argentina": "AR", "chile": "CL", "brasil": "BR", "brazil": "BR",
+    "mexico": "MX", "colombia": "CO", "peru": "PE", "uruguay": "UY", "paraguay": "PY", "bolivia": "BO",
+    "ecuador": "EC", "venezuela": "VE", "panama": "PA", "costa rica": "CR", "guatemala": "GT",
+    "honduras": "HN", "el salvador": "SV", "nicaragua": "NI", "republica dominicana": "DO", "puerto rico": "PR",
+    "alemania": "DE", "germany": "DE", "francia": "FR", "france": "FR", "italia": "IT", "italy": "IT",
+    "portugal": "PT", "paises bajos": "NL", "holanda": "NL", "netherlands": "NL", "belgica": "BE", "belgium": "BE",
+    "irlanda": "IE", "ireland": "IE", "suiza": "CH", "switzerland": "CH", "austria": "AT", "polonia": "PL",
+    "poland": "PL", "suecia": "SE", "sweden": "SE", "noruega": "NO", "norway": "NO", "dinamarca": "DK",
+    "denmark": "DK", "finlandia": "FI", "finland": "FI", "grecia": "GR", "greece": "GR", "turquia": "TR",
+    "turkey": "TR", "canada": "CA", "australia": "AU", "nueva zelanda": "NZ", "new zealand": "NZ",
+    "japon": "JP", "japan": "JP", "china": "CN", "india": "IN", "singapur": "SG", "singapore": "SG",
+    "israel": "IL", "sudafrica": "ZA", "south africa": "ZA", "emiratos arabes unidos": "AE", "uae": "AE",
+  };
+  if (aliases[normalized]) {
+    COUNTRY_CODE_CACHE.set(normalized, aliases[normalized]);
+    return aliases[normalized];
+  }
+
+  // Intl.DisplayNames covers country names in common recruiting languages,
+  // avoiding a second, incomplete country list alongside the UI catalog.
+  if (typeof Intl.DisplayNames !== "function") {
+    COUNTRY_CODE_CACHE.set(normalized, null);
+    return null;
+  }
+  const locales = ["es", "en", "pt", "fr", "de", "it"];
+  for (const locale of locales) {
+    const names = new Intl.DisplayNames([locale], { type: "region" });
+    for (let first = 65; first <= 90; first += 1) {
+      for (let second = 65; second <= 90; second += 1) {
+        const code = String.fromCharCode(first, second);
+        const label = names.of(code);
+        if (label && label !== code && normalizeLocation(label) === normalized) {
+          COUNTRY_CODE_CACHE.set(normalized, code);
+          return code;
+        }
+      }
+    }
+  }
+  COUNTRY_CODE_CACHE.set(normalized, null);
+  return null;
+}
+
+function requestedLocationParts(rawLocation) {
+  const parts = String(rawLocation || "").split(/[,;|]/).map((part) => part.trim()).filter(Boolean);
+  const countryParts = parts.map((part) => ({ part, code: countryCodeForLabel(part) })).filter((item) => item.code);
+  const countryCode = countryParts.length ? countryParts[0].code : null;
+  const localityParts = parts.filter((part) => !countryParts.some((item) => item.part === part));
+  return { parts, countryCode, locality: localityParts.at(-1) || parts.at(-1) || "" };
+}
+
+function exactLocationCandidate(candidate, requested, countryCode) {
+  if (!candidate || typeof candidate.canonical_name !== "string" || typeof candidate.name !== "string") return false;
+  if (countryCode && String(candidate.country_code || "").toUpperCase() !== countryCode) return false;
+  const type = normalizeLocation(candidate.target_type);
+  if (/university|airport|dma|metro|neighborhood|postal|zip|county subdivision/.test(type)) return false;
+  const term = normalizeLocation(requested);
+  const name = normalizeLocation(candidate.name);
+  const canonical = normalizeLocation(candidate.canonical_name);
+  const aliases = {
+    "islas canarias": ["canary islands"], "canarias": ["canary islands"],
+    "islas baleares": ["balearic islands"], "pais vasco": ["basque country"],
+    "nueva york": ["new york"],
+  };
+  const acceptedTerms = [term, ...(aliases[term] || [])];
+  return acceptedTerms.some((value) => value && (name === value || canonical.startsWith(`${value} `) || canonical.includes(` ${value} `)));
+}
+
+async function resolveSearchLocation(rawLocation) {
+  const requested = requestedLocationParts(rawLocation);
+  const queryOnly = () => ({ canonicalName: null, countryCode: requested.countryCode, mode: "query_only" });
+  if (!requested.locality) return queryOnly();
+
+  try {
+    const url = new URL("https://serpapi.com/locations.json");
+    url.searchParams.set("q", requested.locality);
+    url.searchParams.set("limit", "10");
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(LOCATION_LOOKUP_TIMEOUT_MS),
+    });
+    if (!response.ok) return queryOnly();
+    const locations = await response.json();
+    if (!Array.isArray(locations)) return queryOnly();
+    const matches = locations
+      .filter((item) => exactLocationCandidate(item, requested.locality, requested.countryCode))
+      .sort((a, b) => Number(b.reach || 0) - Number(a.reach || 0));
+    const matchingCountries = new Set(matches.map((item) => String(item.country_code || "").toUpperCase()).filter(Boolean));
+    if (!matches.length || (!requested.countryCode && matchingCountries.size > 1)) {
+      return queryOnly();
+    }
+    const match = matches[0];
+    return {
+      canonicalName: match.canonical_name.slice(0, 180),
+      countryCode: String(match.country_code || "").toUpperCase() || null,
+      mode: "provider_location",
+    };
+  } catch {
+    // Provider location is optional. The exact location terms remain in q,
+    // so a catalog outage must not broaden the requested geographic scope.
+    return queryOnly();
+  }
+}
+
 async function lookup(query, location, source, apiKey) {
   const url = new URL("https://serpapi.com/search.json");
   url.searchParams.set("engine", "google");
   url.searchParams.set("q", query);
   url.searchParams.set("num", String(MAX_RESULTS));
   url.searchParams.set("api_key", apiKey);
-  if (location) url.searchParams.set("location", location);
+  if (location.canonicalName) url.searchParams.set("location", location.canonicalName);
+  if (location.countryCode) url.searchParams.set("gl", location.countryCode.toLowerCase());
   const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(18_000) });
   if (response.status === 429) throw new Error("provider_rate_limited");
   if (response.status === 401 || response.status === 403) throw new Error("provider_credentials_rejected");
@@ -183,11 +304,15 @@ export default {
       return json({ error: budget.reason }, exhausted || hourlyExhausted ? 429 : 503, allowedOrigin);
     }
 
+    // The free locations catalog validates/canonicalizes search origin once
+    // per run. It never spends a paid search; `q` always retains the exact
+    // locality even when the catalog cannot confirm it.
+    const location = await resolveSearchLocation(plan.location);
     const resultsBySource = [];
     const sourceErrors = [];
     for (const entry of plan.queries) {
       try {
-        resultsBySource.push(await lookup(entry.query, plan.location, entry.source, env.SERPAPI_KEY));
+        resultsBySource.push(await lookup(entry.query, location, entry.source, env.SERPAPI_KEY));
       } catch (error) {
         sourceErrors.push({ source: entry.source, code: safeProviderErrorCode(error) });
       }
@@ -197,8 +322,8 @@ export default {
       const rateLimited = sourceErrors.some((error) => error.code === "provider_rate_limited");
       return json({ error: rateLimited ? "provider_rate_limited" : "sources_unavailable", sourceErrors }, rateLimited ? 429 : 502, allowedOrigin);
     }
-    return json({ results, sourceErrors, count: results.length }, 200, allowedOrigin);
+    return json({ results, sourceErrors, count: results.length, locationContext: { mode: location.mode, canonicalName: location.canonicalName, countryCode: location.countryCode } }, 200, allowedOrigin);
   },
 };
 
-export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows };
+export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation };
