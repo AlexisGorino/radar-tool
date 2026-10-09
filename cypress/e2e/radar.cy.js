@@ -200,7 +200,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchRefine").should("be.visible");
     cy.get("#broadenPublicSearchBtn").click();
     cy.get(".public-search-error").should("contain.text", "tardó demasiado");
-    cy.get("#publicSearchRefine").should("be.visible");
+    cy.get("#publicSearchRefine").should("not.be.visible");
     cy.get(".public-search-empty").should("not.exist");
   });
 
@@ -257,7 +257,7 @@ describe("RADAR talent search flow", () => {
       expect(plans[1].queries.map((query) => query.source)).to.deep.equal(["linkedin"]);
     });
     cy.get(".public-profile-card").should("have.length", 1);
-    cy.get("#publicSearchRefine").should("not.be.visible");
+    cy.get("#publicSearchRefine").should("be.visible");
   });
 
   it("offers a broader search even when an earlier source failed", () => {
