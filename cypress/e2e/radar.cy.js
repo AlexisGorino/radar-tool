@@ -127,7 +127,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.get("#publicSearchStatus").should("contain.text", "perfiles públicos ordenados por evidencia");
     cy.get("#publicSearchResults").should("contain.text", "Contexto de búsqueda: Canary Islands,Spain");
-    cy.get("#publicSearchResults").should("contain.text", "Algunas fuentes no respondieron: GitHub");
+    cy.get("#publicSearchResults").should("contain.text", "No se pudo completar esta fuente: GitHub");
   });
 
   it("shares only selected public profile links and keeps WhatsApp messages within the supported selection", () => {
@@ -221,6 +221,11 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "quita el cargo literal y el sector");
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
     cy.get("#publicSearchSources").should("contain.text", "Actividad y proyectos públicos");
+    cy.get("#broadenPublicSearchBtn").click();
+    cy.get(".public-search-next-questions").should("be.visible").and("contain.text", "¿Qué podemos revisar de la JD");
+    cy.get(".public-search-next-questions").contains("¿El cargo puede tener otro nombre?").click();
+    cy.get('[data-field="rol"]').should("be.focused");
+    cy.then(() => expect(sentQueries).to.have.length(3));
   });
 
   it("hides stale expansion advice when a broader search fails", () => {
@@ -255,7 +260,64 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-search-empty").should("not.exist");
   });
 
-  it("does not suggest widening when a source failed and no other source found profiles", () => {
+  it("offers a source-only retry and a deliberate widening after a partial empty response", () => {
+    const plans = [];
+    cy.intercept("POST", "/mock-search", (request) => {
+      plans.push(request.body);
+      if (plans.length === 1) {
+        request.reply({
+          statusCode: 200,
+          body: {
+            count: 0,
+            results: [],
+            sourceErrors: [{ source: "linkedin", code: "provider_timeout" }],
+            sourceDiagnostics: [
+              { source: "linkedin", status: "error", organicCount: 0, profileCount: 0, code: "provider_timeout" },
+              { source: "github", status: "no_indexed_results", organicCount: 0, profileCount: 0, code: null },
+            ],
+          },
+        });
+        return;
+      }
+      request.reply({
+        statusCode: 200,
+        body: {
+          count: 1,
+          results: [{ source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Recruiter", snippet: "Recruiting Argentina", position: 1 }],
+          sourceErrors: [],
+          sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 10, profileCount: 1, code: null }],
+        },
+      });
+    }).as("partialSearch");
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get('#publicSearchSources input[value="github"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get(".public-search-diagnostics").should("contain.text", "El proveedor agotó el tiempo de espera");
+    cy.get(".public-search-diagnostics").should("contain.text", "no encontró páginas indexadas");
+    cy.wait("@partialSearch");
+    cy.get(".public-search-retry").should("contain.text", "LinkedIn").click();
+    cy.wait("@partialSearch").then(() => {
+      expect(plans).to.have.length(2);
+      expect(plans[1].queries.map((query) => query.source)).to.deep.equal(["linkedin"]);
+    });
+    cy.get(".public-profile-card").should("have.length", 1);
+    cy.get("#publicSearchRefine").should("be.visible");
+  });
+
+  it("offers a broader search even when an earlier source failed", () => {
     cy.intercept("POST", "/mock-search", {
       statusCode: 200,
       body: { count: 0, results: [], sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] },
@@ -275,7 +337,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get("#publicSearchRefine").should("not.be.visible");
+    cy.get("#publicSearchRefine").should("be.visible");
     cy.get("#publicSearchStatus").should("contain.text", "Respuesta parcial");
     cy.get(".public-search-empty").should("contain.text", "fuentes con error quedan sin confirmar");
   });

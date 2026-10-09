@@ -198,21 +198,27 @@
       throw new Error("No se pudo conectar con el servicio de búsqueda. Revisá la conexión e intentá de nuevo manualmente.");
     }
     const payload = await response.json();
+    const sourceDiagnostics = Array.isArray(payload.sourceDiagnostics) ? payload.sourceDiagnostics : [];
+    const failWithSourceDetails = (message) => {
+      const error = new Error(message);
+      error.sourceDiagnostics = sourceDiagnostics;
+      throw error;
+    };
     if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito mensual; RADAR no inició consultas que pudieran generar cargos.");
     if (payload.error === "hourly_quota_exhausted") throw new Error("Se alcanzó el cupo horario del proveedor; RADAR no inició la búsqueda. Esperá a que se renueve y volvé a intentar.");
     if (payload.error === "rate_limited") throw new Error("La red compartida alcanzó el límite temporal de RADAR. Esperá un minuto y probá de nuevo.");
     if (payload.error === "provider_rate_limited") throw new Error("SerpApi rechazó temporalmente la consulta por su límite de uso. Revisá el cupo horario o mensual y reintentá más tarde.");
     if (payload.error === "sources_unavailable") {
       const codes = new Set((Array.isArray(payload.sourceErrors) ? payload.sourceErrors : []).map((item) => item.code));
-      if (codes.has("provider_credentials_rejected")) throw new Error("El proveedor rechazó la credencial configurada. La consulta no pudo completarse; revisá el secreto SERPAPI_KEY en Cloudflare.");
-      if (codes.has("provider_location_rejected")) throw new Error("El proveedor no reconoció la ubicación como contexto de búsqueda. La localidad sigue dentro de la consulta; probá elegir una localidad más específica o buscar solo con el país.");
-      if (codes.has("provider_query_rejected")) throw new Error("El proveedor rechazó el formato de búsqueda. RADAR conserva tus filtros; reducí la cantidad de términos y volvé a intentar.");
-      if (codes.has("provider_request_rejected")) throw new Error("El proveedor rechazó la consulta. Revisá la ubicación o los términos y probá una búsqueda más breve.");
-      if (codes.has("provider_timeout")) throw new Error("El proveedor tardó demasiado en responder. No se obtuvieron perfiles; revisá la conexión e intentá de nuevo manualmente.");
-      if (codes.has("provider_network_error")) throw new Error("RADAR no pudo conectarse con el proveedor de búsqueda. Revisá la configuración y probá de nuevo.");
-      if (codes.has("provider_unavailable")) throw new Error("El proveedor de búsqueda no respondió correctamente. No se obtuvieron perfiles; probá de nuevo más tarde.");
-      if (codes.has("source_unavailable")) throw new Error("La fuente respondió con un error inesperado. No se obtuvieron perfiles; intentá más tarde o probá otra fuente.");
-      throw new Error("No se pudo completar la consulta. No se obtuvieron perfiles; revisá la conexión o probá otra fuente.");
+      if (codes.has("provider_credentials_rejected")) failWithSourceDetails("El proveedor rechazó la credencial configurada. La consulta no pudo completarse; revisá el secreto SERPAPI_KEY en Cloudflare.");
+      if (codes.has("provider_location_rejected")) failWithSourceDetails("El proveedor no reconoció la ubicación como contexto de búsqueda. La localidad sigue dentro de la consulta; probá elegir una localidad más específica o buscar solo con el país.");
+      if (codes.has("provider_query_rejected")) failWithSourceDetails("El proveedor rechazó el formato de búsqueda. RADAR conserva tus filtros; reducí la cantidad de términos y volvé a intentar.");
+      if (codes.has("provider_request_rejected")) failWithSourceDetails("El proveedor rechazó la consulta. Revisá la ubicación o los términos y probá una búsqueda más breve.");
+      if (codes.has("provider_timeout")) failWithSourceDetails("El proveedor tardó demasiado en responder. No se obtuvieron perfiles; revisá la conexión e intentá de nuevo manualmente.");
+      if (codes.has("provider_network_error")) failWithSourceDetails("RADAR no pudo conectarse con el proveedor de búsqueda. Revisá la configuración y probá de nuevo.");
+      if (codes.has("provider_unavailable")) failWithSourceDetails("El proveedor de búsqueda no respondió correctamente. No se obtuvieron perfiles; probá de nuevo más tarde.");
+      if (codes.has("source_unavailable")) failWithSourceDetails("La fuente respondió con un error inesperado. No se obtuvieron perfiles; intentá más tarde o probá otra fuente.");
+      failWithSourceDetails("No se pudo completar la consulta. No se obtuvieron perfiles; revisá la conexión o probá otra fuente.");
     }
     if (payload.error === "free_plan_required") throw new Error("La búsqueda está pausada: el proveedor debe tener un plan gratuito activo para mantener el costo en USD 0.");
     if (payload.error === "budget_unavailable") throw new Error("RADAR no pudo verificar que la cuenta siga dentro del plan gratuito; no inició la búsqueda.");
@@ -222,6 +228,14 @@
     return {
       results: normalizeResults(payload, state),
       sourceErrors: Array.isArray(payload.sourceErrors) ? payload.sourceErrors : [],
+      sourceDiagnostics: sourceDiagnostics
+        .filter((item) => item && SOURCES[item.source]).map((item) => ({
+          source: item.source,
+          status: ["error", "profiles_found", "no_public_profiles", "no_indexed_results"].includes(item.status) ? item.status : "unknown",
+          organicCount: Math.max(0, Number(item.organicCount) || 0),
+          profileCount: Math.max(0, Number(item.profileCount) || 0),
+          code: typeof item.code === "string" ? item.code : null,
+        })),
       count: Number(payload.count) || 0,
       locationContext: payload.locationContext && typeof payload.locationContext === "object"
         ? {

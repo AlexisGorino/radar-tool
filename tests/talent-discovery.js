@@ -189,10 +189,22 @@ test("search omits credentials, does not send the JD, and reports provider error
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_query_rejected" }] }) })),
     /rechazó el formato de búsqueda/
   );
-  await assert.rejects(
-    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] }) })),
-    /tardó demasiado en responder/
-  );
+  let providerError;
+  try {
+    await Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({
+      ok: false,
+      status: 502,
+      json: async () => ({
+        error: "sources_unavailable",
+        sourceErrors: [{ source: "linkedin", code: "provider_timeout" }],
+        sourceDiagnostics: [{ source: "linkedin", status: "error", organicCount: 0, profileCount: 0, code: "provider_timeout" }],
+      }),
+    }));
+  } catch (error) {
+    providerError = error;
+  }
+  assert.match(providerError.message, /tardó demasiado en responder/);
+  assert.equal(providerError.sourceDiagnostics[0].source, "linkedin");
   await assert.rejects(
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_network_error" }] }) })),
     /no pudo conectarse/

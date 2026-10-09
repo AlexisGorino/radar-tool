@@ -158,6 +158,10 @@ async function main() {
       assert.equal(json.results.length, 40);
       assert.equal(json.results.filter((row) => row.source === "linkedin").length, 20);
       assert.equal(json.results.filter((row) => row.source === "github").length, 20);
+      assert.deepEqual(json.sourceDiagnostics, [
+        { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 40, code: null },
+        { source: "github", status: "profiles_found", organicCount: 40, profileCount: 40, code: null },
+      ]);
       assert.deepEqual(json.locationContext, { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" });
       assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
       assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://alexisgorino.github.io");
@@ -201,6 +205,8 @@ async function main() {
       });
       assert.equal(response.status, 200);
       assert.equal(requestedSources.length, 2, "all sources should be dispatched before either search resolves");
+      const payload = await response.json();
+      assert.ok(payload.sourceDiagnostics.every((entry) => entry.status === "no_indexed_results"));
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -275,6 +281,7 @@ async function main() {
       assert.equal(response.status, 502);
       assert.equal(payload.error, "sources_unavailable");
       assert.ok(payload.sourceErrors.every((entry) => entry.code === "provider_credentials_rejected"));
+      assert.ok(payload.sourceDiagnostics.every((entry) => entry.status === "error" && entry.code === "provider_credentials_rejected"));
       assert.doesNotMatch(JSON.stringify(payload), /credential detail|server-secret/);
     } finally {
       globalThis.fetch = previousFetch;
