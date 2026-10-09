@@ -1338,6 +1338,35 @@
     return section;
   }
 
+  function renderFinalNoResultQuestions() {
+    const section = document.createElement("section");
+    section.className = "public-search-next-questions";
+    section.setAttribute("aria-label", "Preguntas para seguir refinando la búsqueda");
+    const title = document.createElement("strong");
+    title.textContent = "¿Qué podemos revisar de la JD para abrir otra ruta?";
+    const explanation = document.createElement("p");
+    explanation.textContent = "No aparecieron perfiles indexados con estas condiciones. Elegí qué dato querés revisar; RADAR no va a flexibilizar un requisito por su cuenta.";
+    section.append(title, explanation);
+    const questions = [
+      { label: "¿El cargo puede tener otro nombre?", selector: '[data-field="rol"]' },
+      { label: "¿Algún imprescindible admite equivalencias?", selector: '[data-field="imprescindibles"]' },
+      { label: "¿Podemos ampliar la ubicación?", selector: '[data-field="alcance"]' },
+    ];
+    questions.forEach(({ label, selector }) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "jd-review-choice";
+      button.textContent = label;
+      button.addEventListener("click", () => {
+        const target = document.querySelector(selector);
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        target?.focus({ preventScroll: true });
+      });
+      section.appendChild(button);
+    });
+    publicSearchResults.appendChild(section);
+  }
+
   function renderPublicSearchError(error) {
     publicSearchResults.replaceChildren();
     const panel = document.createElement("section");
@@ -1427,6 +1456,7 @@
       } else {
         publicSearchRefine.classList.add("hidden");
       }
+      if (!count && !partial && strategy === "market") renderFinalNoResultQuestions();
     } catch (error) {
       if (sequence !== publicSearchSequence) return;
       publicSearchStatus.textContent = "La búsqueda no se completó.";

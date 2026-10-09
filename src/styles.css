@@ -519,6 +519,10 @@ select:focus-visible {
 .public-search-diagnostics strong { color: #28354a; }
 .public-search-diagnostics ul { display: grid; gap: 4px; margin: 7px 0 0; padding-left: 18px; }
 .public-search-retry { margin: 0 0 10px; }
+.public-search-next-questions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; padding: 13px 14px; border: 1px solid #d8dee8; border-left: 3px solid #526f9f; background: #f8faff; }
+.public-search-next-questions strong, .public-search-next-questions p { flex: 1 0 100%; margin: 0; }
+.public-search-next-questions strong { color: #28354a; font-size: 12px; }
+.public-search-next-questions p { color: #52627b; font-size: 11px; line-height: 1.5; }
 @media (max-width: 700px) { .public-profile-list { grid-template-columns: 1fr; } }
 
 @media (max-width: 680px) {

@@ -165,6 +165,11 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "quita el cargo literal y el sector");
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
     cy.get("#publicSearchSources").should("contain.text", "Actividad y proyectos públicos");
+    cy.get("#broadenPublicSearchBtn").click();
+    cy.get(".public-search-next-questions").should("be.visible").and("contain.text", "¿Qué podemos revisar de la JD");
+    cy.get(".public-search-next-questions").contains("¿El cargo puede tener otro nombre?").click();
+    cy.get('[data-field="rol"]').should("be.focused");
+    cy.then(() => expect(sentQueries).to.have.length(3));
   });
 
   it("hides stale expansion advice when a broader search fails", () => {
