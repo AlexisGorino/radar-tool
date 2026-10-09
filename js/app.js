@@ -1209,7 +1209,9 @@
     if (!rows.length) {
       const empty = document.createElement("p");
       empty.className = "public-search-empty";
-      empty.textContent = "No aparecieron perfiles públicos verificables con esta consulta. Probá una ruta más amplia, revisá las señales o cambiá las fuentes.";
+      empty.textContent = sourceErrors && sourceErrors.length
+        ? "Las fuentes que respondieron no devolvieron perfiles verificables; las fuentes con error quedan sin confirmar."
+        : "No aparecieron perfiles públicos verificables con esta consulta. Probá una ruta más amplia, revisá las señales o cambiá las fuentes.";
       publicSearchResults.appendChild(empty);
     } else {
       const summary = document.createElement("div");
@@ -1325,6 +1327,7 @@
     findProfilesBtn.disabled = true;
     findProfilesBtn.textContent = "Buscando perfiles…";
     broadenPublicSearchBtn.disabled = true;
+    publicSearchRefine.classList.add("hidden");
     if (strategy === "precise") publicSearchRows = [];
     publicSearchStrategy = strategy;
     const skippedNote = plan.skippedSources.length
@@ -1343,10 +1346,13 @@
       publicSearchRows = [...rowsByUrl.values()].sort((a, b) => b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999)).slice(0, RadarTalentDiscovery.MAX_RESULTS);
       renderPublicProfileResults(publicSearchRows, response.sourceErrors, response.locationContext);
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
+      const partial = response.sourceErrors.length > 0;
       publicSearchStatus.textContent = count
-        ? `Listo: ${count} perfiles públicos ordenados por evidencia visible. Confirmá ubicación y requisitos en cada fuente.`
-        : "Búsqueda completada sin perfiles verificables.";
-      if (count <= 3 && strategy !== "market") {
+        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} perfiles públicos ordenados por evidencia visible. Confirmá ubicación y requisitos en cada fuente.`
+        : partial
+          ? "Respuesta parcial: algunas fuentes fallaron y las que respondieron no devolvieron perfiles verificables."
+          : "Búsqueda completada sin perfiles verificables.";
+      if (!partial && count <= 3 && strategy !== "market") {
         const nextStrategy = strategy === "precise" ? "equivalent" : "market";
         broadenPublicSearchBtn.dataset.strategy = nextStrategy;
         broadenPublicSearchBtn.textContent = nextStrategy === "equivalent" ? "Probar perfiles equivalentes" : "Ampliar sin cargo ni sector";
@@ -1361,6 +1367,7 @@
     } catch (error) {
       if (sequence !== publicSearchSequence) return;
       publicSearchStatus.textContent = "La búsqueda no se completó.";
+      publicSearchRefine.classList.add("hidden");
       renderPublicSearchError(error);
     } finally {
       if (sequence === publicSearchSequence) {

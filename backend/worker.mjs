@@ -10,6 +10,7 @@ const MAX_RESULTS = 40;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
 const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;
+const SEARCH_TIMEOUT_MS = 30_000;
 const COUNTRY_CODE_CACHE = new Map();
 const PROVIDER_ERROR_CODES = new Set([
   "provider_rate_limited",
@@ -209,7 +210,7 @@ async function lookup(query, location, source, apiKey) {
   url.searchParams.set("api_key", apiKey);
   if (location.canonicalName) url.searchParams.set("location", location.canonicalName);
   if (location.countryCode) url.searchParams.set("gl", location.countryCode.toLowerCase());
-  const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(18_000) });
+  const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) });
   if (response.status === 429) throw new Error("provider_rate_limited");
   if (response.status === 401 || response.status === 403) throw new Error("provider_credentials_rejected");
   let data;
@@ -331,15 +332,17 @@ export default {
     // per run. It never spends a paid search; `q` always retains the exact
     // locality even when the catalog cannot confirm it.
     const location = await resolveSearchLocation(plan.location);
-    const resultsBySource = [];
-    const sourceErrors = [];
-    for (const entry of plan.queries) {
+    // Query selected sources concurrently: sequential timeouts could leave a
+    // four-source search waiting up to two minutes before reporting failure.
+    const settledSources = await Promise.all(plan.queries.map(async (entry) => {
       try {
-        resultsBySource.push(await lookup(entry.query, location, entry.source, env.SERPAPI_KEY));
+        return { source: entry.source, results: await lookup(entry.query, location, entry.source, env.SERPAPI_KEY) };
       } catch (error) {
-        sourceErrors.push({ source: entry.source, code: safeProviderErrorCode(error) });
+        return { source: entry.source, error: safeProviderErrorCode(error) };
       }
-    }
+    }));
+    const resultsBySource = settledSources.filter((item) => item.results).map((item) => item.results);
+    const sourceErrors = settledSources.filter((item) => item.error).map((item) => ({ source: item.source, code: item.error }));
     const results = takeBalanced(resultsBySource);
     if (!results.length && sourceErrors.length === plan.queries.length) {
       const rateLimited = sourceErrors.some((error) => error.code === "provider_rate_limited");

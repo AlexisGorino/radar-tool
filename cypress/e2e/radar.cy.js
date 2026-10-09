@@ -167,6 +167,63 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchSources").should("contain.text", "Actividad y proyectos públicos");
   });
 
+  it("hides stale expansion advice when a broader search fails", () => {
+    let requestCount = 0;
+    cy.intercept("POST", "/mock-search", (request) => {
+      requestCount += 1;
+      if (requestCount === 1) {
+        request.reply({ statusCode: 200, body: { count: 0, results: [], sourceErrors: [] } });
+      } else {
+        request.reply({ statusCode: 502, body: { error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] } });
+      }
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get("#publicSearchRefine").should("be.visible");
+    cy.get("#broadenPublicSearchBtn").click();
+    cy.get(".public-search-error").should("contain.text", "tardó demasiado");
+    cy.get("#publicSearchRefine").should("not.be.visible");
+    cy.get(".public-search-empty").should("not.exist");
+  });
+
+  it("does not suggest widening when a source failed and no other source found profiles", () => {
+    cy.intercept("POST", "/mock-search", {
+      statusCode: 200,
+      body: { count: 0, results: [], sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] },
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get("#publicSearchRefine").should("not.be.visible");
+    cy.get("#publicSearchStatus").should("contain.text", "Respuesta parcial");
+    cy.get(".public-search-empty").should("contain.text", "fuentes con error quedan sin confirmar");
+  });
+
   it("shows an actionable limit message when the public search provider rate-limits a request", () => {
     cy.intercept("POST", "/mock-search", { statusCode: 429, body: { error: "rate_limited" } });
     cy.visit("/", {

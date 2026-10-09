@@ -175,6 +175,37 @@ async function main() {
     }
   });
 
+  await test("starts all selected source searches concurrently", async () => {
+    const previousFetch = globalThis.fetch;
+    const requestedSources = [];
+    let releaseSearches;
+    const searchesReleased = new Promise((resolve) => { releaseSearches = resolve; });
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) {
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      const source = url.searchParams.get("q").includes("linkedin.com/in") ? "linkedin" : "github";
+      requestedSources.push(source);
+      if (requestedSources.length === 2) releaseSearches();
+      await Promise.race([searchesReleased, new Promise((resolve) => setTimeout(resolve, 100))]);
+      return new Response(JSON.stringify({ organic_results: [] }), { status: 200 });
+    };
+    try {
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      assert.equal(response.status, 200);
+      assert.equal(requestedSources.length, 2, "all sources should be dispatched before either search resolves");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   await test("fails closed without a rate-limit binding or provider secret", async () => {
     const base = new Request("https://radar-search.example/api/search", {
       method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),
