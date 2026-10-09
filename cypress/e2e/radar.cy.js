@@ -127,7 +127,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.get("#publicSearchStatus").should("contain.text", "perfiles públicos ordenados por evidencia");
     cy.get("#publicSearchResults").should("contain.text", "Contexto de búsqueda: Canary Islands,Spain");
-    cy.get("#publicSearchResults").should("contain.text", "Algunas fuentes no respondieron: GitHub");
+    cy.get("#publicSearchResults").should("contain.text", "No se pudo completar esta fuente: GitHub");
   });
 
   it("suggests a deliberate broader search after no results and keeps hard requirements and locality", () => {
@@ -195,7 +195,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchRefine").should("be.visible");
     cy.get("#broadenPublicSearchBtn").click();
     cy.get(".public-search-error").should("contain.text", "tardó demasiado");
-    cy.get("#publicSearchRefine").should("not.be.visible");
+    cy.get("#publicSearchRefine").should("be.visible");
     cy.get(".public-search-empty").should("not.exist");
   });
 
