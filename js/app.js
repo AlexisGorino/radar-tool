@@ -1287,12 +1287,55 @@
     if (sourceErrors && sourceErrors.length) {
       const partial = document.createElement("p");
       partial.className = "public-search-partial";
-      const hitProviderLimit = sourceErrors.some((item) => item.code === "provider_rate_limited");
-      partial.textContent = hitProviderLimit
-        ? `El proveedor limitó algunas consultas (${sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source).join(", ")}). Los resultados son parciales; esperá a que se renueve el cupo horario y volvé a intentar.`
-        : `Algunas fuentes no respondieron: ${sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source).join(", ")}.`;
+      const failedLabels = sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source);
+      partial.textContent = `No se pudo completar ${failedLabels.length === 1 ? "esta fuente" : "estas fuentes"}: ${failedLabels.join(", ")}. Revisá el detalle y podés reintentar solo las fuentes con error.`;
       publicSearchResults.appendChild(partial);
+
+      const retrySources = [...new Set(sourceErrors.map((item) => item.source))]
+        .filter((source) => RadarTalentDiscovery.SOURCES[source]);
+      if (retrySources.length) {
+        const retryButton = document.createElement("button");
+        retryButton.className = "btn btn-ghost btn-small public-search-retry";
+        retryButton.type = "button";
+        retryButton.textContent = `Reintentar ${retrySources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(" + ")}`;
+        retryButton.addEventListener("click", () => runPublicProfileSearch(publicSearchStrategy, retrySources));
+        publicSearchResults.appendChild(retryButton);
+      }
     }
+  }
+
+  function renderSourceDiagnostics(diagnostics) {
+    if (!Array.isArray(diagnostics) || !diagnostics.length) return null;
+    const section = document.createElement("section");
+    section.className = "public-search-diagnostics";
+    section.setAttribute("aria-label", "Resultado por fuente");
+    const heading = document.createElement("strong");
+    heading.textContent = "Qué pasó en cada fuente";
+    const list = document.createElement("ul");
+    const errorMessages = {
+      provider_rate_limited: "El proveedor alcanzó su límite temporal.",
+      provider_timeout: "El proveedor agotó el tiempo de espera.",
+      provider_network_error: "No se pudo establecer conexión con el proveedor.",
+      provider_credentials_rejected: "El proveedor rechazó su credencial; avisá al equipo administrador.",
+      provider_location_rejected: "El proveedor rechazó el contexto geográfico.",
+      provider_query_rejected: "El proveedor rechazó la consulta generada.",
+      provider_request_rejected: "El proveedor rechazó la solicitud.",
+      provider_unavailable: "El proveedor no está disponible ahora.",
+      source_unavailable: "La fuente devolvió un error inesperado.",
+    };
+    diagnostics.forEach((item) => {
+      const entry = document.createElement("li");
+      const label = RadarTalentDiscovery.SOURCES[item.source]?.label || item.source;
+      let detail = "No hubo diagnóstico disponible.";
+      if (item.status === "error") detail = errorMessages[item.code] || "No se pudo completar la consulta.";
+      else if (item.status === "profiles_found") detail = `${item.profileCount} perfiles públicos admitidos de ${item.organicCount} resultados indexados.`;
+      else if (item.status === "no_public_profiles") detail = `El buscador devolvió ${item.organicCount} resultados, pero ninguno tenía una URL de perfil reconocible en esta fuente.`;
+      else if (item.status === "no_indexed_results") detail = "El buscador no encontró páginas indexadas con estos términos.";
+      entry.textContent = `${label}: ${detail}`;
+      list.appendChild(entry);
+    });
+    section.append(heading, list);
+    return section;
   }
 
   function renderPublicSearchError(error) {
@@ -1307,13 +1350,26 @@
     const note = document.createElement("span");
     note.textContent = "No mostramos una lista vacía como si la búsqueda hubiera terminado correctamente. No se hacen reintentos automáticos.";
     panel.append(heading, message, note);
+    const diagnostics = renderSourceDiagnostics(error && error.sourceDiagnostics);
+    if (diagnostics) panel.appendChild(diagnostics);
+    const retrySources = [...new Set((error && error.sourceDiagnostics || [])
+      .filter((item) => item && item.status === "error" && RadarTalentDiscovery.SOURCES[item.source])
+      .map((item) => item.source))];
+    if (retrySources.length) {
+      const retryButton = document.createElement("button");
+      retryButton.className = "btn btn-ghost btn-small public-search-retry";
+      retryButton.type = "button";
+      retryButton.textContent = `Reintentar ${retrySources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(" + ")}`;
+      retryButton.addEventListener("click", () => runPublicProfileSearch(publicSearchStrategy, retrySources));
+      panel.appendChild(retryButton);
+    }
     publicSearchResults.appendChild(panel);
   }
 
-  async function runPublicProfileSearch(strategy) {
+  async function runPublicProfileSearch(strategy, sourceOverride) {
     const publicSearchEndpoint = getPublicSearchEndpoint();
     if (!publicSearchEndpoint) return;
-    const selected = [...publicSearchSources.querySelectorAll('input[name="publicSearchSource"]:checked')].map((input) => input.value);
+    const selected = sourceOverride || [...publicSearchSources.querySelectorAll('input[name="publicSearchSource"]:checked')].map((input) => input.value);
     if (!selected.length || selected.length > RadarTalentDiscovery.MAX_SOURCES) {
       publicSearchStatus.textContent = `Elegí entre 1 y ${RadarTalentDiscovery.MAX_SOURCES} fuentes.`;
       return;
@@ -1328,12 +1384,14 @@
     findProfilesBtn.textContent = "Buscando perfiles…";
     broadenPublicSearchBtn.disabled = true;
     publicSearchRefine.classList.add("hidden");
-    if (strategy === "precise") publicSearchRows = [];
+    if (strategy === "precise" && !sourceOverride) publicSearchRows = [];
     publicSearchStrategy = strategy;
     const skippedNote = plan.skippedSources.length
       ? ` Se omitieron por longitud: ${plan.skippedSources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(", ")}.`
       : "";
-    publicSearchStatus.textContent = `Consultando ${plan.queries.length} fuentes públicas. Esta ruta consume una búsqueda por fuente del cupo mensual; no se ejecutan intentos extra automáticamente.${skippedNote}`;
+    publicSearchStatus.textContent = sourceOverride
+      ? `Reintentando ${plan.queries.map((query) => query.label).join(", ")} con los mismos criterios. Consume una búsqueda por fuente del cupo mensual.`
+      : `Consultando ${plan.queries.length} fuentes públicas. Esta ruta consume una búsqueda por fuente del cupo mensual; no se ejecutan intentos extra automáticamente.${skippedNote}`;
     publicSearchResults.replaceChildren();
     try {
       const response = await RadarTalentDiscovery.search(publicSearchEndpoint, plan, state);
@@ -1345,6 +1403,8 @@
       });
       publicSearchRows = [...rowsByUrl.values()].sort((a, b) => b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999)).slice(0, RadarTalentDiscovery.MAX_RESULTS);
       renderPublicProfileResults(publicSearchRows, response.sourceErrors, response.locationContext);
+      const diagnostics = renderSourceDiagnostics(response.sourceDiagnostics);
+      if (diagnostics) publicSearchResults.appendChild(diagnostics);
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
       const partial = response.sourceErrors.length > 0;
       publicSearchStatus.textContent = count
@@ -1352,14 +1412,17 @@
         : partial
           ? "Respuesta parcial: algunas fuentes fallaron y las que respondieron no devolvieron perfiles verificables."
           : "Búsqueda completada sin perfiles verificables.";
-      if (!partial && count <= 3 && strategy !== "market") {
+      if (count <= 3 && strategy !== "market") {
         const nextStrategy = strategy === "precise" ? "equivalent" : "market";
         broadenPublicSearchBtn.dataset.strategy = nextStrategy;
         broadenPublicSearchBtn.textContent = nextStrategy === "equivalent" ? "Probar perfiles equivalentes" : "Ampliar sin cargo ni sector";
         publicSearchRefineTitle.textContent = count ? `Aparecieron ${count} perfiles. ¿Querés ampliar?` : "No aparecieron perfiles verificables con esta ruta.";
+        const retryNote = partial
+          ? " Hay fuentes con error; podés reintentarlas por separado sin volver a consultar las demás."
+          : "";
         publicSearchRefineText.textContent = nextStrategy === "equivalent"
-          ? "Siguiente intento: deja de exigir el título literal y busca perfiles por señales del puesto. Mantiene la localidad, los imprescindibles y las exclusiones. Consume una búsqueda adicional por fuente seleccionada."
-          : "Última ampliación: quita el cargo literal y el sector, y conserva la localidad, los imprescindibles y las exclusiones. Si sigue sin alcanzar, revisá si alguna señal marcada como imprescindible admite equivalencias o elegí otra fuente. Consume una búsqueda adicional por fuente seleccionada.";
+          ? `Siguiente intento: deja de exigir el título literal y busca perfiles por señales del puesto. Mantiene la localidad, los imprescindibles y las exclusiones. Consume una búsqueda adicional por fuente seleccionada.${retryNote}`
+          : `Última ampliación: quita el cargo literal y el sector, y conserva la localidad, los imprescindibles y las exclusiones. Si sigue sin alcanzar, revisá si alguna señal marcada como imprescindible admite equivalencias o elegí otra fuente. Consume una búsqueda adicional por fuente seleccionada.${retryNote}`;
         publicSearchRefine.classList.remove("hidden");
       } else {
         publicSearchRefine.classList.add("hidden");

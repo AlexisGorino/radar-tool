@@ -229,8 +229,13 @@ async function lookup(query, location, source, apiKey) {
     throw new Error("provider_request_rejected");
   }
   if (!response.ok) throw new Error("provider_unavailable");
-  return (Array.isArray(data.organic_results) ? data.organic_results : [])
-    .map((item) => safeResult(item, source)).filter(Boolean).slice(0, MAX_RESULTS);
+  const organicResults = Array.isArray(data.organic_results) ? data.organic_results : [];
+  const profileResults = organicResults.map((item) => safeResult(item, source)).filter(Boolean);
+  return {
+    results: profileResults.slice(0, MAX_RESULTS),
+    organicCount: organicResults.length,
+    profileCount: profileResults.length,
+  };
 }
 
 async function freeBudgetAllows(apiKey, searchesNeeded) {
@@ -336,19 +341,26 @@ export default {
     // four-source search waiting up to two minutes before reporting failure.
     const settledSources = await Promise.all(plan.queries.map(async (entry) => {
       try {
-        return { source: entry.source, results: await lookup(entry.query, location, entry.source, env.SERPAPI_KEY) };
+        return { source: entry.source, ...await lookup(entry.query, location, entry.source, env.SERPAPI_KEY) };
       } catch (error) {
         return { source: entry.source, error: safeProviderErrorCode(error) };
       }
     }));
-    const resultsBySource = settledSources.filter((item) => item.results).map((item) => item.results);
+    const resultsBySource = settledSources.filter((item) => Array.isArray(item.results)).map((item) => item.results);
     const sourceErrors = settledSources.filter((item) => item.error).map((item) => ({ source: item.source, code: item.error }));
+    const sourceDiagnostics = settledSources.map((item) => ({
+      source: item.source,
+      status: item.error ? "error" : item.profileCount ? "profiles_found" : item.organicCount ? "no_public_profiles" : "no_indexed_results",
+      organicCount: Number(item.organicCount) || 0,
+      profileCount: Number(item.profileCount) || 0,
+      code: item.error || null,
+    }));
     const results = takeBalanced(resultsBySource);
     if (!results.length && sourceErrors.length === plan.queries.length) {
       const rateLimited = sourceErrors.some((error) => error.code === "provider_rate_limited");
-      return json({ error: rateLimited ? "provider_rate_limited" : "sources_unavailable", sourceErrors }, rateLimited ? 429 : 502, allowedOrigin);
+      return json({ error: rateLimited ? "provider_rate_limited" : "sources_unavailable", sourceErrors, sourceDiagnostics }, rateLimited ? 429 : 502, allowedOrigin);
     }
-    return json({ results, sourceErrors, count: results.length, locationContext: { mode: location.mode, canonicalName: location.canonicalName, countryCode: location.countryCode } }, 200, allowedOrigin);
+    return json({ results, sourceErrors, sourceDiagnostics, count: results.length, locationContext: { mode: location.mode, canonicalName: location.canonicalName, countryCode: location.countryCode } }, 200, allowedOrigin);
   },
 };
 
