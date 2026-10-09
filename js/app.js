@@ -97,6 +97,9 @@
   let uploadSequence = 0;
   let publicSearchSequence = 0;
   let publicSearchRows = [];
+  let publicShareRows = new Map();
+  const MAX_WHATSAPP_SHARE_PROFILES = 8;
+  const MAX_SHARE_URL_LENGTH = 7000;
   let publicSearchStrategy = "precise";
   const historyPanel = document.getElementById("historyPanel");
   const helpPanel = document.getElementById("helpPanel");
@@ -1198,6 +1201,7 @@
 
   function renderPublicProfileResults(rows, sourceErrors, locationContext) {
     publicSearchResults.replaceChildren();
+    publicShareRows = new Map(rows.map((row) => [row.url, row]));
     if (locationContext) {
       const geography = document.createElement("p");
       geography.className = "public-search-geography";
@@ -1222,6 +1226,37 @@
       summaryNote.textContent = "Ordenados por señales públicas visibles; no es una evaluación de idoneidad.";
       summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
+      const shareTools = document.createElement("div");
+      shareTools.className = "public-profile-share-tools";
+      shareTools.setAttribute("aria-label", "Compartir perfiles seleccionados");
+      const selectAllLabel = document.createElement("label");
+      selectAllLabel.className = "public-profile-select-all";
+      const selectAll = document.createElement("input");
+      selectAll.id = "publicShareSelectAll";
+      selectAll.type = "checkbox";
+      selectAllLabel.append(selectAll, document.createTextNode(`Seleccionar los ${rows.length} perfiles`));
+      const selectedCount = document.createElement("span");
+      selectedCount.id = "publicShareSelectionCount";
+      selectedCount.setAttribute("aria-live", "polite");
+      selectedCount.textContent = "0 seleccionados";
+      const emailButton = document.createElement("button");
+      emailButton.id = "shareProfilesEmailBtn";
+      emailButton.type = "button";
+      emailButton.className = "btn btn-ghost public-profile-share-button";
+      emailButton.textContent = "Preparar correo";
+      emailButton.disabled = true;
+      const whatsappButton = document.createElement("button");
+      whatsappButton.id = "shareProfilesWhatsappBtn";
+      whatsappButton.type = "button";
+      whatsappButton.className = "btn btn-ghost public-profile-share-button";
+      whatsappButton.textContent = "Abrir WhatsApp";
+      whatsappButton.disabled = true;
+      const shareHint = document.createElement("span");
+      shareHint.id = "publicShareHint";
+      shareHint.className = "public-profile-share-hint";
+      shareHint.textContent = "Elegí perfiles. Se abrirá un borrador para que revises y envíes; WhatsApp admite hasta 8 por mensaje.";
+      shareTools.append(selectAllLabel, selectedCount, emailButton, whatsappButton, shareHint);
+      publicSearchResults.appendChild(shareTools);
       const list = document.createElement("ol");
       list.className = "public-profile-list";
       rows.forEach((row, index) => {
@@ -1259,7 +1294,15 @@
         const location = document.createElement("span");
         location.className = row.specificLocationHit ? "public-profile-location is-confirmed" : "public-profile-location is-unverified";
         location.textContent = row.locationStatus;
-        meta.append(source, location);
+        const includeLabel = document.createElement("label");
+        includeLabel.className = "public-profile-share-select";
+        const includeInput = document.createElement("input");
+        includeInput.type = "checkbox";
+        includeInput.className = "public-profile-share-checkbox";
+        includeInput.value = row.url;
+        includeInput.setAttribute("aria-label", `Incluir ${row.name || row.title} al mensaje`);
+        includeLabel.append(includeInput, document.createTextNode("Compartir"));
+        meta.append(source, location, includeLabel);
 
         const snippet = document.createElement("p");
         snippet.className = "public-profile-snippet";
@@ -1302,6 +1345,7 @@
         publicSearchResults.appendChild(retryButton);
       }
     }
+    updatePublicShareControls();
   }
 
   function renderSourceDiagnostics(diagnostics) {
@@ -1366,6 +1410,71 @@
     });
     publicSearchResults.appendChild(section);
   }
+
+  function selectedPublicShareRows() {
+    const selectedUrls = new Set([...publicSearchResults.querySelectorAll(".public-profile-share-checkbox:checked")].map((input) => input.value));
+    return [...publicShareRows.values()].filter((row) => selectedUrls.has(row.url));
+  }
+
+  function publicShareMessage(rows) {
+    const clean = (value, maxLength) => String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLength);
+    const role = clean(state.rol.join(", "), 120);
+    const location = clean(state.alcance.join(", "), 120);
+    const lines = ["RADAR — perfiles públicos para revisar"];
+    if (role) lines.push(`Búsqueda: ${role}`);
+    if (location) lines.push(`Ubicación indicada: ${location}`);
+    lines.push("");
+    rows.forEach((row, index) => {
+      lines.push(`${index + 1}. ${clean(row.name || "Nombre no visible", 70)} — ${clean(row.title, 120)} (${clean(row.sourceLabel, 40)})`);
+      lines.push(row.url, "");
+    });
+    lines.push("Los enlaces provienen de resultados públicos indexados. Confirmá identidad, experiencia y ubicación en la fuente; el orden de RADAR no determina idoneidad ni disponibilidad.");
+    return lines.join("\n");
+  }
+
+  function updatePublicShareControls() {
+    const toolbar = publicSearchResults.querySelector(".public-profile-share-tools");
+    if (!toolbar) return;
+    const selected = selectedPublicShareRows();
+    const message = publicShareMessage(selected);
+    const emailUrl = `mailto:?subject=${encodeURIComponent("Perfiles públicos para revisar — RADAR")}&body=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const count = toolbar.querySelector("#publicShareSelectionCount");
+    const all = toolbar.querySelector("#publicShareSelectAll");
+    const email = toolbar.querySelector("#shareProfilesEmailBtn");
+    const whatsapp = toolbar.querySelector("#shareProfilesWhatsappBtn");
+    const hint = toolbar.querySelector("#publicShareHint");
+    count.textContent = `${selected.length} seleccionados`;
+    all.checked = selected.length === publicShareRows.size;
+    all.indeterminate = selected.length > 0 && selected.length < publicShareRows.size;
+    email.disabled = selected.length === 0 || emailUrl.length > MAX_SHARE_URL_LENGTH;
+    whatsapp.disabled = selected.length === 0 || selected.length > MAX_WHATSAPP_SHARE_PROFILES || whatsappUrl.length > MAX_SHARE_URL_LENGTH;
+    if (selected.length > MAX_WHATSAPP_SHARE_PROFILES) {
+      hint.textContent = "Para WhatsApp, dejá seleccionados hasta 8 perfiles. El correo puede incluir una lista más extensa.";
+    } else if (emailUrl.length > MAX_SHARE_URL_LENGTH) {
+      hint.textContent = "El correo quedó demasiado largo para abrirse con seguridad. Reducí la selección; podés compartir hasta 8 por WhatsApp.";
+    } else {
+      hint.textContent = "Elegí perfiles. Se abrirá un borrador para que revises y envíes; WhatsApp admite hasta 8 por mensaje.";
+    }
+    email.dataset.shareUrl = emailUrl;
+    whatsapp.dataset.shareUrl = whatsappUrl;
+  }
+
+  publicSearchResults.addEventListener("change", (event) => {
+    const target = event.target;
+    if (target.id === "publicShareSelectAll") {
+      publicSearchResults.querySelectorAll(".public-profile-share-checkbox").forEach((checkbox) => { checkbox.checked = target.checked; });
+      updatePublicShareControls();
+    } else if (target.matches(".public-profile-share-checkbox")) {
+      updatePublicShareControls();
+    }
+  });
+
+  publicSearchResults.addEventListener("click", (event) => {
+    const button = event.target.closest("#shareProfilesEmailBtn, #shareProfilesWhatsappBtn");
+    if (!button || button.disabled || !button.dataset.shareUrl) return;
+    window.open(button.dataset.shareUrl, "_blank", "noopener,noreferrer");
+  });
 
   function renderPublicSearchError(error) {
     publicSearchResults.replaceChildren();
