@@ -130,6 +130,62 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchResults").should("contain.text", "Algunas fuentes no respondieron: GitHub");
   });
 
+  it("shares only selected public profile links and keeps WhatsApp messages within the supported selection", () => {
+    cy.intercept("POST", "/mock-search", {
+      statusCode: 200,
+      body: {
+        count: 9,
+        sourceErrors: [],
+        results: Array.from({ length: 9 }, (_, index) => ({
+          source: "linkedin",
+          url: `https://linkedin.com/in/candidate-${index + 1}`,
+          title: `Candidate ${index + 1} - Telecom Technician - LinkedIn`,
+          snippet: "FTTH Islas Canarias",
+          position: index + 1,
+        })),
+      },
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+        cy.stub(win, "open").as("shareWindow");
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Técnico instalador{enter}");
+    cy.get('[data-field="atributos"]').type("FTTH{enter}");
+    cy.get('[data-field="alcance"]').type("Islas Canarias{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get(".public-profile-card").should("have.length", 9);
+    cy.get("#shareProfilesWhatsappBtn").should("be.disabled");
+    cy.get("#publicShareSelectAll").check();
+    cy.get("#publicShareSelectionCount").should("have.text", "9 seleccionados");
+    cy.get("#publicShareHint").should("contain.text", "hasta 8 perfiles");
+    cy.get(".public-profile-share-checkbox").last().uncheck();
+    cy.get("#shareProfilesWhatsappBtn").should("be.enabled").click();
+    cy.get("@shareWindow").should("have.been.calledOnce").then((shareWindow) => {
+      const target = shareWindow.firstCall.args[0];
+      expect(target).to.include("https://wa.me/?text=");
+      const message = new URL(target).searchParams.get("text");
+      expect(message).to.include("candidate-1");
+      expect(message).not.to.include("candidate-9");
+      expect(message).to.include("no determina idoneidad");
+    });
+    cy.get("#shareProfilesEmailBtn").click();
+    cy.get("@shareWindow").should("have.been.calledTwice").then((shareWindow) => {
+      const target = shareWindow.secondCall.args[0];
+      expect(target).to.include("mailto:");
+      const body = new URL(target).searchParams.get("body");
+      expect(body).to.include("candidate-1");
+      expect(body).not.to.include("candidate-9");
+    });
+  });
+
   it("suggests a deliberate broader search after no results and keeps hard requirements and locality", () => {
     const sentQueries = [];
     cy.intercept("POST", "/mock-search", (request) => {

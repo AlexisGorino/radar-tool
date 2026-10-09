@@ -380,6 +380,12 @@ html.authed #authGate{display:none;}
 .public-profile-score{flex:0 0 auto;padding:5px 7px;border-radius:6px;background:#eef4ff;color:#244776;font-size:10px;font-weight:800;}
 .public-profile-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .public-profile-meta span{padding:3px 7px;border-radius:999px;background:#f1f3f6;color:#49566a;font-size:10px;}
+.public-profile-share-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 12px;border:1px solid #e0e5ed;border-radius:8px;background:#f8f9fb;}
+.public-profile-select-all,.public-profile-share-select{display:inline-flex;align-items:center;gap:6px;color:#49566a;font-size:11px;font-weight:700;}
+.public-profile-select-all input,.public-profile-share-select input{accent-color:var(--red);}
+.public-profile-share-select{margin-left:auto;cursor:pointer;}
+.public-profile-share-button{min-height:34px;padding:6px 10px;font-size:11px;}
+.public-profile-share-hint{flex-basis:100%;color:#686862;font-size:10px;line-height:1.4;}
 .public-profile-snippet{margin:9px 0 6px;color:#3e4a5d;font-size:11px;line-height:1.5;}
 .public-profile-evidence{margin:6px 0 10px;color:#64728a;font-size:10px;}
 .public-profile-card a{color:#1d518e;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:2px;}
