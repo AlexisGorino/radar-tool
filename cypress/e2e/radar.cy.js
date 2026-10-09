@@ -247,6 +247,7 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").click();
     cy.get(".public-search-diagnostics").should("contain.text", "El proveedor agotó el tiempo de espera");
     cy.get(".public-search-diagnostics").should("contain.text", "no encontró páginas indexadas");
