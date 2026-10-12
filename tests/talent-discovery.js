@@ -59,6 +59,24 @@ test("widens junior project-management titles without dropping specific locality
   assert.ok(evidence.roleHits.includes("Project Manager"), "a translated title counts as role evidence");
 });
 
+test("normalizes inclusive Spanish job titles before expanding the public search", () => {
+  const state = {
+    rol: ["un/a Jefe/a de Proyecto"], imprescindibles: [], atributos: ["coordinación de tareas", "seguimiento de cronograma"],
+    deseables: ["Excel"], dominio: ["telecomunicaciones"], alcance: ["Chile", "Santiago"], refinar: [], seniority: ["junior"],
+  };
+  const titles = Discovery.expandRoleFamily(state.rol, state.seniority);
+  assert.ok(titles.includes("Jefe de Proyecto"));
+  assert.ok(titles.includes("Junior Project Manager"));
+  assert.ok(titles.includes("Coordinador de Proyectos Junior"));
+  assert.ok(titles.every((title) => !/un\/a|jefe\/a/i.test(title)));
+  const plan = Discovery.buildPlan(state, ["linkedin"], Generator);
+  const query = plan.queries[0].query;
+  assert.match(query, /Jefe de Proyecto/i);
+  assert.match(query, /Project Manager/i);
+  assert.match(query, /Santiago/i);
+  assert.doesNotMatch(query, /un\/a Jefe\/a/);
+});
+
 test("offers controlled no-title and no-sector recovery routes that retain hard criteria", () => {
   const state = {
     rol: ["Jefe de Proyecto"], imprescindibles: ["MS Project"], atributos: ["Jira", "PMBOK"],

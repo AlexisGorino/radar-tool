@@ -1221,9 +1221,11 @@
       const summary = document.createElement("div");
       summary.className = "public-search-results-heading";
       const resultCount = document.createElement("strong");
-      resultCount.textContent = `${rows.length} perfiles encontrados`;
+      resultCount.textContent = rows.length === 1
+        ? "1 perfil público para revisar"
+        : `${rows.length} perfiles públicos para revisar`;
       const summaryNote = document.createElement("span");
-      summaryNote.textContent = "Ordenados por señales públicas visibles; no es una evaluación de idoneidad.";
+      summaryNote.textContent = "Ordenados por señales visibles. Abrí cada perfil para validar experiencia y ubicación.";
       summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
       const shareTools = document.createElement("div");

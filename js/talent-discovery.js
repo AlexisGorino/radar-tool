@@ -28,7 +28,20 @@
   }
 
   function expandRoleFamily(roles, seniority) {
-    const original = cleanTerms(roles);
+    // Vacancy copy often uses Spanish inclusive gender notation ("jefe/a")
+    // and article prefixes ("un/a"). Those forms are useful for the review
+    // screen, but are rarely written that way in candidate headlines. Normalize
+    // them for discovery so we can expand the role family without changing the
+    // user's reviewed fields or loosening the location and hard requirements.
+    const original = cleanTerms(roles).map((term) => term
+      .replace(/^\s*(?:un\/a|una|un)\s+/i, "")
+      .replace(/\bjefes\/as\b/gi, "Jefes")
+      .replace(/\bjefe\/a\b/gi, "Jefe")
+      .replace(/\bcoordinadores\/as\b/gi, "Coordinadores")
+      .replace(/\bcoordinador\/a\b/gi, "Coordinador")
+      .replace(/\bgerentes\/as\b/gi, "Gerentes")
+      .replace(/\bgerente\/a\b/gi, "Gerente")
+      .trim());
     const normalized = normalizeText(original.join(" "));
     const projectManagement = /\b(?:jefe de proyectos?|gerente de proyectos?|project manager|project coordinator|coordinador de proyectos?)\b/.test(normalized);
     if (!projectManagement) return original;
