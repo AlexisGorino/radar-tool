@@ -40,6 +40,13 @@ test("detects México (accented and unaccented city names)", () => {
   assert.strictEqual(Countries.detectCountry("Vacante en Ciudad de México"), "México");
 });
 
+test("requests clarification when Guadalajara appears without a country", () => {
+  const result = Extractor.analyzeJD("Se busca QA Manager con Selenium y automation en Guadalajara.");
+  assert.strictEqual(result.country, null);
+  assert.deepStrictEqual(result.ambiguousLocations.map((item) => item.country), ["México", "España"]);
+  assert.deepStrictEqual(result.alcance, []);
+});
+
 test("detects Spain and does not also flag Argentina", () => {
   const text = "Empresa en Madrid, España busca perfil senior";
   assert.strictEqual(Countries.detectCountry(text), "España");
@@ -133,7 +140,7 @@ const jdBank = [
   {
     name: "QA Manager - México",
     text: "Se busca QA Manager con experiencia en Selenium y automation, para empresa de retail en Guadalajara.",
-    expect: { hasAtributo: "Selenium", hasDominio: "retail", country: "México" },
+    expect: { hasAtributo: "Selenium", hasDominio: "retail", country: null },
   },
   {
     name: "Salesforce consultant - Colombia",

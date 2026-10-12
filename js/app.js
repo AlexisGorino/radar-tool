@@ -495,6 +495,7 @@
     const container = document.getElementById("jdReviewQuestions");
     container.textContent = "";
     const gaps = reviewGaps(result);
+    const ambiguousLocationChoices = (result.ambiguousLocations || []).map((choice) => choice.locality ? `${choice.locality} · ${choice.country}` : choice.country);
     const descriptions = {
       source: ["¿El texto leído coincide con la JD original?", "Detectamos caracteres dañados o señales de lectura incompleta. Compará el texto de arriba con el original antes de seguir."],
       intent: ["¿Es un brief de búsqueda escrito con tus palabras?", "No encontramos estructura suficiente para reconocer una JD. Si es una necesidad de contratación, completá cargo, señales del perfil y ubicación abajo."],
@@ -504,7 +505,9 @@
       requirements: result.atributos.length || (result.imprescindibles || []).length || (result.atributosDeseables || []).length
         ? ["¿Qué condiciones son realmente obligatorias?", "Por defecto, las señales detectadas son alternativas: alcanza con que el perfil coincida con una. Marcá como imprescindibles solo las que deben cumplirse todas; dejá las equivalentes en alternativas y lo opcional como deseable."]
         : ["¿Qué diferencia a este perfil?", "Agregá al menos una habilidad, tarea clave, certificación o experiencia concreta. Para buscar sin título hacen falta dos señales y un sector, o tres señales."],
-      location: result.alcance.length
+      location: ambiguousLocationChoices.length
+        ? [`¿Cuál es la ubicación correcta: ${ambiguousLocationChoices.join(" o ")}?`, "Hay nombres de localidades que se repiten entre países. Elegí el lugar correcto para evitar filtrar el hunting en el país equivocado."]
+        : result.alcance.length
         ? [`¿La ubicación correcta es ${result.alcance[result.alcance.length - 1]}?`, "Confirmá el alcance exacto; también podés ampliarlo al país o buscar sin ubicación." ]
         : [result.fileCountrySuggestion ? `El archivo dice ${result.fileCountrySuggestion}; el texto de la JD no lo confirma.` : "La JD no indica ubicación.", "Agregá una ubicación arriba o confirmá que querés buscar sin ese filtro."],
     };
@@ -583,6 +586,22 @@
           row.appendChild(country);
         }
       }
+      if (gap === "location" && result.ambiguousLocations && result.ambiguousLocations.length) {
+        result.ambiguousLocations.forEach((choice) => {
+          const selectLocation = document.createElement("button");
+          selectLocation.type = "button";
+          selectLocation.className = "jd-review-choice";
+          selectLocation.textContent = choice.locality ? `${choice.locality} · ${choice.country}` : choice.country;
+          selectLocation.addEventListener("click", () => {
+            result.country = choice.country;
+            result.alcance = choice.locality ? [choice.country, choice.locality] : [choice.country];
+            result.ambiguousLocations = [];
+            RadarReview.accept(result, "location");
+            renderJdReview(result);
+          });
+          row.appendChild(selectLocation);
+        });
+      }
       if (gap === "location" && result.fileCountrySuggestion) {
         const useCountry = document.createElement("button");
         useCountry.type = "button";
@@ -611,6 +630,7 @@
           if (gap === "location") {
             result.alcance = [];
             result.country = null;
+            result.ambiguousLocations = [];
           }
           RadarReview.accept(result, gap);
           renderJdReview(result);

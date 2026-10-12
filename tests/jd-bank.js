@@ -57,7 +57,7 @@ const cases = [
   },
   {
     name: "MX - QA Automation retail",
-    text: "Empresa de retail en Guadalajara busca QA Automation Engineer con Selenium, Cypress y experiencia en metodologías Agile. Presencial.",
+    text: "Empresa de retail en Guadalajara, México busca QA Automation Engineer con Selenium, Cypress y experiencia en metodologías Agile. Presencial.",
     expectRolContains: "qa",
     expectSkills: ["Selenium", "Cypress", "Agile"],
     expectDominio: "retail",

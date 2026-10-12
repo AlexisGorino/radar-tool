@@ -106,6 +106,23 @@ assert.deepStrictEqual(Review.pendingQuestions(noLocation), ["location"]);
 Review.accept(noLocation, "location");
 assert.strictEqual(Review.canApply(noLocation), true, "una JD breve puede continuar con confirmación explícita");
 
+const ambiguousSantiago = Extractor.analyzeJD("Buscamos Técnico de Redes con fibra óptica y FTTH para trabajar en Santiago.");
+assert.deepStrictEqual(ambiguousSantiago.ambiguousLocations, [
+  { country: "Chile", locality: null },
+  { country: "España", locality: "Santiago de Compostela" },
+]);
+assert.deepStrictEqual(ambiguousSantiago.alcance, [], "no aplicar geografía hasta que la persona elija");
+assert.ok(Review.pendingQuestions(ambiguousSantiago).includes("location"));
+Review.accept(ambiguousSantiago, "role");
+Review.accept(ambiguousSantiago, "requirements");
+assert.strictEqual(Review.canApply(ambiguousSantiago), false, "la ubicación ambigua bloquea la aplicación");
+ambiguousSantiago.country = "España";
+ambiguousSantiago.alcance = ["España", "Santiago de Compostela"];
+ambiguousSantiago.ambiguousLocations = [];
+Review.accept(ambiguousSantiago, "location");
+assert.strictEqual(Review.canApply(ambiguousSantiago), true, "la elección explícita permite continuar");
+assert.ok(Generator.buildUniversalBoolean(ambiguousSantiago).includes("Santiago de Compostela"));
+
 const ownWords = Extractor.analyzeJD("Quiero alguien para atender caja y reponer mercadería en Rosario");
 assert.deepStrictEqual(ownWords.rol, [], "'alguien' no debe convertirse en título");
 assert.deepStrictEqual(Review.pendingQuestions(ownWords), ["intent", "role", "requirements", "location"]);

@@ -90,9 +90,34 @@ test("an explicit country name outranks an ambiguous locality match from a diffe
   assert.strictEqual(locality, "Santiago de Compostela");
 });
 
-test("with no country named outright, an ambiguous locality still resolves via the old fallback order", () => {
-  const { country } = Countries.detectLocationDetailed("Vacante en Santiago, modalidad híbrida.");
-  assert.strictEqual(country, "Chile"); // LATAM checked before Europe when nothing disambiguates it
+test("a bare Santiago asks for the country instead of assuming Chile", () => {
+  const result = Countries.detectLocationDetailed("Vacante en Santiago, modalidad híbrida.");
+  assert.strictEqual(result.country, null);
+  assert.deepStrictEqual(result.ambiguousLocations, [
+    { country: "Chile", locality: null },
+    { country: "España", locality: "Santiago de Compostela" },
+  ]);
+});
+
+test("Santiago de Chile and Chile-only wording resolve to Chile", () => {
+  const city = Countries.detectLocationDetailed("Vacante presencial en Santiago de Chile.");
+  assert.strictEqual(city.country, "Chile");
+  assert.strictEqual(city.locality, "Santiago");
+  assert.strictEqual(Countries.detectCountry("Buscamos perfiles para Chile."), "Chile");
+});
+
+test("a locality shared by countries asks for the correct country", () => {
+  const mexicoSpain = Countries.detectLocationDetailed("Puesto presencial en Guadalajara.");
+  assert.strictEqual(mexicoSpain.country, null);
+  assert.deepStrictEqual(mexicoSpain.ambiguousLocations, [
+    { country: "México", locality: "Guadalajara" },
+    { country: "España", locality: "Guadalajara" },
+  ]);
+  const cordoba = Countries.detectLocationDetailed("Vacante en Córdoba.");
+  assert.deepStrictEqual(cordoba.ambiguousLocations, [
+    { country: "Argentina", locality: "Córdoba" },
+    { country: "España", locality: "Córdoba" },
+  ]);
 });
 
 // Same ambiguity as above, but with no country name AND no comma-separated
@@ -106,11 +131,67 @@ test("a locality that's a strict prefix of a longer, more specific locality reso
   assert.strictEqual(locality, "Santiago de Compostela");
 });
 
-// The prefix-collision override above must NOT fire for two unrelated
-// mentions that just happen to share a word — a person's first name
-// ("Santiago Ahmed") earlier in the text must not steal the country from
-// a real, later locality ("CABA") just because "Santiago" alone is longer
-// than "caba". Real JD, see tests/fixtures/pdf-modern-template-jd.txt.
+test("longest locality wins when two names start at the same position", () => {
+  const result = Countries.detectLocationDetailed("Puesto en Mato Grosso do Sul, Brasil.");
+  assert.strictEqual(result.country, "Brasil");
+  assert.strictEqual(result.locality, "Mato Grosso do Sul");
+});
+
+test("Argentina, Mexico, Chile and Spain subdivision catalogs cover their first-level divisions", () => {
+  const fold = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const assertCatalogContains = (country, expected) => {
+    const catalog = new Set(Countries.ALL_COUNTRIES[country].map(fold));
+    expected.forEach((name) => assert.ok(catalog.has(fold(name)), `${country} is missing ${name}`));
+  };
+
+  assertCatalogContains("Argentina", [
+    "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán", "CABA",
+  ]);
+  assertCatalogContains("México", [
+    "Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila", "Colima", "Durango", "Guanajuato", "Guerrero", "Hidalgo", "Jalisco", "México", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas",
+  ]);
+  assertCatalogContains("Chile", ["Arica y Parinacota", "Tarapacá", "Antofagasta", "Atacama", "Coquimbo", "Valparaíso", "Metropolitana de Santiago", "O'Higgins", "Maule", "Ñuble", "Biobío", "Araucanía", "Los Ríos", "Los Lagos", "Aysén", "Magallanes"]);
+  assertCatalogContains("España", [
+    "A Coruña", "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Baleares", "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Girona", "Granada", "Guadalajara", "Guipúzcoa", "Huelva", "Huesca", "Jaén", "La Rioja", "Las Palmas", "León", "Lleida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Ourense", "Palencia", "Pontevedra", "Salamanca", "Santa Cruz de Tenerife", "Segovia", "Sevilla", "Soria", "Tarragona", "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza",
+  ]);
+  assertCatalogContains("Brasil", ["Acre", "Alagoas", "Amapá", "Amazonas", "Bahia", "Ceará", "Distrito Federal", "Espírito Santo", "Goiás", "Maranhão", "Mato Grosso", "Mato Grosso do Sul", "Minas Gerais", "Pará", "Paraíba", "Paraná", "Pernambuco", "Piauí", "Rio de Janeiro", "Rio Grande do Norte", "Rio Grande do Sul", "Rondônia", "Roraima", "Santa Catarina", "São Paulo", "Sergipe", "Tocantins"]);
+  assertCatalogContains("Guatemala", ["Alta Verapaz", "Baja Verapaz", "Chimaltenango", "Chiquimula", "El Progreso", "Escuintla", "Guatemala departamento", "Huehuetenango", "Izabal", "Jalapa", "Jutiapa", "Petén", "Quetzaltenango", "Quiché", "Retalhuleu", "Sacatepéquez", "San Marcos", "Santa Rosa", "Sololá", "Suchitepéquez", "Totonicapán", "Zacapa"]);
+  assertCatalogContains("Honduras", ["Atlántida", "Choluteca", "Colón", "Comayagua", "Copán", "Cortés", "El Paraíso", "Francisco Morazán", "Gracias a Dios", "Intibucá", "Islas de la Bahía", "La Paz", "Lempira", "Ocotepeque", "Olancho", "Santa Bárbara", "Valle", "Yoro"]);
+  assertCatalogContains("El Salvador", ["Ahuachapán", "Cabañas", "Chalatenango", "Cuscatlán", "La Libertad", "La Paz", "La Unión", "Morazán", "San Miguel", "San Salvador", "San Vicente", "Santa Ana", "Sonsonate", "Usulután"]);
+  assertCatalogContains("Nicaragua", ["Boaco", "Carazo", "Chinandega", "Chontales", "Estelí", "Granada", "Jinotega", "León", "Madriz", "Managua", "Masaya", "Matagalpa", "Nueva Segovia", "Río San Juan", "Rivas"]);
+  assertCatalogContains("Panamá", ["Bocas del Toro", "Coclé", "Colón", "Chiriquí", "Darién", "Herrera", "Los Santos", "Panamá", "Panamá Oeste", "Veraguas", "Guna Yala", "Ngäbe Buglé"]);
+  assertCatalogContains("Costa Rica", ["San José", "Alajuela", "Cartago", "Heredia", "Guanacaste", "Puntarenas", "Limón"]);
+  assertCatalogContains("República Dominicana", ["Azua", "Bahoruco", "Barahona", "Dajabón", "Distrito Nacional", "Duarte", "El Seibo", "Elías Piña", "Espaillat", "Hato Mayor", "Hermanas Mirabal", "Independencia", "La Altagracia", "La Romana", "La Vega", "María Trinidad Sánchez", "Monseñor Nouel", "Monte Cristi", "Monte Plata", "Pedernales", "Peravia", "Puerto Plata", "Samaná", "San Cristóbal", "San José de Ocoa", "San Juan", "San Pedro de Macorís", "Sánchez Ramírez", "Santiago", "Santiago Rodríguez", "Santo Domingo", "Valverde"]);
+  assertCatalogContains("Cuba", ["Artemisa", "Camagüey", "Ciego de Ávila", "Cienfuegos", "Granma", "Guantánamo", "Holguín", "La Habana", "Las Tunas", "Matanzas", "Mayabeque", "Pinar del Río", "Sancti Spíritus", "Santiago de Cuba", "Villa Clara", "Isla de la Juventud"]);
+  assertCatalogContains("Haití", ["Artibonite", "Centre", "Grand'Anse", "Nippes", "Nord", "Nord-Est", "Nord-Ouest", "Ouest", "Sud", "Sud-Est"]);
+  assertCatalogContains("Belice", ["Belize District", "Cayo", "Corozal", "Orange Walk", "Stann Creek", "Toledo"]);
+  assertCatalogContains("Guyana", ["Barima-Waini", "Pomeroon-Supenaam", "Essequibo Islands-West Demerara", "Demerara-Mahaica", "Mahaica-Berbice", "East Berbice-Corentyne", "Cuyuni-Mazaruni", "Potaro-Siparuni", "Upper Takutu-Upper Essequibo", "Upper Demerara-Berbice"]);
+  assertCatalogContains("Surinam", ["Brokopondo", "Commewijne", "Coronie", "Marowijne", "Nickerie", "Para", "Saramacca", "Sipaliwini", "Wanica"]);
+  assertCatalogContains("Alemania", ["Baden-Württemberg", "Bavaria", "Berlin", "Brandenburg", "Bremen", "Hamburg", "Hesse", "Mecklenburg-Vorpommern", "Lower Saxony", "North Rhine-Westphalia", "Rhineland-Palatinate", "Saarland", "Saxony", "Saxony-Anhalt", "Schleswig-Holstein", "Thuringia"]);
+  assertCatalogContains("Francia", ["Auvergne-Rhône-Alpes", "Bourgogne-Franche-Comté", "Bretagne", "Centre-Val de Loire", "Corse", "Grand Est", "Hauts-de-France", "Normandie", "Nouvelle-Aquitaine", "Occitanie", "Pays de la Loire", "Provence-Alpes-Côte d'Azur"]);
+  assertCatalogContains("Italia", ["Abruzzo", "Basilicata", "Calabria", "Campania", "Emilia-Romagna", "Friuli-Venezia Giulia", "Lazio", "Liguria", "Lombardia", "Marche", "Molise", "Piemonte", "Puglia", "Sardegna", "Sicilia", "Toscana", "Trentino-Alto Adige", "Umbria", "Valle d'Aosta", "Veneto"]);
+  assertCatalogContains("Países Bajos", ["Drenthe", "Flevoland", "Friesland", "Gelderland", "Groningen", "Limburg", "North Brabant", "North Holland", "Overijssel", "South Holland", "Utrecht", "Zeeland"]);
+  assertCatalogContains("Polonia", ["Dolnośląskie", "Kujawsko-Pomorskie", "Lubelskie", "Lubuskie", "Łódzkie", "Małopolskie", "Mazowieckie", "Opolskie", "Podkarpackie", "Podlaskie", "Pomorskie", "Śląskie", "Świętokrzyskie", "Warmińsko-Mazurskie", "Wielkopolskie", "Zachodniopomorskie"]);
+});
+
+test("every configured locality resolves to its country when the JD names that country", () => {
+  const fold = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  let checked = 0;
+  for (const [country, terms] of Object.entries(Countries.ALL_COUNTRIES)) {
+    const bare = new Set((Countries.BARE_COUNTRY_NAMES[country] || [country]).map(fold));
+    for (const term of terms) {
+      const result = Countries.detectLocationDetailed(`Vacante ubicada en ${term}, ${country}.`);
+      assert.strictEqual(result.country, country, `term "${term}" resolved to ${result.country}, expected ${country}`);
+      if (!bare.has(fold(term))) assert.ok(result.locality, `locality "${term}" was lost for ${country}`);
+      checked++;
+    }
+  }
+  assert.ok(checked > 600, `expected broad catalog coverage, checked ${checked} terms`);
+});
+
+// A personal name that resembles an ambiguous city must not steal the
+// location from a real locality later in the JD. Real JD fixture:
+// tests/fixtures/pdf-modern-template-jd.txt.
 test("an unrelated earlier name match doesn't override a real locality mentioned later", () => {
   const { country, locality } = Countries.detectLocationDetailed("Reporta a: Santiago Ahmed. Híbrido — Puerto Madero, CABA — Full Time.");
   assert.strictEqual(country, "Argentina");
