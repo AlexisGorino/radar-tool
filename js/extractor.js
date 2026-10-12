@@ -541,7 +541,7 @@
     // ANDing them into the boolean filters out good matches instead of
     // narrowing toward better ones. They're detected below only so the UI
     // can offer them as an editable suggestion, never as an auto-added term.
-    const { country, locality, secondLocality, ambiguousLocations } = Countries.detectLocationDetailed(text);
+    const { country, locality, secondLocality, ambiguousLocations, locationNeedsClarification } = Countries.detectLocationDetailed(text);
     const alcance = dedupe([...(country ? [country] : []), ...(locality ? [locality] : []), ...(secondLocality ? [secondLocality] : [])]);
 
     const modality = Countries.detectModality(text);
@@ -565,7 +565,7 @@
     // is context rather than a reliable term on public candidate profiles.
     const refinarSuggestion = [];
 
-    const analyzed = { rol, atributos, atributosDeseables, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [] };
+    const analyzed = { rol, atributos, atributosDeseables, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification) };
     const namedCountry = options && options.fileName ? Countries.detectCountry(options.fileName) : null;
     analyzed.fileCountrySuggestion = !country && namedCountry ? namedCountry : null;
     analyzed.isResume = looksLikeResume(text);

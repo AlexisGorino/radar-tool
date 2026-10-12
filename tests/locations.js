@@ -24,8 +24,6 @@ const provinceCases = [
   ["Buscamos analista en Tucumán.", "Argentina"],
   ["Vacante en Neuquén, patagonia argentina.", "Argentina"],
   ["Rol basado en Chaco.", "Argentina"],
-  ["Empresa con sede en la región de Biobío, Chile.", "Chile"],
-  ["Buscamos vendedor en Antofagasta.", "Chile"],
   ["Puesto en Jalisco, México.", "México"],
   ["Vacante en Nuevo León.", "México"],
   ["Rol en Yucatán, modalidad híbrida.", "México"],
@@ -77,33 +75,28 @@ localityCasingCases.forEach(([text, expectedCountry, expectedLocality]) => {
   });
 });
 
-// A locality can belong to more than one country's list — "Santiago" is
-// both Chile's capital and half of "Santiago de Compostela" (Spain), "Lima"
-// is both Perú's capital and a common surname. Verified live: a real JD for
-// "Santiago de Compostela, España" came back as Chile, because Chile's
-// locality list got checked before España's bare name ever got a chance —
-// even though "España" was sitting right there. The country actually named
-// in the text must always win over an ambiguous locality guess.
+// An explicit country name outranks an ambiguous or partial locality match.
 test("an explicit country name outranks an ambiguous locality match from a different, earlier-checked country", () => {
   const { country, locality } = Countries.detectLocationDetailed("100% presencial en Santiago de Compostela, España.");
   assert.strictEqual(country, "España");
   assert.strictEqual(locality, "Santiago de Compostela");
 });
 
-test("a bare Santiago asks for the country instead of assuming Chile", () => {
+test("a bare Santiago asks for the country and full locality without suggesting Chile", () => {
   const result = Countries.detectLocationDetailed("Vacante en Santiago, modalidad híbrida.");
   assert.strictEqual(result.country, null);
-  assert.deepStrictEqual(result.ambiguousLocations, [
-    { country: "Chile", locality: null },
-    { country: "España", locality: "Santiago de Compostela" },
-  ]);
+  assert.deepStrictEqual(result.ambiguousLocations, []);
+  assert.strictEqual(result.locationNeedsClarification, true);
 });
 
-test("Santiago de Chile and Chile-only wording resolve to Chile", () => {
+test("removes Chile and its subdivisions from the supported location catalog", () => {
+  assert.strictEqual(Countries.ALL_COUNTRIES.Chile, undefined);
+  assert.strictEqual(Countries.countryList().includes("Chile"), false);
+  assert.strictEqual(Countries.detectCountry("Buscamos perfiles para Chile."), null);
+  assert.strictEqual(Countries.detectCountry("Empresa con sede en Antofagasta."), null);
   const city = Countries.detectLocationDetailed("Vacante presencial en Santiago de Chile.");
-  assert.strictEqual(city.country, "Chile");
-  assert.strictEqual(city.locality, "Santiago");
-  assert.strictEqual(Countries.detectCountry("Buscamos perfiles para Chile."), "Chile");
+  assert.strictEqual(city.country, null);
+  assert.strictEqual(city.locationNeedsClarification, true);
 });
 
 test("a locality shared by countries asks for the correct country", () => {
@@ -120,11 +113,8 @@ test("a locality shared by countries asks for the correct country", () => {
   ]);
 });
 
-// Same ambiguity as above, but with no country name AND no comma-separated
-// hint — just the bare locality. Chile's "santiago" is a whole-word match
-// sitting inside España's own "santiago de compostela" at the exact same
-// starting position, so it's not really a separate mention, it's a shorter
-// read of the same words. The longer, more specific one wins.
+// A complete locality name remains usable when it starts with a common
+// short name, such as Santiago de Compostela.
 test("a locality that's a strict prefix of a longer, more specific locality resolves to the longer one", () => {
   const { country, locality } = Countries.detectLocationDetailed("Buscamos alguien para trabajar en Santiago de Compostela.");
   assert.strictEqual(country, "España");
@@ -137,7 +127,7 @@ test("longest locality wins when two names start at the same position", () => {
   assert.strictEqual(result.locality, "Mato Grosso do Sul");
 });
 
-test("Argentina, Mexico, Chile and Spain subdivision catalogs cover their first-level divisions", () => {
+test("Argentina, Mexico and Spain subdivision catalogs cover their first-level divisions", () => {
   const fold = (value) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const assertCatalogContains = (country, expected) => {
     const catalog = new Set(Countries.ALL_COUNTRIES[country].map(fold));
@@ -150,7 +140,6 @@ test("Argentina, Mexico, Chile and Spain subdivision catalogs cover their first-
   assertCatalogContains("México", [
     "Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Chiapas", "Chihuahua", "Ciudad de México", "Coahuila", "Colima", "Durango", "Guanajuato", "Guerrero", "Hidalgo", "Jalisco", "México", "Michoacán", "Morelos", "Nayarit", "Nuevo León", "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz", "Yucatán", "Zacatecas",
   ]);
-  assertCatalogContains("Chile", ["Arica y Parinacota", "Tarapacá", "Antofagasta", "Atacama", "Coquimbo", "Valparaíso", "Metropolitana de Santiago", "O'Higgins", "Maule", "Ñuble", "Biobío", "Araucanía", "Los Ríos", "Los Lagos", "Aysén", "Magallanes"]);
   assertCatalogContains("España", [
     "A Coruña", "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Baleares", "Barcelona", "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Girona", "Granada", "Guadalajara", "Guipúzcoa", "Huelva", "Huesca", "Jaén", "La Rioja", "Las Palmas", "León", "Lleida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Ourense", "Palencia", "Pontevedra", "Salamanca", "Santa Cruz de Tenerife", "Segovia", "Sevilla", "Soria", "Tarragona", "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza",
   ]);

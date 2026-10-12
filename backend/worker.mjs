@@ -5,8 +5,9 @@ const SOURCES = Object.freeze({
   xing: { domain: "xing.com", path: /^\/profile\//i },
   behance: { domain: "behance.net", path: /^\/[^/]+\/?$/i },
 });
-const MAX_SOURCES = 4;
-const MAX_RESULTS = 40;
+const PUBLIC_SOURCE_IDS = new Set(["linkedin", "github"]);
+const MAX_SOURCES = PUBLIC_SOURCE_IDS.size;
+const MAX_RESULTS = 15;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
 const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;
@@ -61,14 +62,14 @@ function validatePlan(body) {
   if (body.maxResults !== MAX_RESULTS) return false;
   const unique = new Set();
     return body.queries.every((entry) => {
-    if (!entry || !Object.prototype.hasOwnProperty.call(SOURCES, entry.source) || typeof entry.query !== "string") return false;
+    if (!entry || !PUBLIC_SOURCE_IDS.has(entry.source) || typeof entry.query !== "string") return false;
     const query = entry.query.trim();
     const expectedSite = entry.source === "linkedin" ? "linkedin.com/in" : SOURCES[entry.source].domain;
     if (query.length < 5 || query.length > MAX_QUERY_LENGTH || !query.toLowerCase().includes(`site:${expectedSite}`)) return false;
     if (unique.has(entry.source)) return false;
     unique.add(entry.source);
     return true;
-  }) && (typeof body.location === "string" && body.location.length <= 180);
+  }) && (typeof body.location === "string" && body.location.length <= 180 && Boolean(requestedLocationParts(body.location).countryCode));
 }
 
 function safeResult(item, source) {
@@ -94,10 +95,14 @@ function normalizeLocation(value) {
 function countryCodeForLabel(value) {
   const normalized = normalizeLocation(value);
   if (COUNTRY_CODE_CACHE.has(normalized)) return COUNTRY_CODE_CACHE.get(normalized);
+  if (normalized === "chile") {
+    COUNTRY_CODE_CACHE.set(normalized, null);
+    return null;
+  }
   const aliases = {
     "usa": "US", "eeuu": "US", "estados unidos": "US", "united states": "US",
     "uk": "GB", "gran bretana": "GB", "reino unido": "GB", "united kingdom": "GB",
-    "espana": "ES", "spain": "ES", "argentina": "AR", "chile": "CL", "brasil": "BR", "brazil": "BR",
+    "espana": "ES", "spain": "ES", "argentina": "AR", "brasil": "BR", "brazil": "BR",
     "mexico": "MX", "colombia": "CO", "peru": "PE", "uruguay": "UY", "paraguay": "PY", "bolivia": "BO",
     "ecuador": "EC", "venezuela": "VE", "panama": "PA", "costa rica": "CR", "guatemala": "GT",
     "honduras": "HN", "el salvador": "SV", "nicaragua": "NI", "republica dominicana": "DO", "puerto rico": "PR",

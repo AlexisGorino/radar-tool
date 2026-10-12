@@ -72,12 +72,12 @@ const cases = [
     expectCountry: "Colombia",
   },
   {
-    name: "CL - DevOps fintech remoto",
-    text: "Necesitamos DevOps Engineer con Kubernetes, Terraform y CI/CD para startup fintech, 100% remoto, basado en Santiago de Chile.",
+    name: "AR - DevOps fintech remoto",
+    text: "Necesitamos DevOps Engineer con Kubernetes, Terraform y CI/CD para startup fintech, 100% remoto, basado en Rosario, Argentina.",
     expectRolContains: "devops",
     expectSkills: ["Kubernetes", "Terraform", "CI/CD"],
     expectDominio: "fintech",
-    expectCountry: "Chile",
+    expectCountry: "Argentina",
   },
   {
     name: "PE - Data Scientist salud",
@@ -329,12 +329,12 @@ const cases = [
     expectCountry: "España",
   },
   {
-    name: "CL - Data Engineer con stack moderno",
-    text: "Buscamos Data Engineer con experiencia en Kafka, Airflow, dbt y Snowflake para empresa fintech en Santiago, Chile.",
+    name: "AR - Data Engineer con stack moderno",
+    text: "Buscamos Data Engineer con experiencia en Kafka, Airflow, dbt y Snowflake para empresa fintech en Córdoba, Argentina.",
     expectRolContains: "data engineer",
     expectSkills: ["Kafka", "Airflow", "dbt", "Snowflake"],
     expectDominio: "fintech",
-    expectCountry: "Chile",
+    expectCountry: "Argentina",
   },
 
   // -----------------------------------------------------------------

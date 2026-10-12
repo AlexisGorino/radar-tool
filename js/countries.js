@@ -26,11 +26,6 @@
       "villa maria", "villa maría", "rio cuarto", "río cuarto", "san rafael", "rafaela", "reconquista", "eldorado", "obera", "oberá",
       "salta", "formosa", "la pampa", "santa rosa", "san fernando del valle de catamarca", "rawson", "rio grande", "río grande",
     ],
-    "Chile": [
-      "chile", "santiago", "valparaiso", "valparaíso", "concepcion", "concepción",
-      "biobio", "biobío", "araucania", "araucanía", "coquimbo", "maule", "antofagasta", "atacama", "tarapaca", "tarapacá", "arica y parinacota", "metropolitana de santiago", "ohiggins", "o'higgins", "libertador general bernardo ohiggins",
-      "los lagos", "los rios", "los ríos", "aysen", "aysén", "magallanes", "ñuble", "nuble", "viña del mar", "vina del mar", "temuco", "rancagua", "talca", "iquique", "puerto montt", "puerto aysen", "puerto natales",
-    ],
     "México": [
       "mexico", "méxico", "cdmx", "ciudad de mexico", "ciudad de méxico", "guadalajara", "monterrey", "queretaro", "querétaro",
       "jalisco", "nuevo leon", "nuevo león", "puebla", "yucatan", "yucatán", "chihuahua", "baja california", "veracruz", "michoacan", "michoacán", "oaxaca", "chiapas",
@@ -125,7 +120,6 @@
   // city/province/region. Used to tell "país" apart from "localidad".
   const BARE_COUNTRY_NAMES = {
     "Argentina": ["argentina"],
-    "Chile": ["chile"],
     "México": ["mexico", "méxico"],
     "Colombia": ["colombia"],
     "Perú": ["peru", "perú"],
@@ -241,16 +235,14 @@
     const before = text.slice(Math.max(0, index - 55), index);
     const after = text.slice(index + term.length, Math.min(text.length, index + term.length + 55));
     return /\b(en|de|desde|para|ubicad[oa]s?|residencia|reside|radicad[oa]s?|sede en|localidad|ciudad de|provincia de|estado de|regi[oó]n de|based in|located in|from|lives in)\s+(?:the\s+)?$/i.test(before) ||
-      /^\s*(?:,|\-|\(|\/|\b(?:argentina|uruguay|colombia|espa[nñ]a|per[uú]|chile)\b)/i.test(after);
+      /^\s*(?:,|\-|\(|\/|\b(?:argentina|uruguay|colombia|espa[nñ]a|per[uú])\b)/i.test(after);
   }
 
   /** Returns the first country whose terms match the given text, or null. */
   // Country only, no locality — thin wrapper around detectLocationDetailed
-  // so there's exactly one place that resolves an ambiguous locality
-  // ("Santiago" is Chile's capital and half of "Santiago de Compostela" in
-  // Spain) against an explicit country name in the text. This used to be
-  // its own scan in bare list order, drifted out of sync with the real fix,
-  // and quietly kept giving Chile for a Spanish address.
+  // so there's exactly one place that resolves an ambiguous locality against
+  // an explicit country name in the text. A partial city name never chooses
+  // a country.
   function detectCountry(text) {
     return detectLocationDetailed(text).country;
   }
@@ -300,25 +292,24 @@
    */
   function detectLocationDetailed(text) {
     // Pass 1: the country's own name, checked across ALL countries first.
-    // A bare country name is unambiguous by construction; a locality isn't
-    // — "Santiago" is both Chile's capital and half of "Santiago de
-    // Compostela" (Spain), "Lima" is both Peru's capital and a common
-    // surname. A real JD for "Santiago de Compostela, España" was coming
-    // back as Chile because Chile's locality list happened to get checked
-    // first, even with "España" sitting right there in the same sentence.
+    // A bare country name is unambiguous by construction; a locality isn't.
     // Nobody writes a country's real name by mistake, so it always outranks
-    // a locality guess from a different, earlier-checked country.
+    // a locality guess from a different country.
     for (const country of Object.keys(ALL_COUNTRIES)) {
       const bare = BARE_COUNTRY_NAMES[country] || [country.toLowerCase()];
       if (bare.some((term) => containsWord(text, term))) {
+        const partialSantiago = containsWord(text, "santiago") &&
+          !containsWord(text, "santiago de compostela") &&
+          !containsWord(text, "santiago del estero");
+        if (country === "España" && partialSantiago) {
+          return { country: null, locality: null, secondLocality: null, ambiguousLocations: [], locationNeedsClarification: true };
+        }
         const first = earliestLocalityMatch(text, country);
         return { country, locality: first ? first.locality : null, secondLocality: nearbyLocality(text, country, first), ambiguousLocations: [] };
       }
     }
-    // “Santiago” by itself is not a country. It can mean Santiago de Chile
-    // or Santiago de Compostela, Spain; never silently turn this into Chile.
-    // A complete locality (Santiago de Compostela / Santiago del Estero) or
-    // an explicit country above resolves the choice without a follow-up.
+    // A bare "Santiago" is incomplete. Require a country and full locality;
+    // never infer a geographic result from this short name.
     const santiagoIndex = foldAccents(text).indexOf("santiago");
     if (containsWord(text, "santiago") && hasLocationContext(text, originalIndexForFolded(text, santiagoIndex), "santiago") &&
         !containsWord(text, "santiago de compostela") && !containsWord(text, "santiago del estero")) {
@@ -326,10 +317,8 @@
         country: null,
         locality: null,
         secondLocality: null,
-        ambiguousLocations: [
-          { country: "Chile", locality: null },
-          { country: "España", locality: "Santiago de Compostela" },
-        ],
+        ambiguousLocations: [],
+        locationNeedsClarification: true,
       };
     }
     // Resolve the earliest location mention. If multiple countries have an
@@ -394,7 +383,7 @@
   // do for LinkedIn's. Returns the
   // English/local form from BARE_COUNTRY_NAMES so a search can widen with an
   // OR instead of only trying the Spanish name — null when the country's own
-  // name already reads the same in English (Argentina, Chile, Perú...), so
+  // name already reads the same in English (Argentina, Perú...), so
   // there's nothing useful to add.
   function searchAlias(country) {
     const names = BARE_COUNTRY_NAMES[country];

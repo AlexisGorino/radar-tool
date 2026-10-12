@@ -9,7 +9,7 @@ async function test(name, run) {
 }
 
 const validPlan = {
-  maxResults: 40,
+  maxResults: 15,
   location: "España, Islas Canarias",
   queries: [
     { source: "linkedin", query: 'site:linkedin.com/in "Telecom technician" FTTH Canarias' },
@@ -20,7 +20,10 @@ const validPlan = {
 async function main() {
   await test("accepts only bounded, source-bound query plans", () => {
     assert.equal(validatePlan(validPlan), true);
+    assert.equal(validatePlan({ ...validPlan, location: "Chile, Santiago" }), false);
+    assert.equal(validatePlan({ ...validPlan, location: "Santiago" }), false);
     assert.equal(validatePlan({ ...validPlan, maxResults: 500 }), false);
+    assert.equal(validatePlan({ ...validPlan, queries: [{ source: "stackoverflow", query: "site:stackoverflow.com/users/42/ person" }] }), false);
     assert.equal(validatePlan({ ...validPlan, queries: [{ source: "linkedin", query: "site:example.com test" }] }), false);
     assert.equal(validatePlan({ ...validPlan, queries: [...validPlan.queries, ...validPlan.queries] }), false);
     assert.equal(validatePlan({ ...validPlan, location: "x".repeat(181) }), false);
@@ -35,6 +38,7 @@ async function main() {
 
   await test("resolves a locality only to an exact provider result in the requested country", async () => {
     assert.equal(countryCodeForLabel("España"), "ES");
+    assert.equal(countryCodeForLabel("Chile"), null);
     assert.deepEqual(requestedLocationParts("España, Islas Canarias"), {
       parts: ["España", "Islas Canarias"], countryCode: "ES", locality: "Islas Canarias",
     });
@@ -75,15 +79,15 @@ async function main() {
     }
   });
 
-  await test("balances source representation and returns at most 40 results", () => {
+  await test("balances LinkedIn and GitHub representation and returns at most 15 results", () => {
     const lists = [
       Array.from({ length: 40 }, (_, i) => ({ source: "linkedin", position: i + 1 })),
       Array.from({ length: 40 }, (_, i) => ({ source: "github", position: i + 1 })),
     ];
     const chosen = takeBalanced(lists);
-    assert.equal(chosen.length, 40);
-    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 20);
-    assert.equal(chosen.filter((row) => row.source === "github").length, 20);
+    assert.equal(chosen.length, 15);
+    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 8);
+    assert.equal(chosen.filter((row) => row.source === "github").length, 7);
   });
 
   await test("requires a confirmed free plan and enough remaining monthly searches before querying", async () => {
@@ -155,9 +159,9 @@ async function main() {
       });
       const json = await response.json();
       assert.equal(response.status, 200);
-      assert.equal(json.results.length, 40);
-      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 20);
-      assert.equal(json.results.filter((row) => row.source === "github").length, 20);
+      assert.equal(json.results.length, 15);
+      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 8);
+      assert.equal(json.results.filter((row) => row.source === "github").length, 7);
       assert.deepEqual(json.sourceDiagnostics, [
         { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 40, code: null },
         { source: "github", status: "profiles_found", organicCount: 40, profileCount: 40, code: null },

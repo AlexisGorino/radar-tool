@@ -2,11 +2,11 @@
 // The provider adapter is deliberately separate so API keys never reach this file.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
-    module.exports = factory();
+    module.exports = factory(require("./countries.js"));
   } else {
-    root.RadarTalentDiscovery = factory();
+    root.RadarTalentDiscovery = factory(root.RadarCountries);
   }
-})(typeof self !== "undefined" ? self : this, function () {
+})(typeof self !== "undefined" ? self : this, function (countries) {
   "use strict";
 
   const SOURCES = Object.freeze({
@@ -16,8 +16,9 @@
     xing: { label: "Xing", domain: "xing.com", path: /^\/profile\//i, description: "Perfiles profesionales con mayor presencia en Alemania, Austria y Suiza." },
     behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i, description: "Portfolios de diseño, UX/UI e ilustración; no es fuente adecuada para la mayoría de los otros puestos." },
   });
-  const MAX_SOURCES = 4;
-  const MAX_RESULTS = 40;
+  const PUBLIC_SOURCE_IDS = Object.freeze(["linkedin", "github"]);
+  const MAX_SOURCES = PUBLIC_SOURCE_IDS.length;
+  const MAX_RESULTS = 15;
   const MAX_QUERY_LENGTH = 900;
 
   function cleanTerms(values) {
@@ -62,7 +63,7 @@
 
   function buildPlan(state, recommendations, generator, options) {
     const strategy = options && options.strategy || "precise";
-    const allowed = new Set(Object.keys(SOURCES));
+    const allowed = new Set(PUBLIC_SOURCE_IDS);
     const chosen = (Array.isArray(recommendations) ? recommendations : [])
       .map((entry) => typeof entry === "string" ? entry : entry && entry.id)
       .filter((id, index, all) => allowed.has(id) && all.indexOf(id) === index)
@@ -93,6 +94,55 @@
 
   function normalizeText(value) {
     return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+
+  function normalizedPhrase(value) {
+    return " " + normalizeText(value).replace(/[^a-z0-9]+/g, " ").trim() + " ";
+  }
+
+  function hasPhrase(text, phrase) {
+    const normalized = normalizedPhrase(text);
+    const wanted = normalizedPhrase(phrase);
+    return Boolean(wanted.trim()) && normalized.includes(wanted);
+  }
+
+  function geographyEvidence(text, state) {
+    const places = cleanTerms(state.alcance);
+    if (!places.length) return { confirmed: true, missing: [] };
+    const countryNames = countries && countries.BARE_COUNTRY_NAMES || {};
+    const countryTerms = new Set(Object.values(countryNames).flat().map(normalizeText));
+    const countryPlaces = places.filter((place) => countryTerms.has(normalizeText(place)));
+    const localityPlaces = places.filter((place) => !countryTerms.has(normalizeText(place)));
+    const required = localityPlaces.length ? [...localityPlaces, ...countryPlaces] : countryPlaces.length ? countryPlaces : [places[places.length - 1]];
+    const missing = required.filter((place) => !hasPhrase(text, place));
+    if (localityPlaces.length && !countryPlaces.length) missing.push("país");
+    return { confirmed: missing.length === 0, missing: [...new Set(missing)] };
+  }
+
+  function locationScopeError(state) {
+    const places = cleanTerms(state && state.alcance);
+    if (!places.length) {
+      return "Agregá una localidad y el país en Alcance para que el listado no mezcle ubicaciones.";
+    }
+    if (places.some((place) => normalizeText(place) === "chile")) {
+      return "Chile y sus regiones ya no forman parte del alcance geográfico de RADAR. Elegí otro país y su localidad.";
+    }
+    if (places.some((place) => normalizeText(place) === "santiago")) {
+      return "Alcance indica “Santiago” sin una localidad completa. Escribí el nombre completo del lugar y su país; RADAR no va a asociar Santiago a ningún país automáticamente.";
+    }
+    if (locationScopeNeedsCountry(state)) {
+      return "Para exigir una localidad exacta sin mezclar ciudades homónimas, agregá también el país en Alcance.";
+    }
+    return "";
+  }
+
+  function locationScopeNeedsCountry(state) {
+    const places = cleanTerms(state && state.alcance);
+    if (!places.length) return false;
+    const countryNames = countries && countries.BARE_COUNTRY_NAMES || {};
+    const countryTerms = new Set(Object.values(countryNames).flat().map(normalizeText));
+    return places.some((place) => !countryTerms.has(normalizeText(place)))
+      && !places.some((place) => countryTerms.has(normalizeText(place)));
   }
 
   function validateProfileUrl(rawUrl, sourceId) {
@@ -146,26 +196,27 @@
     const alternativeHits = hits(alternatives);
     const locationHits = hits(location);
     const specificLocation = location.length ? location[location.length - 1] : "";
-    const specificLocationHit = specificLocation && searchable.includes(normalizeText(specificLocation));
+    const specificLocationHit = Boolean(specificLocation && hasPhrase(searchable, specificLocation));
+    const geography = geographyEvidence(text, state);
     const mandatoryCoverage = required.length ? requiredHits.length / required.length : 0;
     const attributeCoverage = alternatives.length ? alternativeHits.length / alternatives.length : 0;
     const roleCoverage = role.length ? (roleHits.length ? 1 : 0) : 0;
-    const locationCoverage = location.length ? (specificLocationHit ? 1 : locationHits.length ? 0.35 : 0) : 0;
+    const locationCoverage = location.length ? (geography.confirmed ? 1 : 0) : 0;
     // This ranks only visible text. Missing snippet evidence remains unknown,
     // never a factual rejection of the candidate.
     const activeWeight = (required.length ? 45 : 0) + (alternatives.length ? 25 : 0) + (role.length ? 15 : 0) + (location.length ? 15 : 0);
     const evidencePoints = 45 * mandatoryCoverage + 25 * Math.min(1, attributeCoverage) + 15 * roleCoverage + 15 * locationCoverage;
     const score = activeWeight ? Math.round((evidencePoints / activeWeight) * 100) : 0;
     const visibleSignals = [...new Set([...requiredHits, ...alternativeHits, ...roleHits, ...locationHits])];
-    const locationStatus = !location.length ? "Sin filtro geográfico" : specificLocationHit ? "Localidad visible" : locationHits.length ? "País o región visible; localidad sin confirmar" : "Ubicación no confirmada";
-    const confidence = score >= 70 && (!location.length || specificLocationHit) ? "Señales fuertes" : score >= 40 ? "Revisar evidencia" : "Evidencia limitada";
+    const locationStatus = !location.length ? "Sin filtro geográfico" : geography.confirmed ? "Ubicación solicitada visible" : "Ubicación sin confirmar: " + geography.missing.join(", ");
+    const confidence = score >= 70 && (!location.length || geography.confirmed) ? "Señales fuertes" : score >= 40 ? "Revisar evidencia" : "Evidencia limitada";
     const scoreBreakdown = [
       required.length ? `Imprescindibles ${requiredHits.length}/${required.length}` : "Sin imprescindibles",
       alternatives.length ? `Alternativas ${alternativeHits.length}/${alternatives.length}` : "Sin alternativas",
       role.length ? `Cargo ${roleHits.length}/${role.length}` : "Sin título obligatorio",
       location.length ? locationStatus : "Sin filtro geográfico",
     ];
-    return { score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, alternativeHits, locationHits, specificLocationHit: Boolean(specificLocationHit) };
+    return { score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, alternativeHits, locationHits, specificLocationHit: Boolean(specificLocationHit), locationConfirmed: geography.confirmed };
   }
 
   function normalizeResults(payload, state) {
@@ -174,12 +225,14 @@
     const normalized = [];
     raw.forEach((item) => {
       const sourceId = item && item.source;
+      if (!PUBLIC_SOURCE_IDS.includes(sourceId)) return;
       const url = validateProfileUrl(item && item.url, sourceId);
       if (!url || seen.has(url)) return;
       seen.add(url);
       const title = String(item.title || "").slice(0, 240);
       const snippet = String(item.snippet || "").slice(0, 800);
       const evidence = termEvidence(`${title} ${snippet}`, state);
+      if (!evidence.locationConfirmed) return;
       normalized.push({
         source: sourceId,
         sourceLabel: SOURCES[sourceId].label,
@@ -260,5 +313,5 @@
     };
   }
 
-  return { SOURCES, MAX_SOURCES, MAX_RESULTS, buildPlan, expandRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, normalizeResults, search };
+  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, expandRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
 });

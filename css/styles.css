@@ -361,6 +361,12 @@ html.authed #authGate{display:none;}
 .public-search-heading h2{margin:3px 0 0;font-size:18px;}
 .public-search-kicker{color:var(--red);font-size:10px;font-weight:800;letter-spacing:.09em;}
 .public-search-cap{padding:6px 10px;border:1px solid #dce2eb;border-radius:999px;color:#53627a;background:#fff;font-size:11px;font-weight:700;}
+.public-search-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0 4px;padding:0;list-style:none;}
+.public-search-guide li{display:flex;align-items:center;gap:10px;min-width:0;padding:10px 12px;border:1px solid #e4e8ef;border-radius:8px;background:#fafbfc;}
+.public-search-guide li>span{display:grid;place-items:center;flex:0 0 27px;width:27px;height:27px;border-radius:50%;background:#eef1f5;color:#52627b;font-size:10px;font-weight:800;}
+.public-search-guide li div{display:grid;gap:3px;min-width:0;}
+.public-search-guide strong{color:#26354c;font-size:11px;}
+.public-search-guide small{color:#68768b;font-size:10px;line-height:1.35;}
 .public-search-sources{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
 .public-source-option{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #dce2eb;border-radius:8px;background:#fff;color:var(--dark);font-size:12px;cursor:pointer;}
 .public-source-option:has(input:checked){border-color:#9caec7;background:#f1f5fb;}
@@ -392,4 +398,10 @@ html.authed #authGate{display:none;}
 .public-search-empty,.public-search-partial,.public-search-geography{padding:10px 12px;border-left:3px solid #b8c3d3;background:#f6f8fb;color:#52627b;font-size:11px;}
 .public-search-geography{border-left-color:#2c7a67;}
 .public-search-partial{border-left-color:#d59620;}
+.public-search-next-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px 16px;margin:16px 0 4px;padding:14px 16px;border:1px solid #dce2eb;border-left:3px solid var(--red);border-radius:8px;background:#f8f9fb;}
+.public-search-next-actions strong{color:#18263b;font-size:13px;}
+.public-search-next-actions span{grid-column:1;color:#52627b;font-size:11px;line-height:1.5;}
+.public-search-next-actions a{grid-column:2;grid-row:1 / span 2;white-space:nowrap;}
 @media(max-width:700px){.public-profile-list{grid-template-columns:1fr;}}
+@media(max-width:600px){.public-search-next-actions{grid-template-columns:1fr;}.public-search-next-actions span,.public-search-next-actions a{grid-column:1;grid-row:auto;}.public-search-next-actions a{justify-self:start;}}
+@media(max-width:680px){.public-search-guide{grid-template-columns:1fr;}.public-search-guide li{padding:9px 11px;}}

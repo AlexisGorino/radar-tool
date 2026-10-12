@@ -505,7 +505,9 @@
       requirements: result.atributos.length || (result.imprescindibles || []).length || (result.atributosDeseables || []).length
         ? ["¿Qué condiciones son realmente obligatorias?", "Por defecto, las señales detectadas son alternativas: alcanza con que el perfil coincida con una. Marcá como imprescindibles solo las que deben cumplirse todas; dejá las equivalentes en alternativas y lo opcional como deseable."]
         : ["¿Qué diferencia a este perfil?", "Agregá al menos una habilidad, tarea clave, certificación o experiencia concreta. Para buscar sin título hacen falta dos señales y un sector, o tres señales."],
-      location: ambiguousLocationChoices.length
+      location: result.locationNeedsClarification
+        ? ["La JD menciona Santiago, pero no indica el país y la localidad completa.", "Completá Alcance con la ciudad/provincia y el país. RADAR no va a inferir una ubicación a partir de la palabra Santiago."]
+        : ambiguousLocationChoices.length
         ? [`¿Cuál es la ubicación correcta: ${ambiguousLocationChoices.join(" o ")}?`, "Hay nombres de localidades que se repiten entre países. Elegí el lugar correcto para evitar filtrar el hunting en el país equivocado."]
         : result.alcance.length
         ? [`¿La ubicación correcta es ${result.alcance[result.alcance.length - 1]}?`, "Confirmá el alcance exacto; también podés ampliarlo al país o buscar sin ubicación." ]
@@ -1173,7 +1175,7 @@
 
   function renderPublicSearchSources() {
     const recommended = RadarNetworks.recommendNetworks(state).map((entry) => entry.id);
-    const allowed = Object.keys(RadarTalentDiscovery.SOURCES);
+    const allowed = RadarTalentDiscovery.PUBLIC_SOURCE_IDS;
     publicSearchSources.replaceChildren();
     allowed.forEach((source) => {
       const label = document.createElement("label");
@@ -1226,8 +1228,8 @@
       const geography = document.createElement("p");
       geography.className = "public-search-geography";
       geography.textContent = locationContext.mode === "provider_location" && locationContext.canonicalName
-        ? `Contexto de búsqueda: ${locationContext.canonicalName}. La consulta también conserva la localidad; verificá la residencia en el perfil.`
-        : `La localidad se mantiene en la consulta${locationContext.countryCode ? ` y Google se orienta a ${locationContext.countryCode}` : ""}. El proveedor no confirmó una localidad exacta; no se amplió automáticamente a otro país.`;
+        ? `Contexto de búsqueda: ${locationContext.canonicalName}. Solo pasan perfiles cuyo texto indexado muestra la ubicación indicada; confirmá residencia en la fuente.`
+        : `La ubicación indicada se conserva en la consulta${locationContext.countryCode ? ` y Google se orienta a ${locationContext.countryCode}` : ""}. Los fragmentos sin evidencia completa de localidad y país se excluyen.`;
       publicSearchResults.appendChild(geography);
     }
     if (!rows.length) {
@@ -1235,7 +1237,7 @@
       empty.className = "public-search-empty";
       empty.textContent = sourceErrors && sourceErrors.length
         ? "Las fuentes que respondieron no devolvieron perfiles verificables; las fuentes con error quedan sin confirmar."
-        : "No aparecieron perfiles públicos verificables con esta consulta. Probá una ruta más amplia, revisá las señales o cambiá las fuentes.";
+        : "No aparecieron perfiles con evidencia pública suficiente de la localidad y el país indicados. Ampliá la consulta solo si aceptás revisar otra ubicación.";
       publicSearchResults.appendChild(empty);
     } else {
       const summary = document.createElement("div");
@@ -1245,7 +1247,7 @@
         ? "1 perfil público para revisar"
         : `${rows.length} perfiles públicos para revisar`;
       const summaryNote = document.createElement("span");
-      summaryNote.textContent = "Ordenados por señales visibles. Abrí cada perfil para validar experiencia y ubicación.";
+      summaryNote.textContent = "Top 15 por señales visibles. La localidad y el país aparecen en el resultado público; confirmá identidad y residencia en el perfil.";
       summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
       const shareTools = document.createElement("div");
@@ -1314,7 +1316,7 @@
         source.className = "public-profile-source";
         source.textContent = row.sourceLabel;
         const location = document.createElement("span");
-        location.className = row.specificLocationHit ? "public-profile-location is-confirmed" : "public-profile-location is-unverified";
+        location.className = row.locationConfirmed ? "public-profile-location is-confirmed" : "public-profile-location is-unverified";
         location.textContent = row.locationStatus;
         const includeLabel = document.createElement("label");
         includeLabel.className = "public-profile-share-select";
@@ -1367,6 +1369,18 @@
         publicSearchResults.appendChild(retryButton);
       }
     }
+    const nextActions = document.createElement("aside");
+    nextActions.className = "public-search-next-actions";
+    const nextTitle = document.createElement("strong");
+    nextTitle.textContent = "Usá las otras acciones de hunting";
+    const nextCopy = document.createElement("span");
+    nextCopy.textContent = "El listado público es un primer filtro. Compará la búsqueda nativa, el booleano y X-Ray para ampliar fuentes y validar el perfil.";
+    const nextLink = document.createElement("a");
+    nextLink.className = "btn btn-ghost btn-small";
+    nextLink.href = "#results";
+    nextLink.textContent = "Ver Booleano, X-Ray y portales";
+    nextActions.append(nextTitle, nextCopy, nextLink);
+    publicSearchResults.appendChild(nextActions);
     updatePublicShareControls();
   }
 
@@ -1529,9 +1543,15 @@
   async function runPublicProfileSearch(strategy, sourceOverride) {
     const publicSearchEndpoint = getPublicSearchEndpoint();
     if (!publicSearchEndpoint) return;
+    const locationError = RadarTalentDiscovery.locationScopeError(state);
+    if (locationError) {
+      publicSearchStatus.textContent = `${locationError} No se consumió una búsqueda.`;
+      document.querySelector('[data-field="alcance"]')?.focus({ preventScroll: true });
+      return;
+    }
     const selected = sourceOverride || [...publicSearchSources.querySelectorAll('input[name="publicSearchSource"]:checked')].map((input) => input.value);
-    if (!selected.length || selected.length > RadarTalentDiscovery.MAX_SOURCES) {
-      publicSearchStatus.textContent = `Elegí entre 1 y ${RadarTalentDiscovery.MAX_SOURCES} fuentes.`;
+    if (!selected.length || selected.length > RadarTalentDiscovery.MAX_SOURCES || selected.some((source) => !RadarTalentDiscovery.PUBLIC_SOURCE_IDS.includes(source))) {
+      publicSearchStatus.textContent = "Elegí LinkedIn, GitHub o ambas fuentes.";
       return;
     }
     const sequence = ++publicSearchSequence;
@@ -1568,7 +1588,7 @@
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
       const partial = response.sourceErrors.length > 0;
       publicSearchStatus.textContent = count
-        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} perfiles públicos ordenados por evidencia visible. Confirmá ubicación y requisitos en cada fuente.`
+        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} ${count === 1 ? "perfil público ordenado" : "perfiles públicos ordenados"} por evidencia visible. Confirmá ubicación y requisitos en cada fuente.`
         : partial
           ? "Respuesta parcial: algunas fuentes fallaron y las que respondieron no devolvieron perfiles verificables."
           : "Búsqueda completada sin perfiles verificables.";

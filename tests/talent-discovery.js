@@ -22,9 +22,9 @@ const canaryState = {
 
 test("builds source-specific queries and preserves the exact Canary Islands scope", () => {
   const plan = Discovery.buildPlan(canaryState, ["linkedin", "stackoverflow", "github", "behance", "resumes"], Generator);
-  assert.equal(plan.queries.length, 4);
-  assert.deepEqual(plan.queries.map((query) => query.source), ["linkedin", "stackoverflow", "github", "behance"]);
-  assert.equal(plan.maxResults, 40);
+  assert.equal(plan.queries.length, 2);
+  assert.deepEqual(plan.queries.map((query) => query.source), ["linkedin", "github"]);
+  assert.equal(plan.maxResults, 15);
   assert.equal(plan.location, "España, Islas Canarias");
   plan.queries.forEach(({ query }) => {
     assert.match(query, /Canarias/i);
@@ -62,7 +62,7 @@ test("widens junior project-management titles without dropping specific locality
 test("normalizes inclusive Spanish job titles before expanding the public search", () => {
   const state = {
     rol: ["un/a Jefe/a de Proyecto"], imprescindibles: [], atributos: ["coordinación de tareas", "seguimiento de cronograma"],
-    deseables: ["Excel"], dominio: ["telecomunicaciones"], alcance: ["Chile", "Santiago"], refinar: [], seniority: ["junior"],
+    deseables: ["Excel"], dominio: ["telecomunicaciones"], alcance: ["España", "Santiago de Compostela"], refinar: [], seniority: ["junior"],
   };
   const titles = Discovery.expandRoleFamily(state.rol, state.seniority);
   assert.ok(titles.includes("Jefe de Proyecto"));
@@ -143,31 +143,45 @@ test("extracts a name only when the result title separates a plausible name from
 test("scores exact locality evidence separately from country-only evidence", () => {
   const countryOnly = Discovery.termEvidence("Telecom technician · España · FTTH · OTDR", canaryState);
   const exactLocality = Discovery.termEvidence("Telecom technician · Islas Canarias · FTTH · OTDR", canaryState);
-  assert.equal(countryOnly.locationStatus, "País o región visible; localidad sin confirmar");
+  assert.match(countryOnly.locationStatus, /Ubicación sin confirmar/);
   assert.equal(countryOnly.specificLocationHit, false);
-  assert.equal(exactLocality.locationStatus, "Localidad visible");
+  assert.match(exactLocality.locationStatus, /Ubicación sin confirmar/);
   assert.equal(exactLocality.specificLocationHit, true);
-  assert.ok(exactLocality.score > countryOnly.score);
+  assert.equal(countryOnly.locationConfirmed, false);
+  assert.equal(exactLocality.locationConfirmed, false, "a locality without its country does not pass");
+  const exactPlaceAndCountry = Discovery.termEvidence("Telecom technician · Islas Canarias · España · FTTH · OTDR", canaryState);
+  assert.equal(exactPlaceAndCountry.locationConfirmed, true);
+  assert.ok(exactPlaceAndCountry.score > countryOnly.score);
 });
 
-test("deduplicates canonical profile links, drops job/company pages and caps the shortlist at 40", () => {
+test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 15", () => {
   const results = Array.from({ length: 55 }, (_, index) => ({
     source: "linkedin",
     url: `https://linkedin.com/in/profile-${index}${index === 1 ? "?trk=duplicate" : ""}`,
     title: `Ana Persona ${index} - Telecom Technician - LinkedIn`,
-    snippet: "FTTH OTDR Islas Canarias",
+    snippet: "FTTH OTDR Islas Canarias España",
     position: index + 1,
   }));
-  results[54] = { source: "linkedin", url: "https://linkedin.com/jobs/view/123", title: "Oferta - LinkedIn", snippet: "FTTH" };
+  results[54] = { source: "linkedin", url: "https://linkedin.com/jobs/view/123", title: "Oferta - LinkedIn", snippet: "FTTH Islas Canarias España" };
   results.push({ ...results[1], url: "https://linkedin.com/in/profile-1#about" });
+  results.push({ source: "linkedin", url: "https://linkedin.com/in/country-only", title: "Paula Pérez - Telecom - LinkedIn", snippet: "FTTH España" });
+  results.push({ source: "stackoverflow", url: "https://stackoverflow.com/users/42/ana", title: "Ana Persona - Telecom", snippet: "FTTH Islas Canarias España" });
   const normalized = Discovery.normalizeResults({ results }, canaryState);
-  assert.equal(normalized.length, 40);
-  assert.equal(new Set(normalized.map((row) => row.url)).size, 40);
+  assert.equal(normalized.length, 15);
+  assert.equal(new Set(normalized.map((row) => row.url)).size, 15);
   assert.ok(normalized.every((row) => !row.url.includes("/jobs/")));
+  assert.ok(normalized.every((row) => ["linkedin", "github"].includes(row.source)));
+
+  const spainSantiago = Discovery.normalizeResults({ results: [
+    { source: "linkedin", url: "https://linkedin.com/in/santiago-compostela", title: "Ana Pérez - Telecom - LinkedIn", snippet: "Santiago de Compostela, España" },
+  ] }, { alcance: ["España", "Santiago de Compostela"] });
+  assert.deepEqual(spainSantiago.map((row) => row.url), ["https://linkedin.com/in/santiago-compostela"]);
+  assert.equal(Discovery.locationScopeError({ alcance: ["Santiago"] }).includes("país"), true);
+  assert.equal(Discovery.locationScopeError({ alcance: ["Chile", "Santiago"] }).includes("Chile"), true);
 });
 
 test("search omits credentials, does not send the JD, and reports provider errors clearly", async () => {
-  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 40, location: "Argentina" };
+  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 15, location: "Argentina" };
   let request;
   const found = await Discovery.search("https://radar.example/api/search", payload, canaryState, async (url, options) => {
     request = { url, options };

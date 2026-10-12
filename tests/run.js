@@ -30,9 +30,10 @@ test("detects Argentina from city name", () => {
   assert.strictEqual(Countries.detectCountry("Buscamos un dev para Córdoba, Argentina"), "Argentina");
 });
 
-test("detects Chile without matching Argentina", () => {
-  const c = Countries.detectCountry("Puesto remoto en Santiago de Chile");
-  assert.strictEqual(c, "Chile");
+test("does not add Chile back as a country or resolve Santiago to it", () => {
+  assert.strictEqual(Countries.detectCountry("Puesto remoto en Santiago de Chile"), null);
+  assert.strictEqual(Countries.detectCountry("Puesto remoto en Chile"), null);
+  assert.strictEqual(Countries.ALL_COUNTRIES.Chile, undefined);
 });
 
 test("detects México (accented and unaccented city names)", () => {
@@ -56,11 +57,8 @@ test("detects Germany from city Berlin", () => {
   assert.strictEqual(Countries.detectCountry("Remote role based in Berlin"), "Alemania");
 });
 
-test("does not false-positive on unrelated word containing a country substring", () => {
-  // "chilena" contains "chile" as a substring but not as a whole word match target ("chile" alone)
-  const c = Countries.detectCountry("Salsa chilena de referencia en el menú");
-  // Whole-word matching means "chile" the word won't match "chilena" the word.
-  assert.notStrictEqual(c, "Chile");
+test("a country mention outside the supported catalog stays unclassified", () => {
+  assert.strictEqual(Countries.detectCountry("Salsa chilena de referencia en el menú"), null);
 });
 
 test("no country mentioned returns null, not a false match", () => {
@@ -123,9 +121,9 @@ const jdBank = [
     expect: { hasAtributo: "GPON", hasDominio: "telecom", country: null },
   },
   {
-    name: "Java dev - Chile",
-    text: "Se necesita Desarrollador Java Senior, Spring Boot, para proyecto fintech en Santiago de Chile, modalidad híbrida.",
-    expect: { hasAtributo: "Java", hasDominio: "fintech", country: "Chile" },
+    name: "Java dev - Argentina",
+    text: "Se necesita Desarrollador Java Senior, Spring Boot, para proyecto fintech en Rosario, Argentina, modalidad híbrida.",
+    expect: { hasAtributo: "Java", hasDominio: "fintech", country: "Argentina" },
   },
   {
     name: "Data scientist - España",
@@ -545,7 +543,7 @@ test("manual short query WITH an explicit title extracts role, skills and locati
 });
 
 test("SRE and SAP FICO are accepted as role titles even though they're also listed as skills", () => {
-  const r1 = Extractor.analyzeJD("busco SRE con Kubernetes en Chile");
+  const r1 = Extractor.analyzeJD("busco SRE con Kubernetes en Argentina");
   assert.strictEqual(r1.rol[0], "SRE");
   const r2 = Extractor.analyzeJD("sap fico en brasil");
   assert.strictEqual(r2.rol[0], "sap fico");

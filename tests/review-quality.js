@@ -108,9 +108,8 @@ assert.strictEqual(Review.canApply(noLocation), true, "una JD breve puede contin
 
 const ambiguousSantiago = Extractor.analyzeJD("Buscamos Técnico de Redes con fibra óptica y FTTH para trabajar en Santiago.");
 assert.deepStrictEqual(ambiguousSantiago.ambiguousLocations, [
-  { country: "Chile", locality: null },
-  { country: "España", locality: "Santiago de Compostela" },
 ]);
+assert.strictEqual(ambiguousSantiago.locationNeedsClarification, true);
 assert.deepStrictEqual(ambiguousSantiago.alcance, [], "no aplicar geografía hasta que la persona elija");
 assert.ok(Review.pendingQuestions(ambiguousSantiago).includes("location"));
 Review.accept(ambiguousSantiago, "role");

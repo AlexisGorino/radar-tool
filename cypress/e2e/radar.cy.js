@@ -11,6 +11,29 @@ describe("RADAR talent search flow", () => {
     cy.get("#appShell").should("be.visible");
   });
 
+  it("requires a country for a city-only scope without consuming a search", () => {
+    let searchCalls = 0;
+    cy.intercept("POST", "/mock-search", (request) => {
+      searchCalls += 1;
+      request.reply({ statusCode: 200, body: { results: [], sourceErrors: [] } });
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('[data-field="rol"]').type("Técnico de redes{enter}");
+    cy.get('[data-field="atributos"]').type("Cisco{enter}");
+    cy.get('[data-field="alcance"]').type("Santiago{enter}");
+    cy.get("#generateBtn").click();
+    cy.get("#findProfilesBtn").should("be.enabled").click();
+    cy.get("#publicSearchStatus").should("contain.text", "nombre completo del lugar y su país");
+    cy.then(() => expect(searchCalls).to.equal(0));
+  });
+
   it("requires review, preserves the Canary Islands scope, and creates no more than three LinkedIn routes", () => {
     cy.get("#jdInput").type(
       "Puesto: Técnico/a instalador/a de telecomunicaciones. Requisitos excluyentes: FTTH y OTDR. Ubicación: Islas Canarias. Excel es deseable.",
@@ -80,7 +103,9 @@ describe("RADAR talent search flow", () => {
   it("builds a public-profile shortlist, preserves the selected locality, and labels missing evidence", () => {
     cy.intercept("POST", "/mock-search", (request) => {
       expect(request.body.location).to.equal("España, Islas Canarias");
+      expect(request.body.maxResults).to.equal(15);
       expect(request.body.queries.map((query) => query.source)).to.include("linkedin");
+      expect(request.body.queries.map((query) => query.source)).to.include("github");
       request.reply({
         statusCode: 200,
         body: {
@@ -113,21 +138,24 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").should("be.enabled").click();
-    cy.get(".public-profile-card").should("have.length", 2);
-    cy.get(".public-search-results-heading").should("contain.text", "2 perfiles públicos para revisar");
+    cy.get(".public-profile-card").should("have.length", 1);
+    cy.get(".public-search-results-heading").should("contain.text", "1 perfil público para revisar");
     cy.get(".public-profile-rank").first().should("have.text", "01");
     cy.get(".public-profile-score").first().should("contain.text", "/100");
     cy.get(".public-profile-details summary").first().click();
     cy.get(".public-profile-details[open]").should("contain.text", "Señales visibles");
     cy.contains("Ana Pérez").should("be.visible");
-    cy.contains("Localidad visible").should("be.visible");
-    cy.contains("Juan Gómez").parents(".public-profile-card").should("contain.text", "País o región visible; localidad sin confirmar");
+    cy.contains("Ubicación solicitada visible").should("be.visible");
+    cy.get(".public-profile-card").should("not.contain.text", "Juan Gómez");
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
     cy.get("#publicSearchStatus").should("contain.text", "perfiles públicos ordenados por evidencia");
     cy.get("#publicSearchResults").should("contain.text", "Contexto de búsqueda: Canary Islands,Spain");
     cy.get("#publicSearchResults").should("contain.text", "No se pudo completar esta fuente: GitHub");
+    cy.get(".public-search-next-actions").should("contain.text", "Usá las otras acciones de hunting");
+    cy.get(".public-search-next-actions a").should("have.attr", "href", "#results");
+    cy.get("#publicSearchSources input").should("have.length", 2);
   });
 
   it("shares only selected public profile links and keeps WhatsApp messages within the supported selection", () => {
@@ -157,6 +185,7 @@ describe("RADAR talent search flow", () => {
     cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
     cy.get('[data-field="rol"]').type("Técnico instalador{enter}");
     cy.get('[data-field="atributos"]').type("FTTH{enter}");
+    cy.get('[data-field="alcance"]').type("España{enter}");
     cy.get('[data-field="alcance"]').type("Islas Canarias{enter}");
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
