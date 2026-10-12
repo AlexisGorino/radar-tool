@@ -114,7 +114,7 @@ describe("RADAR talent search flow", () => {
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").should("be.enabled").click();
     cy.get(".public-profile-card").should("have.length", 2);
-    cy.get(".public-search-results-heading").should("contain.text", "2 perfiles encontrados");
+    cy.get(".public-search-results-heading").should("contain.text", "2 perfiles públicos para revisar");
     cy.get(".public-profile-rank").first().should("have.text", "01");
     cy.get(".public-profile-score").first().should("contain.text", "/100");
     cy.get(".public-profile-details summary").first().click();
