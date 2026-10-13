@@ -224,7 +224,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
-    cy.get("#publicSearchStatus").should("contain.text", "perfil público ordenado por evidencia visible");
+    cy.get("#publicSearchStatus").should("contain.text", "perfiles públicos ordenados por evidencia visible");
     cy.get("#publicSearchResults").should("contain.text", "Contexto de búsqueda: Canary Islands,Spain");
     cy.get("#publicSearchResults").should("contain.text", "No se pudo completar esta fuente: GitHub");
     cy.get(".public-search-next-actions").should("contain.text", "Usá las otras acciones de hunting");
