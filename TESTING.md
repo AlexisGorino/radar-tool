@@ -396,7 +396,7 @@ pueda reabrirse en silencio.
 ## "¿Esto es una JD?"
 
 Si el texto pegado o subido no tiene señales suficientes de una JD,
-"Analizar JD" ofrece identificarlo como un brief escrito por el reclutador.
+"Analizar texto" ofrece identificarlo como una idea de búsqueda escrita por quien recluta.
 No aplica nada hasta que la persona confirma la intención y completa
 un cargo o suficientes señales concretas, además de decidir el alcance.
 Una consulta corta como "busco un Backend Developer" puede analizarse,
@@ -469,9 +469,15 @@ origen, no del extractor.
 
 ## Manual (checklist previo a deploy)
 
-**Carga de JD**
-- [ ] Pegar una JD larga (banco, LATAM) y tocar "Analizar JD" → los 5 campos
+**Entrada de búsqueda**
+- [ ] Pegar una descripción larga (banco, LATAM) y tocar "Analizar texto" → los campos
       se completan con valores sensatos, sin duplicados.
+- [ ] Elegir "Quiero explicar a quién busco" y escribir «Un desarrollador con
+      experiencia en sector travel manejando Amadeus para Buenos Aires» →
+      cargo y herramienta quedan editables; RADAR pregunta qué significa
+      "travel" antes de usarlo como filtro.
+- [ ] Marcar una herramienta como deseable en el texto → queda como punto extra,
+      no como requisito obligatorio.
 - [ ] Arrastrar un `.txt` a la zona de drop → se carga y analiza solo.
 - [ ] Subir un `.pdf` con texto real (no escaneado) → se extrae el texto
       y se analiza solo, igual que un `.txt`.
@@ -481,7 +487,7 @@ origen, no del extractor.
 - [ ] Subir un `.doc` antiguo o una imagen → mensaje que pide pegar texto.
 - [ ] Subir un `.txt` de más de 500 KB, o un `.pdf`/`.docx` de más de 8 MB →
       mensaje de error, no lo lee.
-- [ ] JD vacía + "Analizar JD" → no crashea, no agrega campos basura.
+- [ ] Texto vacío + "Analizar texto" → no crashea ni agrega campos basura.
 - [ ] Pegar texto no relacionado (una noticia, una receta) y analizar →
       no se aplica automáticamente; pide confirmar si es un brief y relevar
       señales concretas antes de buscar.

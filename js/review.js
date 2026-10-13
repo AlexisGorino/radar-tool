@@ -10,11 +10,16 @@
     const accepted = result.reviewAccepted || {};
     const quality = result.quality || {};
     if (result.isResume || quality.blocked) return [];
+    const unverified = new Set(result.unverifiedSignals || []);
+    const knownCriteria = [...(result.atributos || []), ...(result.imprescindibles || []), ...(result.atributosDeseables || []).filter((term) => !unverified.has(term))];
+    const needsSignalClassification = unverified.size > 0;
     return [
       quality.requiresSourceReview && !accepted.source ? "source" : null,
       !result.isJobPosting && !result.isResume && !result.isBrief ? "intent" : null,
       !accepted.role ? "role" : null,
-      !accepted.requirements ? "requirements" : null,
+      !accepted.requirements && (knownCriteria.length > 0 || !needsSignalClassification) ? "requirements" : null,
+      needsSignalClassification ? "signals" : null,
+      result.sectorNeedsClarification && !accepted.sector ? "sector" : null,
       !accepted.location ? "location" : null,
     ].filter(Boolean);
   }

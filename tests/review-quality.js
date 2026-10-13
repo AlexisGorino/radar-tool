@@ -136,6 +136,20 @@ assert.deepStrictEqual(vagueTech.rol, [], "el relato no debe pasar por título")
 for (const question of ["role", "requirements", "location"]) Review.accept(vagueTech, question);
 assert.strictEqual(Review.canApply(vagueTech), true, "dos señales más sector permiten buscar sin título");
 
+const informalTravel = Extractor.analyzeJD("Un desarrollador con experiencia en sector travel manejando Amadeus para Buenos Aires, Argentina.");
+informalTravel.isBrief = true;
+assert.ok(Review.pendingQuestions(informalTravel).includes("sector"), "an ambiguous industry should be resolved before applying the search");
+assert.ok(Review.pendingQuestions(informalTravel).includes("signals"), "an unknown tool must be classified before it can affect the query");
+assert.strictEqual(Review.canApply(informalTravel), false);
+informalTravel.unverifiedSignals = [];
+informalTravel.atributosDeseables = [];
+informalTravel.imprescindibles = ["Amadeus"];
+informalTravel.dominio = ["travel tech"];
+informalTravel.sectorNeedsClarification = false;
+Review.accept(informalTravel, "sector");
+for (const question of Review.pendingQuestions(informalTravel)) Review.accept(informalTravel, question);
+assert.strictEqual(Review.canApply(informalTravel), true, "the reviewed brief can be applied after its remaining confirmations");
+
 const tooBroad = Extractor.analyzeJD("Buscamos Recepcionista en Córdoba, Argentina.");
 for (const question of ["role", "requirements", "location"]) Review.accept(tooBroad, question);
 assert.strictEqual(Review.canApply(tooBroad), false, "título y ciudad no bastan sin una señal diferenciadora");

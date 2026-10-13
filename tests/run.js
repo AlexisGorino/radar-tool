@@ -30,6 +30,31 @@ test("detects Argentina from city name", () => {
   assert.strictEqual(Countries.detectCountry("Buscamos un dev para Córdoba, Argentina"), "Argentina");
 });
 
+test("informal sourcing notes separate a generic role, an unknown named tool and an ambiguous sector", () => {
+  const result = Extractor.analyzeJD("Un desarrollador con experiencia en sector travel manejando Amadeus para Buenos Aires, Argentina.");
+  assert.deepStrictEqual(result.rol, ["desarrollador"]);
+  assert.ok(result.atributosDeseables.includes("Amadeus"), `unclassified tools should start as optional, got ${result.atributosDeseables}`);
+  assert.ok(result.unverifiedSignals.includes("Amadeus"));
+  assert.ok(result.dominio.includes("travel"));
+  assert.strictEqual(result.sectorNeedsClarification, true, "travel can mean travel technology or tourism operations");
+  assert.deepStrictEqual(result.alcance, ["Argentina", "Buenos Aires"]);
+});
+
+test("informal non-IT notes separate the activity from its named system", () => {
+  const result = Extractor.analyzeJD("Busco un Analista Contable con experiencia en conciliaciones usando Bejerman en Córdoba, Argentina.");
+  assert.deepStrictEqual(result.rol, ["Analista Contable"]);
+  assert.ok(result.unverifiedSignals.includes("conciliaciones"), `activity should remain reviewable, got ${result.unverifiedSignals}`);
+  assert.ok(result.unverifiedSignals.includes("Bejerman"), `system should remain reviewable, got ${result.unverifiedSignals}`);
+  assert.ok(!result.unverifiedSignals.includes("conciliaciones usando Bejerman"), "activity and tool must not be merged into one signal");
+  assert.ok(result.alcance.includes("Córdoba") && result.alcance.includes("Argentina"));
+});
+
+test("an unknown tool in an optional phrase stays optional", () => {
+  const result = Extractor.analyzeJD("Busco un desarrollador que maneje Amadeus; es deseable, no obligatorio.");
+  assert.ok(!result.atributos.includes("Amadeus"));
+  assert.ok(result.atributosDeseables.includes("Amadeus"));
+});
+
 test("does not add Chile back as a country or resolve Santiago to it", () => {
   assert.strictEqual(Countries.detectCountry("Puesto remoto en Santiago de Chile"), null);
   assert.strictEqual(Countries.detectCountry("Puesto remoto en Chile"), null);

@@ -57,6 +57,30 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("turns an informal search idea into editable criteria and clarifies an ambiguous sector", () => {
+    cy.get("#ideaModeBtn").click();
+    cy.get("#jdInput").should("have.attr", "aria-label", "Idea de búsqueda escrita con tus palabras");
+    cy.get("#intakeModeHint").should("contain.text", "te pregunta lo importante");
+    cy.get("#jdInput").type("Un desarrollador con experiencia en sector travel manejando Amadeus para Buenos Aires, Argentina.", { delay: 0 });
+    cy.get("#analyzeBtn").click();
+
+    cy.get("#jdReview").should("be.visible");
+    cy.get(".jd-review-role-input").should("have.value", "desarrollador");
+    cy.get("#jdReviewGrid").should("contain.text", "Amadeus");
+    cy.contains("#jdReviewQuestions", "¿A qué te referís con “travel”?").should("be.visible");
+    cy.contains("#jdReviewQuestions button", "Obligatorio: Amadeus").click();
+    cy.contains("#jdReviewQuestions button", "Plataformas de viajes").click();
+    cy.contains("#jdReviewQuestions button", "Sí, es este perfil").click();
+    cy.contains("#jdReviewQuestions button", "Sí, limitar a esta ubicación").click();
+    cy.get("#applyJdBtn").should("be.enabled").click();
+
+    cy.get("#chips-rol").should("contain.text", "desarrollador");
+    cy.get("#chips-imprescindibles").should("contain.text", "Amadeus");
+    cy.get("#chips-dominio").should("contain.text", "travel tech");
+    cy.get("#generateBtn").click();
+    cy.get("#out-universal").should("contain.text", "Amadeus").and("contain.text", "Buenos Aires");
+  });
+
   it("boots the search flow on the pinned Angular 21 runtime", () => {
     cy.get("radar-root").should("have.attr", "ng-version", "21.2.25");
     cy.get("#radarBootError").should("not.exist");

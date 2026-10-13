@@ -81,7 +81,7 @@
 
   const INDUSTRIES = [
     "banca", "banco", "seguros", "aseguradora", "telecomunicaciones", "telecom", "hoteleria",
-    "hotelería", "retail", "salud", "farmaceutica", "farmacéutica", "fintech", "e-commerce", "ecommerce",
+    "hotelería", "travel technology", "travel tech", "travel", "tourism", "hospitality", "retail", "salud", "farmaceutica", "farmacéutica", "fintech", "e-commerce", "ecommerce",
     "manufactura", "industrial", "energia", "energía", "petrolera", "consultoria", "consultoría", "consultora",
     "logistica", "logística", "turismo", "educacion", "educación",
     "gaming", "inmobiliario", "inmobiliaria", "real estate", "agro", "agropecuario", "mineria", "minería",

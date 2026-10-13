@@ -106,7 +106,9 @@
           if (marker.index > index) break;
           state = marker.optional;
         }
-        return state;
+        const suffix = text.slice(index + term.length, index + term.length + 48);
+        const inlineOptional = /^[\s,;:—-]*(?:(?:es|resulta|sería|se considera|se valora(?: como)?|no es|no resulta)\s+)?(?:deseable|valorable|opcional|un plus|plus|no obligatorio)\b/i.test(suffix);
+        return state || inlineOptional;
       });
       if (isOnlyOptional) optional.push(term);
     });
@@ -160,9 +162,10 @@
   function trimRolPhrase(raw) {
     let rol = raw.trim().replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "").replace(LEADING_SENIORITY_ABBREV_RE, "").trim();
     const stopWords =
-      /\s+(para|con|a nuestro|a nuestra|al equipo|a su equipo|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
+      /\s+(para|con|que\b|a nuestro|a nuestra|al equipo|a su equipo|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
     rol = rol.replace(locationTailRegex(), "").trim();
+    rol = rol.replace(/^(?:(?:un[oa]?|el|la)\s+)+/i, "").trim();
     // a leading count ("1 PM Ciberseguridad") isn't part of the title
     rol = rol.replace(/^\d+\s+/, "").trim();
     if (rol.length > 60) {
@@ -472,6 +475,31 @@
     return text.slice(start, end + (text[end] === "." ? 1 : 0)).replace(/\s+/g, " ").trim();
   }
 
+  // Short sourcing notes often name a tool in plain language without a JD
+  // heading or a known skill-bank term ("manejando Amadeus"). Capture only
+  // named products after an explicit action phrase, then present them for
+  // recruiter review as alternatives instead of silently making them required.
+  const ACTION_SIGNAL_RE = /\b(?:manej(?:a|ar|ando|e|en|o|ó)|manejo de|utiliz(?:a|ar|ando)|us(?:a|ar|ando)|oper(?:a|ar|ando)|configur(?:a|ar|ando)|implement(?:a|ar|ando)|experiencia (?:práctica )?(?:en|con)|conocimiento de|trabaja(?:r|ndo)? con|use|uses|used|using|manage|manages|managed|managing|operate|operates|operated|operating|configure|configures|configured|configuring|implement|implements|implemented|implementing|work with|works with|worked with|working with|experience (?:in|with)|experienced (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|the|a|an)\s+)?([A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*(?:\s+[A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*){0,2})/gu;
+  const ACTION_TASK_RE = /\b(?:experiencia (?:práctica )?(?:en|con)|conocimiento de|manej(?:a|ar|ando|e|en)|gestiona(?:r|ndo)?|lidera(?:r|ndo)?|coordina(?:r|ndo)?|realiza(?:r|ndo)?|ejecuta(?:r|ndo)?|analiza(?:r|ndo)?|atiende(?:r|ndo)?|vende(?:r|ndo)?|audita(?:r|ndo)?|administra(?:r|ndo)?|organiza(?:r|ndo)?|plans?|manage(?:s|d|ment|ing)?|lead(?:s|ing)?|coordinate(?:s|d|ing)?|perform(?:s|ed|ing)?|analy[sz]e(?:s|d|ing)?|handle(?:s|d|ing)?|experience (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|the|a|an)\s+)?([\p{L}\p{N}+#./-]+(?:(?!\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b)\s+[\p{L}\p{N}+#./-]+){0,2})(?=\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b|[,.;]|$)/giu;
+  const GENERIC_ACTION_SIGNALS = new Set(["herramienta", "herramientas", "sistema", "sistemas", "software", "plataforma", "plataformas", "tecnología", "tecnologias", "solución", "soluciones", "producto", "productos", "instalación", "instalaciones"]);
+
+  function extractActionSignals(text) {
+    const found = [];
+    for (const pattern of [ACTION_SIGNAL_RE, ACTION_TASK_RE]) {
+      pattern.lastIndex = 0;
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const term = match[1].trim().replace(/[.,;:]+$/, "");
+        const normalized = term.toLowerCase();
+        const isIndustry = Keywords.INDUSTRIES.some((industry) => industry.toLowerCase() === normalized);
+        if (!term || GENERIC_ACTION_SIGNALS.has(normalized) || isIndustry || /^(?:sector|industria|industry|rubro)\s/i.test(term)) continue;
+        if (!found.some((existing) => existing.toLowerCase() === normalized)) found.push(term);
+        if (found.length >= 3) return found;
+      }
+    }
+    return found;
+  }
+
   function originalIndexForFolded(text, target) {
     let offset = 0;
     for (let i = 0; i < text.length; i++) {
@@ -524,16 +552,23 @@
   function analyzeJD(rawText, options) {
     const text = normalizeJDText(String(rawText || "").slice(0, MAX_INPUT_LENGTH));
     if (!text.trim()) {
-      return { rol: [], atributos: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false, isResume: false };
+      return { rol: [], atributos: [], atributosDeseables: [], unverifiedSignals: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false, isResume: false };
     }
 
     const rol = dedupe(guessRol(text));
-    const allSkillMatches = findMatchesRanked(text, Keywords.SKILLS, undefined, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS);
-    const optionalSet = new Set(optionalOnlySkills(text, Keywords.SKILLS).map((term) => term.toLowerCase()));
+    const actionSignals = extractActionSignals(text);
+    const skillBank = dedupe([...Keywords.SKILLS, ...actionSignals]);
+    const knownSkillMatches = findMatchesRanked(text, Keywords.SKILLS, undefined, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS);
+    const allSkillMatches = dedupe([...knownSkillMatches, ...actionSignals]);
+    const optionalSet = new Set(optionalOnlySkills(text, skillBank).map((term) => term.toLowerCase()));
     const genericSet = new Set(Keywords.GENERIC_SKILLS.map((term) => term.toLowerCase()));
-    const atributos = dedupe(allSkillMatches.filter((term) => !optionalSet.has(term.toLowerCase()) && !genericSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
-    const atributosDeseables = dedupe(allSkillMatches.filter((term) => optionalSet.has(term.toLowerCase()) || genericSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
+    const knownSkillSet = new Set(knownSkillMatches.map((term) => term.toLowerCase()));
+    const unverifiedSignals = dedupe(actionSignals.filter((term) => !knownSkillSet.has(term.toLowerCase()) && !optionalSet.has(term.toLowerCase())));
+    const unverifiedSet = new Set(unverifiedSignals.map((term) => term.toLowerCase()));
+    const atributos = dedupe(allSkillMatches.filter((term) => !optionalSet.has(term.toLowerCase()) && !genericSet.has(term.toLowerCase()) && !unverifiedSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
+    const atributosDeseables = dedupe(allSkillMatches.filter((term) => optionalSet.has(term.toLowerCase()) || genericSet.has(term.toLowerCase()) || unverifiedSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
     const dominio = dedupe(findMatchesRanked(text, Keywords.INDUSTRIES, MAX_DOMINIO));
+    const sectorNeedsClarification = /\btravel\b/i.test(text) && !/\btravel\s*(?:tech|technology)\b|\bturismo\b/i.test(text);
 
     // Alcance is país + localidad only. Modalidad (remoto/híbrido/presencial)
     // and seniority used to be folded in here too, but they're candidate
@@ -565,7 +600,7 @@
     // is context rather than a reliable term on public candidate profiles.
     const refinarSuggestion = [];
 
-    const analyzed = { rol, atributos, atributosDeseables, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification) };
+    const analyzed = { rol, atributos, atributosDeseables, unverifiedSignals, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
     const namedCountry = options && options.fileName ? Countries.detectCountry(options.fileName) : null;
     analyzed.fileCountrySuggestion = !country && namedCountry ? namedCountry : null;
     analyzed.isResume = looksLikeResume(text);
@@ -602,6 +637,7 @@
     looksLikeTemplateNoise,
     optionalOnlySkills,
     looksLikeResume,
+    extractActionSignals,
     countJobPostingSignals,
     guessRol,
     trimRolPhrase,

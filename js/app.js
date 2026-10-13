@@ -42,6 +42,11 @@
   // DOM refs
   // ---------------------------------------------------------------
   const jdInput = document.getElementById("jdInput");
+  const descriptionModeBtn = document.getElementById("descriptionModeBtn");
+  const ideaModeBtn = document.getElementById("ideaModeBtn");
+  const intakeCaption = document.getElementById("intakeCaption");
+  const intakeOptional = intakeCaption.querySelector("span");
+  const intakeModeHint = document.getElementById("intakeModeHint");
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
   const readinessProfile = document.getElementById("readinessProfile");
@@ -90,6 +95,7 @@
   const generatorWarning = document.getElementById("generatorWarning");
   let pendingAnalysis = null;
   let jdNeedsReview = false;
+  let intakeMode = "description";
   let currentFileName = "";
   let currentSourceMeta = null;
   let uploadSequence = 0;
@@ -110,6 +116,24 @@
 
   const FEEDBACK_EMAILS = { alexis: "alexis.gorino@mindata.es", franco: "franco.velazco@mindata.es" };
   const FEEDBACK_ENDPOINT = "https://formsubmit.co/ajax/";
+
+  function setIntakeMode(mode) {
+    intakeMode = mode === "idea" ? "idea" : "description";
+    const ideaMode = intakeMode === "idea";
+    descriptionModeBtn.classList.toggle("is-active", !ideaMode);
+    ideaModeBtn.classList.toggle("is-active", ideaMode);
+    descriptionModeBtn.setAttribute("aria-pressed", String(!ideaMode));
+    ideaModeBtn.setAttribute("aria-pressed", String(ideaMode));
+    intakeCaption.firstChild.textContent = ideaMode ? "Contá a quién querés encontrar" : "Descripción del puesto ";
+    intakeOptional.hidden = ideaMode;
+    jdInput.setAttribute("aria-label", ideaMode ? "Idea de búsqueda escrita con tus palabras" : "Descripción del puesto");
+    jdInput.placeholder = ideaMode
+      ? "Ej.: Busco un perfil de desarrollo con experiencia en travel y manejo de Amadeus. No sé si es obligatorio."
+      : "Ej.: Técnico/a de redes con experiencia en FTTH, para trabajar en Valencia, España...";
+    intakeModeHint.textContent = ideaMode
+      ? "Escribí como te salga. RADAR separa cargo, sector y conocimientos, y te pregunta lo importante."
+      : "Pegala o adjuntala. RADAR separará los datos para que los revises.";
+  }
 
   function getPublicSearchEndpoint() {
     return (document.querySelector('meta[name="radar-search-endpoint"]')?.content || "").trim();
@@ -548,6 +572,8 @@
       requirements: result.atributos.length || (result.imprescindibles || []).length || (result.atributosDeseables || []).length
         ? ["¿Qué es obligatorio?", "Las señales son alternativas: alcanza una. Marcá como imprescindibles solo las que deben cumplirse todas." ]
         : ["¿Qué distingue al perfil?", "Agregá una habilidad, tarea o experiencia concreta. Sin cargo, hacen falta señales suficientes para identificarlo."],
+      signals: ["¿Cómo usamos estas herramientas?", "RADAR las dejó como puntos extra para no filtrar perfiles por una suposición. Decidí una por una."],
+      sector: ["¿A qué te referís con “travel”?", "Puede ser tecnología para viajes o turismo y operaciones. Elegí el contexto; no lo tomamos como una herramienta obligatoria."],
       location: result.locationNeedsClarification
         ? ["El texto dice Santiago, pero falta el país.", "Indicá ciudad y país. RADAR no elige por vos entre localidades con el mismo nombre."]
         : ambiguousLocationChoices.length
@@ -597,16 +623,90 @@
         });
         row.appendChild(confirmBrief);
       }
-      if (gap === "requirements" && result.atributos.length) {
+      if (gap === "requirements" && (result.atributos.length || result.imprescindibles.length || (result.atributosDeseables || []).length)) {
         const confirmRequirements = document.createElement("button");
         confirmRequirements.type = "button";
         confirmRequirements.className = "jd-review-choice";
-        confirmRequirements.textContent = "Sí, usar estas señales";
+        confirmRequirements.textContent = result.atributos.length ? "Sí, usar estas señales" : "Confirmar estos requisitos";
         confirmRequirements.addEventListener("click", () => {
           RadarReview.accept(result, "requirements");
           renderJdReview(result);
         });
         row.appendChild(confirmRequirements);
+      }
+      if (gap === "signals") {
+        (result.unverifiedSignals || []).forEach((term) => {
+          const item = document.createElement("div");
+          item.className = "brief-signal-review";
+          const name = document.createElement("strong");
+          name.textContent = term;
+          item.appendChild(name);
+          const choices = [
+            ["Obligatorio: " + term, "required"],
+            ["Solo suma: " + term, "desirable"],
+            ["No usar: " + term, "remove"],
+          ];
+          choices.forEach(([label, action]) => {
+            const choice = document.createElement("button");
+            choice.type = "button";
+            choice.className = "jd-review-choice";
+            choice.textContent = label;
+            choice.disabled = action === "required" && result.imprescindibles.length >= RadarGenerator.MAX_TERMS_PER_GROUP;
+            choice.addEventListener("click", () => {
+              const normalized = term.toLowerCase();
+              const sameTerm = (value) => value.toLowerCase() === normalized;
+              const unverifiedBefore = new Set((result.unverifiedSignals || []).map((value) => value.toLowerCase()));
+              const knownBefore = [...result.atributos, ...result.imprescindibles, ...result.atributosDeseables.filter((value) => !unverifiedBefore.has(value.toLowerCase()))];
+              result.atributos = (result.atributos || []).filter((value) => !sameTerm(value));
+              result.imprescindibles = (result.imprescindibles || []).filter((value) => !sameTerm(value));
+              result.atributosDeseables = (result.atributosDeseables || []).filter((value) => !sameTerm(value));
+              const evidence = result.quality && result.quality.evidence;
+              let signalEvidence = null;
+              if (evidence) {
+                for (const key of ["atributos", "atributosDeseables", "imprescindibles"]) {
+                  const records = evidence[key] || [];
+                  const found = records.find((record) => record.term.toLowerCase() === normalized);
+                  if (found) signalEvidence = found;
+                  evidence[key] = records.filter((record) => record.term.toLowerCase() !== normalized);
+                }
+              }
+              if (action === "required") {
+                if (result.imprescindibles.length < RadarGenerator.MAX_TERMS_PER_GROUP) result.imprescindibles.push(term);
+                if (evidence && signalEvidence) (evidence.imprescindibles ||= []).push(signalEvidence);
+              } else if (action === "desirable") {
+                result.atributosDeseables.push(term);
+                if (evidence && signalEvidence) (evidence.atributosDeseables ||= []).push(signalEvidence);
+              }
+              result.unverifiedSignals = result.unverifiedSignals.filter((value) => !sameTerm(value));
+              if (!knownBefore.length && !result.unverifiedSignals.length) RadarReview.accept(result, "requirements");
+              renderJdReview(result);
+            });
+            item.appendChild(choice);
+          });
+          row.appendChild(item);
+        });
+      }
+      if (gap === "sector") {
+        const choices = [
+          ["Plataformas de viajes", ["travel tech", "travel technology"]],
+          ["Turismo y operaciones", ["turismo", "travel"]],
+          ["Ambos", ["travel tech", "turismo"]],
+          ["No lo sé · incluir travel", ["travel"]],
+        ];
+        choices.forEach(([label, terms]) => {
+          const choice = document.createElement("button");
+          choice.type = "button";
+          choice.className = "jd-review-choice";
+          choice.textContent = label;
+          choice.addEventListener("click", () => {
+            result.dominio = terms.slice();
+            result.sectorNeedsClarification = false;
+            if (result.quality && result.quality.evidence) result.quality.evidence.dominio = [];
+            RadarReview.accept(result, "sector");
+            renderJdReview(result);
+          });
+          row.appendChild(choice);
+        });
       }
       if (gap === "location" && result.alcance.length) {
         const exact = document.createElement("button");
@@ -665,7 +765,7 @@
         });
         row.appendChild(useCountry);
       }
-      if (gap !== "source" && gap !== "intent" && gap !== "requirements") {
+      if (gap !== "source" && gap !== "intent" && gap !== "requirements" && gap !== "sector") {
         const proceed = document.createElement("button");
         proceed.type = "button";
         proceed.className = "jd-review-choice";
@@ -714,8 +814,10 @@
     updateReviewBadge(result);
     jdReviewSummary.textContent = result.isResume
       ? "El documento parece un CV. No lo vamos a aplicar a los campos de búsqueda."
-      : result.isJobPosting || result.isBrief
-        ? "Revisá cargo, requisitos y ubicación detectados."
+      : result.isBrief
+        ? "Separé los datos de tu idea. Revisá el cargo, los conocimientos y la ubicación."
+        : result.isJobPosting
+          ? "Revisá cargo, requisitos y ubicación detectados."
         : "No parece una descripción de puesto. Completá el perfil a mano.";
 
     jdReviewGrid.textContent = "";
@@ -734,14 +836,14 @@
       const heading = document.createElement("h4");
       heading.textContent = label;
       card.appendChild(heading);
-      if (label === "Rol") {
+      if (label === "Cargo") {
         const input = document.createElement("input");
         input.type = "text";
         input.className = "jd-review-role-input";
         input.maxLength = 80;
         input.value = (terms || [])[0] || "";
         input.placeholder = "Cargo que podría figurar en el perfil";
-        input.setAttribute("aria-label", "Revisar título del puesto");
+        input.setAttribute("aria-label", "Revisar cargo");
         input.addEventListener("input", () => {
           const alternatives = result.rol.slice(1);
           result.rol = input.value.trim() ? [input.value.trim(), ...alternatives] : alternatives;
@@ -796,15 +898,15 @@
     }
 
     const warnings = (quality.warnings || []).filter((warning) =>
-      !((result.atributos.length || (result.imprescindibles || []).length) && warning.startsWith("No detectamos requisitos")) &&
+      !((result.atributos.length || (result.imprescindibles || []).length || (result.unverifiedSignals || []).length) && warning.startsWith("No detectamos requisitos")) &&
       !(result.alcance.length && warning.startsWith("No detectamos una ubicación")) &&
       !(result.reviewAccepted && result.reviewAccepted.location && warning.startsWith("No detectamos una ubicación")) &&
       !((result.rol.length || (result.reviewAccepted && result.reviewAccepted.role)) && warning.startsWith("No pudimos identificar el título"))
     );
     jdReviewWarning.textContent = warnings.join(" ");
     jdReviewWarning.classList.toggle("hidden", warnings.length === 0 && (result.isJobPosting || result.isBrief));
-    if (!result.isJobPosting && !result.isResume && warnings.length === 0) {
-      jdReviewWarning.textContent = "Faltan señales suficientes para reconocer una vacante. No apliques estos campos sin revisarlos.";
+    if (!result.isJobPosting && !result.isBrief && !result.isResume && warnings.length === 0) {
+      jdReviewWarning.textContent = "Faltan datos para reconocer una búsqueda. Revisá estos campos antes de aplicarlos.";
       jdReviewWarning.classList.remove("hidden");
     }
     renderReviewQuestions(result);
@@ -846,6 +948,10 @@
       fileName: typeof fileName === "string" ? fileName : currentFileName,
       sourceMeta: sourceMeta === undefined ? currentSourceMeta : sourceMeta,
     });
+    if (intakeMode === "idea" && !result.isResume) {
+      result.isBrief = true;
+      result.quality.warnings = (result.quality.warnings || []).filter((warning) => !warning.startsWith("El texto es muy breve"));
+    }
     renderJdReview(result);
   }
   jdInput.addEventListener("input", () => {
@@ -860,6 +966,8 @@
     networkOptionsCard.classList.add("hidden");
     updateSearchReadiness();
   });
+  descriptionModeBtn.addEventListener("click", () => setIntakeMode("description"));
+  ideaModeBtn.addEventListener("click", () => setIntakeMode("idea"));
   document.getElementById("analyzeBtn").addEventListener("click", () => runAnalysis());
   document.getElementById("applyJdBtn").addEventListener("click", applyPendingAnalysis);
   document.getElementById("dismissJdBtn").addEventListener("click", () => jdReview.classList.add("hidden"));
@@ -1051,7 +1159,10 @@
     reader.readAsArrayBuffer(file);
   }
 
-  fileInput.addEventListener("change", (e) => loadTextFile(e.target.files[0]));
+  fileInput.addEventListener("change", (e) => {
+    if (e.target.files[0]) setIntakeMode("description");
+    loadTextFile(e.target.files[0]);
+  });
 
   ["dragenter", "dragover"].forEach((evt) => {
     dropzone.addEventListener(evt, (e) => {
@@ -1755,6 +1866,7 @@
     });
     state.seniority = [];
     jdInput.value = "";
+    setIntakeMode("description");
     currentFileName = "";
     currentSourceMeta = null;
     uploadSequence++;
@@ -1863,6 +1975,7 @@
 
   function restoreFromHistory(entry) {
     jdInput.value = "";
+    setIntakeMode("description");
     fileInput.value = "";
     pendingAnalysis = null;
     jdNeedsReview = false;

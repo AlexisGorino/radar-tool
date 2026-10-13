@@ -33,16 +33,22 @@
   </section>
 
   <section class="card">
-    <h2>1 · Cargá la descripción</h2>
-    <p class="hint">Pegala o adjuntala. Si no tenés una, completá el perfil a mano.</p>
+    <h2>1 · Contanos a quién buscás</h2>
+    <p class="hint">Podés pegar una descripción completa o contar con tus palabras a quién buscás.</p>
+
+    <div class="intake-modes" role="group" aria-label="Qué vas a cargar">
+      <button class="intake-mode is-active" id="descriptionModeBtn" type="button" aria-pressed="true">Tengo una descripción</button>
+      <button class="intake-mode" id="ideaModeBtn" type="button" aria-pressed="false">Quiero explicar a quién busco</button>
+    </div>
+    <p class="intake-mode-hint" id="intakeModeHint">Pegala o adjuntala. RADAR separará los datos para que los revises.</p>
 
     <div id="dropzone" class="dropzone">
-      <label class="input-caption" for="jdInput">Descripción del puesto <span>Opcional</span></label>
+      <label class="input-caption" id="intakeCaption" for="jdInput">Descripción del puesto <span>Opcional</span></label>
       <textarea id="jdInput" maxlength="20000" aria-label="Descripción del puesto" placeholder="Ej.: Técnico/a de redes con experiencia en FTTH, para trabajar en Valencia, España..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <div class="row-actions">
-      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar descripción</button>
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar texto</button>
       <label class="file-label">
         <span class="file-label-title">Adjuntar archivo</span>
         <span class="file-label-hint">PDF, DOCX o TXT</span>
@@ -320,6 +326,7 @@
       <h3 id="helpPanelTitle">Guía rápida</h3>
       <button class="btn-close" id="closeHelpBtn" type="button" aria-label="Cerrar">×</button>
     </div>
+    <p class="hint">Si no tenés una descripción, elegí “Quiero explicar a quién busco” y escribí lo que sepas.</p>
     <dl class="help-dl">
       <dt>Cargo</dt><dd>Usá el título que podría aparecer en el perfil. Podés dejarlo vacío si buscás por conocimientos.</dd>
       <dt>Alternativas</dt><dd>Son tareas o conocimientos; alcanza con que coincida uno.</dd>
