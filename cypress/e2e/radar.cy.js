@@ -73,11 +73,13 @@ describe("RADAR talent search flow", () => {
   });
 
   it("keeps optional filters and extra portals out of the first view", () => {
-    cy.get("#welcomeTitle").should("contain.text", "Prepará tu búsqueda");
+    cy.get("#welcomeTitle").should("contain.text", "búsqueda clara");
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
     cy.get('label[for="roleInput"]').should("contain.text", "Cargo o familia de puestos");
-    cy.get('label[for="signalsInput"]').should("contain.text", "Experiencia y conocimientos");
+    cy.get('label[for="signalsInput"]').should("contain.text", "Conocimientos o tareas");
     cy.get('label[for="requiredInput"]').should("contain.text", "requisitos son obligatorios");
+    cy.contains(".field-desc", "Alternativas: alcanza con que coincida una").should("be.visible");
+    cy.get(".required-help").should("contain.text", "todos deben cumplirse");
     cy.get("#generateBtn").should("contain.text", "Preparar búsqueda");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get('[data-field="deseables"]').should("not.be.visible");
@@ -113,10 +115,10 @@ describe("RADAR talent search flow", () => {
     cy.get("#readinessLocation").should("contain.text", "Configurada").and("contain.text", "España");
 
     cy.get("#jdInput").type("Buscamos una persona para el equipo de datos.", { delay: 0 });
-    cy.get("#readinessJd").should("contain.text", "Revisar JD");
+    cy.get("#readinessJd").should("contain.text", "Revisar");
     cy.get("#analyzeBtn").click();
     cy.get("#jdReview").should("be.visible");
-    cy.get("#readinessJd").should("contain.text", "Revisar JD");
+    cy.get("#readinessJd").should("contain.text", "Revisar");
   });
 
   it("shows the precise shortlist rules in the published Angular UI", () => {

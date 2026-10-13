@@ -740,6 +740,7 @@ a.btn:hover,
 .radar-grid > .field-alt { border-top-color: #c3222e; }
 .field-label { margin: 0 0 3px; color: #292925; font-size: 13px; }
 .field-desc { margin: 0 0 10px; color: #66655e; font-size: 11px; line-height: 1.45; }
+.required-help { margin: 6px 0 0; }
 .field-entry-help { margin: 12px 0 14px; padding: 9px 11px; border-left: 2px solid #b9b6aa; background: #f8f7f3; color: #62615a; font-size: 11px; line-height: 1.5; }
 .field-entry-help kbd { padding: 1px 5px; border: 1px solid #d4d1c7; border-radius: 3px; background: #fff; color: #373630; font: inherit; font-weight: 700; }
 .field-input,

@@ -23,11 +23,11 @@
     xing: "Más usado en Alemania, Austria y Suiza. Confirmá país y ciudad en el perfil.",
     behance: "Portfolios públicos de diseño e ilustración. Revisá los trabajos en el sitio.",
     resumes: "CV indexados, posiblemente antiguos. Verificá la fuente y cuidá los datos personales.",
-    custom: "Limita la búsqueda a un dominio. Puede mostrar ofertas en vez de perfiles.",
+    custom: "Busca dentro de un sitio específico. Puede mostrar ofertas en vez de perfiles.",
   };
 
   const NOTES = {
-    linkedin: "X-Ray muestra páginas públicas indexadas. Confirmá ciudad en LinkedIn.",
+    linkedin: "Google busca perfiles públicos que tiene indexados. Confirmá la ciudad en LinkedIn.",
     stackoverflow: "La actividad técnica es una señal; no confirma experiencia laboral.",
     xing: "Más cobertura en Alemania, Austria y Suiza. Confirmá residencia actual.",
     behance: "Revisá portfolio y especialidad dentro del sitio.",
@@ -187,13 +187,13 @@
       setReadiness(readinessLocation, "attention", "Falta ubicación", "Elegí país y localidad, o buscá sin límite.");
     } else {
       const locationIssue = RadarTalentDiscovery.locationScopeError(state);
-      setReadiness(readinessLocation, locationIssue ? "attention" : "ready", locationIssue ? "Revisar" : "Configurada", locationIssue || `Alcance agregado: ${state.alcance.join(", ")}.`);
+      setReadiness(readinessLocation, locationIssue ? "attention" : "ready", locationIssue ? "Revisar" : "Configurada", locationIssue || `Ubicación agregada: ${state.alcance.join(", ")}.`);
     }
 
     if (jdInput.value.trim() && jdNeedsReview) {
-      setReadiness(readinessJd, "attention", "Revisar JD", "Confirmá los datos detectados.");
+      setReadiness(readinessJd, "attention", "Revisar", "Confirmá los datos detectados.");
     } else if (jdInput.value.trim()) {
-      setReadiness(readinessJd, "ready", "JD confirmada", "Podés editar los campos arriba.");
+      setReadiness(readinessJd, "ready", "Confirmada", "Podés editar los campos arriba.");
     } else {
       setReadiness(readinessJd, "ready", "Manual", "Completá perfil y ubicación.");
     }
@@ -540,8 +540,8 @@
     const gaps = reviewGaps(result);
     const ambiguousLocationChoices = (result.ambiguousLocations || []).map((choice) => choice.locality ? `${choice.locality} · ${choice.country}` : choice.country);
     const descriptions = {
-      source: ["¿El texto coincide con la JD original?", "La lectura puede estar incompleta. Compará con el archivo antes de seguir."],
-      intent: ["¿Es un brief de búsqueda?", "No parece una JD. Si es una búsqueda real, completá cargo, señales y ubicación."],
+      source: ["¿El texto coincide con el original?", "La lectura puede estar incompleta. Comparala con el archivo antes de seguir."],
+      intent: ["¿Es una descripción de un puesto?", "No parece una vacante. Si es una búsqueda real, completá cargo, conocimientos y ubicación."],
       role: result.rol.length
         ? [`¿Buscás ${result.rol[0]}?`, "Confirmá o corregí el cargo. También podés buscar por requisitos." ]
         : ["No detectamos el cargo.", "Escribilo o buscá por requisitos."],
@@ -549,12 +549,12 @@
         ? ["¿Qué es obligatorio?", "Las señales son alternativas: alcanza una. Marcá como imprescindibles solo las que deben cumplirse todas." ]
         : ["¿Qué distingue al perfil?", "Agregá una habilidad, tarea o experiencia concreta. Sin cargo, hacen falta señales suficientes para identificarlo."],
       location: result.locationNeedsClarification
-        ? ["La JD dice Santiago, pero falta el país.", "Indicá ciudad y país. RADAR no elige por vos entre localidades con el mismo nombre."]
+        ? ["El texto dice Santiago, pero falta el país.", "Indicá ciudad y país. RADAR no elige por vos entre localidades con el mismo nombre."]
         : ambiguousLocationChoices.length
         ? [`¿Qué ubicación corresponde: ${ambiguousLocationChoices.join(" o ")}?`, "Elegí ciudad y país para evitar una búsqueda en otro lugar."]
         : result.alcance.length
         ? [`¿La ubicación es ${result.alcance[result.alcance.length - 1]}?`, "Confirmala, ampliá al país o buscá sin ubicación." ]
-        : [result.fileCountrySuggestion ? `El archivo menciona ${result.fileCountrySuggestion}, pero la JD no.` : "Falta la ubicación.", "Agregá una ubicación o elegí buscar sin ese filtro."],
+        : [result.fileCountrySuggestion ? `El archivo menciona ${result.fileCountrySuggestion}, pero el texto no.` : "Falta la ubicación.", "Agregá una ubicación o elegí buscar sin ese filtro."],
     };
     gaps.forEach((gap) => {
       const row = document.createElement("div");
@@ -590,7 +590,7 @@
         const confirmBrief = document.createElement("button");
         confirmBrief.type = "button";
         confirmBrief.className = "jd-review-choice";
-        confirmBrief.textContent = "Sí, es un brief de búsqueda";
+        confirmBrief.textContent = "Sí, describe una búsqueda real";
         confirmBrief.addEventListener("click", () => {
           result.isBrief = true;
           renderJdReview(result);
@@ -669,7 +669,7 @@
         const proceed = document.createElement("button");
         proceed.type = "button";
         proceed.className = "jd-review-choice";
-        proceed.textContent = { role: "Buscar sin título", location: "Buscar sin ubicación" }[gap];
+      proceed.textContent = { role: "Buscar sin cargo", location: "Buscar sin ubicación" }[gap];
         proceed.addEventListener("click", () => {
           if (gap === "role") result.rol = [];
           if (gap === "location") {
@@ -716,15 +716,15 @@
       ? "El documento parece un CV. No lo vamos a aplicar a los campos de búsqueda."
       : result.isJobPosting || result.isBrief
         ? "Revisá cargo, requisitos y ubicación detectados."
-        : "No parece una JD. Completá el perfil manualmente.";
+        : "No parece una descripción de puesto. Completá el perfil a mano.";
 
     jdReviewGrid.textContent = "";
     const fields = [
-      ["Rol", result.rol, result.rol[0] && quality.evidence && quality.evidence.rol ? [{ term: result.rol[0], text: quality.evidence.rol }] : []],
+      ["Cargo", result.rol, result.rol[0] && quality.evidence && quality.evidence.rol ? [{ term: result.rol[0], text: quality.evidence.rol }] : []],
       ["Obligatorios · se exigen todos", result.imprescindibles || [], quality.evidence && (quality.evidence.imprescindibles || quality.evidence.atributos), "imprescindibles"],
       ["Alternativas · alcanza una", result.atributos, quality.evidence && quality.evidence.atributos, "atributos"],
-      ["Deseables · opcional", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
-      ["Dominio", result.dominio, quality.evidence && quality.evidence.dominio, "dominio"],
+      ["Puntos extra · opcional", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
+      ["Sector", result.dominio, quality.evidence && quality.evidence.dominio, "dominio"],
       ["Ubicación", result.alcance, quality.evidence && quality.evidence.alcance, "alcance"],
       ["Contexto · no filtra", [...(result.seniority || []), ...(result.modality || [])], []],
     ];
@@ -740,7 +740,7 @@
         input.className = "jd-review-role-input";
         input.maxLength = 80;
         input.value = (terms || [])[0] || "";
-        input.placeholder = "Título de perfil; puede quedar vacío si buscás por skills";
+        input.placeholder = "Cargo que podría figurar en el perfil";
         input.setAttribute("aria-label", "Revisar título del puesto");
         input.addEventListener("input", () => {
           const alternatives = result.rol.slice(1);
@@ -837,7 +837,7 @@
   function runAnalysis(fileName, sourceMeta) {
     const text = jdInput.value;
     if (!text.trim()) {
-      showError("Pegá o subí una JD antes de analizar.", "file");
+      showError("Pegá o adjuntá una descripción antes de analizar.", "file");
       return;
     }
     jdNeedsReview = true;
@@ -868,11 +868,11 @@
     const sourceText = jdInput.value;
     aiAnalyzeJdBtn.disabled = true;
     jdReviewAiStatus.classList.remove("hint-error");
-    jdReviewAiStatus.textContent = "Analizando la JD con Gemini…";
+    jdReviewAiStatus.textContent = "Analizando el texto con Gemini…";
     try {
       const aiResult = await RadarAI.analyzeJD(sourceText);
       if (jdInput.value !== sourceText) {
-        jdReviewAiStatus.textContent = "La JD cambió durante el análisis. Volvé a analizar el texto actualizado.";
+        jdReviewAiStatus.textContent = "El texto cambió durante el análisis. Volvé a analizarlo.";
         return;
       }
       if (!aiResult.isJobPosting) {
@@ -892,7 +892,7 @@
       jdReviewAiStatus.textContent = "Análisis actualizado. Verificá cada dato antes de aplicarlo.";
     } catch (err) {
       jdReviewAiStatus.classList.add("hint-error");
-      jdReviewAiStatus.textContent = err.message || "No se pudo analizar la JD con Gemini.";
+      jdReviewAiStatus.textContent = err.message || "No se pudo analizar el texto con Gemini.";
     } finally {
       aiAnalyzeJdBtn.disabled = false;
     }
@@ -1130,10 +1130,10 @@
       : "sin deseables";
     const sectorSummary = relaxed ? "sin sector" : state.dominio.length ? `sector: ${state.dominio.join(" / ")}` : "sin sector";
     const locationSummary = state.alcance.length ? `ubicación: ${state.alcance[state.alcance.length - 1]}` : "sin restricción geográfica";
-    const roleSummary = state.rol.length ? `cargo: ${state.rol.join(" / ")}` : "sin título, por señales";
+    const roleSummary = state.rol.length ? `cargo: ${state.rol.join(" / ")}` : "sin cargo, por conocimientos";
     strategyNote.textContent = `${roleSummary} · ${requiredSummary} · ${alternativeSummary} · ${optionalSummary} · ${sectorSummary} · ${locationSummary}.`;
     const truncated = RadarGenerator.getTruncatedFields(state);
-    const friendlyField = { rol: "Rol", imprescindibles: "Imprescindibles", atributos: "Alternativas", deseables: "Deseables", dominio: "Dominio", alcance: "Alcance" };
+    const friendlyField = { rol: "Cargo", imprescindibles: "Imprescindibles", atributos: "Alternativas", deseables: "Puntos extra", dominio: "Sector", alcance: "Ubicación" };
     generatorWarning.textContent = truncated.length
       ? "Se admiten hasta 6 términos por grupo. Quitá los menos importantes de: " + truncated.map((field) => friendlyField[field] || field).join(", ") + "."
       : "";
@@ -1209,7 +1209,7 @@
           link.textContent = "Google · " + tier.label;
           xrayTiersEl.appendChild(link);
         });
-        label = "X-Ray — " + net.label;
+        label = "Google · perfiles públicos en " + net.label;
       }
       document.getElementById("out-xray").textContent = xrayQuery;
       document.getElementById("xrayNetworkLabel").textContent = label;
@@ -1426,11 +1426,11 @@
     const nextTitle = document.createElement("strong");
     nextTitle.textContent = "Seguí con otras rutas";
     const nextCopy = document.createElement("span");
-    nextCopy.textContent = "Probá el booleano, X-Ray o la búsqueda directa en otros portales.";
+    nextCopy.textContent = "Probá la consulta en otros portales o buscá perfiles públicos desde Google.";
     const nextLink = document.createElement("a");
     nextLink.className = "btn btn-ghost btn-small";
     nextLink.href = "#results";
-    nextLink.textContent = "Ver Booleano, X-Ray y portales";
+    nextLink.textContent = "Ver consultas y portales";
     nextActions.append(nextTitle, nextCopy, nextLink);
     publicSearchResults.appendChild(nextActions);
     updatePublicShareControls();
@@ -1695,11 +1695,11 @@
 
   document.getElementById("generateBtn").addEventListener("click", () => {
     if (jdNeedsReview && jdInput.value.trim()) {
-      showError("La JD cambió. Volvé a analizarla o borrá el texto para seguir manualmente.");
+      showError("El texto cambió. Volvé a analizarlo o borrálo para seguir a mano.");
       return;
     }
     if (selectedNetwork === "custom" && !customSiteInput.value.trim()) {
-      showError("Indicá el dominio público donde querés buscar perfiles.");
+      showError("Indicá el sitio donde querés buscar perfiles.");
       return;
     }
     const profileIssue = RadarReview.profileIssue(state);
@@ -1832,7 +1832,7 @@
     if (!history.length) {
       const empty = document.createElement("p");
       empty.className = "hint";
-      empty.textContent = "Todavía no armaste ningún booleano en este navegador.";
+      empty.textContent = "Todavía no preparaste ninguna consulta en este navegador.";
       historyList.appendChild(empty);
       return;
     }
