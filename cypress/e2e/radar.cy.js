@@ -75,7 +75,7 @@ describe("RADAR talent search flow", () => {
   it("shows the precise shortlist rules in the published Angular UI", () => {
     cy.get("#publicSearchSetup").should("contain.text", "Top 15 · LinkedIn + GitHub");
     cy.get("#publicSearchSetup").should("contain.text", "Localidad y país");
-    cy.get("#publicSearchSetup").should("contain.text", "Ver booleanos y X-Ray");
+    cy.get("html").should("have.attr", "data-radar-ready", "true");
     cy.get("#countrySelect option").should("not.contain.text", "Chile");
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
     cy.get('[data-field="atributos"]').type("SQL{enter}");

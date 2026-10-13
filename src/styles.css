@@ -646,10 +646,10 @@ a.btn:hover,
 .public-search-refine strong { color: #282825; font-size: 12px; }
 .public-search-refine p { max-width: 740px; margin: 4px 0 0; color: #62615a; font-size: 11px; line-height: 1.5; }
 .public-search-refine .btn { flex: 0 0 auto; }
-.public-search-next-step { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 14px 16px; border: 1px solid #e2e0d9; background: #faf9f6; }
-.public-search-next-step strong { color: #292927; font-size: 12px; }
-.public-search-next-step p { margin: 4px 0 0; color: #62615a; font-size: 11px; line-height: 1.5; }
-.public-search-next-step .btn { flex: 0 0 auto; }
+.public-search-next-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 5px 16px; margin: 16px 0 4px; padding: 14px 16px; border: 1px solid #e2e0d9; border-left: 3px solid var(--red); background: #faf9f6; }
+.public-search-next-actions strong { color: #292927; font-size: 12px; }
+.public-search-next-actions span { grid-column: 1; color: #62615a; font-size: 11px; line-height: 1.5; }
+.public-search-next-actions a { grid-column: 2; grid-row: 1 / span 2; white-space: nowrap; }
 .public-search-cap,
 .public-source-option,
 .public-profile-card,
@@ -667,5 +667,8 @@ a.btn:hover,
   .card { margin-bottom: 11px; }
   .public-search-refine { align-items: flex-start; flex-direction: column; }
   .public-search-guide { grid-template-columns: 1fr; }
-  .public-search-next-step { align-items: flex-start; flex-direction: column; }
+  .public-search-next-actions { grid-template-columns: 1fr; }
+  .public-search-next-actions span,
+  .public-search-next-actions a { grid-column: 1; grid-row: auto; }
+  .public-search-next-actions a { justify-self: start; }
 }
