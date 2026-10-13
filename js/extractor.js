@@ -552,7 +552,7 @@
   function analyzeJD(rawText, options) {
     const text = normalizeJDText(String(rawText || "").slice(0, MAX_INPUT_LENGTH));
     if (!text.trim()) {
-      return { rol: [], atributos: [], atributosDeseables: [], unverifiedSignals: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false, isResume: false };
+      return { rol: [], atributos: [], atributosDeseables: [], imprescindibles: [], unverifiedSignals: [], dominio: [], alcance: [], refinar: [], refinarSuggestion: [], country: null, isJobPosting: false, isResume: false };
     }
 
     const rol = dedupe(guessRol(text));
@@ -600,7 +600,7 @@
     // is context rather than a reliable term on public candidate profiles.
     const refinarSuggestion = [];
 
-    const analyzed = { rol, atributos, atributosDeseables, unverifiedSignals, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
+    const analyzed = { rol, atributos, atributosDeseables, imprescindibles: [], unverifiedSignals, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
     const namedCountry = options && options.fileName ? Countries.detectCountry(options.fileName) : null;
     analyzed.fileCountrySuggestion = !country && namedCountry ? namedCountry : null;
     analyzed.isResume = looksLikeResume(text);
