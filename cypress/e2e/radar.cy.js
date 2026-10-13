@@ -72,20 +72,45 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("keeps optional filters and extra portals out of the first view", () => {
+    cy.get("#advancedCriteria").should("not.have.attr", "open");
+    cy.get('[data-field="deseables"]').should("not.be.visible");
+    cy.get('[data-field="refinar"]').should("not.be.visible");
+    cy.get("#moreNetworks").should("not.have.attr", "open");
+    cy.get("#networkTabs").should("not.be.visible");
+    cy.get("#networkOptionsCard").should("not.be.visible");
+    cy.get("#advancedCriteria > summary").click();
+    cy.get('[data-field="deseables"]').should("be.visible");
+    cy.get('[data-field="rol"]').type("Analista de datos{enter}");
+    cy.get('[data-field="atributos"]').type("SQL{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get("#networkOptionsCard").should("be.visible");
+    cy.get("#moreNetworks").should("not.have.attr", "open");
+    cy.get("#moreNetworks > summary").click();
+    cy.get("#networkTabs").should("be.visible");
+  });
+
   it("shows the precise shortlist rules in the published Angular UI", () => {
-    cy.get("#publicSearchSetup").should("contain.text", "Top 15 · LinkedIn + GitHub");
-    cy.get("#publicSearchSetup").should("contain.text", "Localidad y país");
+    cy.get("#publicSearchSetup").should("not.be.visible");
     cy.get("html").should("have.attr", "data-radar-ready", "true");
     cy.get("#countrySelect option").should("not.contain.text", "Chile");
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
     cy.get('[data-field="atributos"]').type("SQL{enter}");
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
+    cy.get("#publicSearchSetup").should("be.visible");
+    cy.get("#publicSearchSetup").should("contain.text", "Hasta 15 · LinkedIn + GitHub");
+    cy.get("#publicSearchSetup").should("contain.text", "la localidad y el país");
     cy.get('#publicSearchSources input').should("have.length", 2);
     cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub");
   });
 
   it("keeps the public-profile search disabled until its server endpoint is configured", () => {
+    cy.get('[data-field="rol"]').type("Analista de datos{enter}");
+    cy.get('[data-field="atributos"]').type("SQL{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
     cy.get("#publicSearchSetup").should("be.visible");
     cy.get("#findProfilesBtn").should("be.disabled");
     cy.get("#publicSearchConfigNote").should("contain.text", "La conexión segura con el proveedor todavía no está configurada");
@@ -447,6 +472,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn + .inline-error").should("contain.text", "Sin título");
     cy.get('[data-field="rol"]').type("Recepcionista{enter}");
     cy.get('[data-field="atributos"]').type("atención al cliente{enter}");
+    cy.get("#advancedCriteria > summary").click();
     cy.get('[data-field="dominio"]').type("retail{enter}");
     cy.get('[data-field="alcance"]').type("Rosario{enter}");
     cy.get("#generateBtn").click();
@@ -474,6 +500,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#chips-atributos").contains("button", "!").click();
     cy.get("#chips-imprescindibles").should("contain.text", "Selenium");
     cy.get('[data-field="atributos"]').type("Cypress{enter}");
+    cy.get("#advancedCriteria > summary").click();
     cy.get('[data-field="deseables"]').type("Playwright{enter}");
     cy.get('[data-field="dominio"]').type("retail{enter}");
     cy.get('[data-field="alcance"]').type("Rosario{enter}");
@@ -495,10 +522,13 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="rol"]').type("UX Designer{enter}");
     cy.get('[data-field="atributos"]').type("Figma{enter}");
     cy.get('[data-field="atributos"]').type("investigación de usuarios{enter}");
+    cy.get("#advancedCriteria > summary").click();
     cy.get('[data-field="dominio"]').type("diseño{enter}");
     cy.get('[data-field="alcance"]').type("España{enter}");
 
     const selectNetwork = (name) => cy.get("#networkTabs button").contains(name).click();
+    cy.get("#generateBtn").click();
+    cy.get("#moreNetworks > summary").click();
     selectNetwork("LinkedIn");
     cy.get("#generateBtn").click();
     cy.get("#linkedinTiers a").each(($link) => expect(new URL($link.prop("href")).hostname).to.include("linkedin.com"));

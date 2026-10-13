@@ -26,20 +26,20 @@
 
 <main class="wrap">
 
-  <p class="intro">RADAR convierte una búsqueda en criterios revisables, separa requisitos de deseables y propone rutas de búsqueda para cada red. Antes de generar, vas a poder corregir el cargo, las skills y el alcance geográfico.</p>
+  <p class="intro">Cargá la búsqueda, confirmá a quién necesitás y elegí cómo encontrar perfiles. RADAR te guía y conserva tus criterios antes de buscar.</p>
 
   <section class="card">
-    <h2>1 · Job description</h2>
-    <p class="hint">Pegá una JD o escribí lo que necesitás con tus palabras. RADAR pedirá cargo, señales concretas del perfil y alcance antes de buscar.</p>
+    <h2>1 · Contá a quién necesitás</h2>
+    <p class="hint">Pegá la JD, subí un archivo o describí el perfil con tus palabras.</p>
 
     <div id="dropzone" class="dropzone">
       <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description o brief de búsqueda" placeholder="Ej: Busco una persona que audite instalaciones de telecom en Canarias, con Ekahau y nPerf. También podés pegar una JD o soltar un archivo..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <div class="row-actions">
-      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar JD</button>
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar y revisar perfil</button>
       <label class="file-label">
-        o subí un archivo .txt, .pdf o .docx
+        <span>Subir .txt, .pdf o .docx</span>
         <input type="file" id="fileInput" accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
       </label>
       <button class="btn btn-ghost" id="clearAllBtn" type="button">Borrar todo</button>
@@ -51,10 +51,10 @@
       </div>
       <div class="jd-review-grid" id="jdReviewGrid"></div>
       <div class="jd-review-questions" id="jdReviewQuestions"></div>
-      <p class="jd-review-help">Confirmá las señales antes de buscar. Podés pasar requisitos a deseables, corregir el cargo y ajustar la ubicación. Los deseables solo filtran si los promovés.</p>
+      <p class="jd-review-help">Confirmá el cargo, los requisitos y la ubicación. Si falta un dato importante, RADAR te va a preguntar antes de continuar.</p>
       <p class="jd-review-warning hidden" id="jdReviewWarning"></p>
       <div class="jd-review-actions">
-        <button class="btn btn-primary" id="applyJdBtn" type="button">Usar estos campos en RADAR</button>
+        <button class="btn btn-primary" id="applyJdBtn" type="button">Confirmar perfil y continuar</button>
         <button class="btn btn-ghost" id="dismissJdBtn" type="button">Seguir editando la JD</button>
         <button class="btn btn-ghost hidden" id="aiAnalyzeJdBtn" type="button">✨ Mejorar análisis con Gemini</button>
       </div>
@@ -64,16 +64,16 @@
   </section>
 
   <section class="card">
-    <h2>2 · Campos RADAR</h2>
-    <p class="hint">Relevamiento mínimo: cargo y una señal concreta del perfil, o varias señales si buscás sin título. Marcá solo los verdaderos requisitos excluyentes como imprescindibles; usá alternativas para equivalencias y deseables para ampliar después. Definí la ubicación o indicá expresamente que no debe limitarse.</p>
+    <h2>2 · Revisá el perfil a buscar</h2>
+    <p class="hint">Ajustá lo esencial: cargo, qué sabe o debe hacer y dónde buscar. Los filtros opcionales están debajo.</p>
 
     <div class="radar-grid">
       <div class="field">
         <div class="field-letter">R</div>
-        <div class="field-label">Rol</div>
-        <div class="field-desc">Título del puesto</div>
+        <div class="field-label">Cargo o familia de puestos</div>
+        <div class="field-desc">Podés dejarlo vacío si buscás por habilidades</div>
         <div class="chips" id="chips-rol"></div>
-        <input type="text" class="field-input" data-field="rol" placeholder="Escribí y Enter" maxlength="80">
+        <input type="text" class="field-input" data-field="rol" placeholder="Ej.: Técnico de redes" maxlength="80">
         <div class="synonyms-row hidden" id="synonymsRow">
           <span class="synonyms-label">+ sinónimos:</span>
           <div class="synonyms-list" id="synonymsList"></div>
@@ -85,27 +85,17 @@
       </div>
       <div class="field field-alt">
         <div class="field-letter">A</div>
-        <div class="field-label">Señales del perfil</div>
-        <div class="field-desc">Alternativas: cualquiera puede coincidir (OR)</div>
+        <div class="field-label">Experiencia y conocimientos</div>
+        <div class="field-desc">Agregá tareas, herramientas o habilidades del perfil</div>
         <div class="chips" id="chips-atributos"></div>
-        <input type="text" class="field-input" data-field="atributos" placeholder="Escribí y Enter" maxlength="80">
-        <span class="priority-subhead">Imprescindibles · se exigen todas (AND)</span>
+        <input type="text" class="field-input" data-field="atributos" placeholder="Ej.: fibra óptica" maxlength="80">
+        <span class="priority-subhead">¿Qué requisitos tienen que cumplirse sí o sí?</span>
         <div class="chips" id="chips-imprescindibles"></div>
-        <input type="text" class="field-input" data-field="imprescindibles" placeholder="Solo requisitos excluyentes" maxlength="80">
-        <span class="priority-subhead">Deseables · se usan en rutas amplias</span>
-        <div class="chips" id="chips-deseables"></div>
-        <input type="text" class="field-input" data-field="deseables" placeholder="Opcional; no filtra la ruta específica" maxlength="80">
+        <input type="text" class="field-input" data-field="imprescindibles" placeholder="Solo condiciones obligatorias" maxlength="80">
         <div class="synonyms-row hidden" id="aiAtributosRow">
           <span class="synonyms-label">+ sugeridos por IA:</span>
           <div class="synonyms-list" id="aiAtributosList"></div>
         </div>
-      </div>
-      <div class="field">
-        <div class="field-letter">D</div>
-        <div class="field-label">Dominio</div>
-        <div class="field-desc">Industria</div>
-        <div class="chips" id="chips-dominio"></div>
-        <input type="text" class="field-input" data-field="dominio" placeholder="Escribí y Enter" maxlength="80">
       </div>
       <div class="field field-alt">
         <div class="field-letter">A</div>
@@ -120,65 +110,38 @@
         <input type="text" class="field-input" data-field="alcance" placeholder="Escribí y Enter" maxlength="80">
         <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Buscar sin restricción geográfica</label>
       </div>
-      <div class="field">
-        <div class="field-letter field-letter-exclude">R</div>
-        <div class="field-label field-label-exclude">Refinar</div>
-        <div class="field-desc">Excluir (NOT)</div>
-        <div class="chips" id="chips-refinar"></div>
-        <input type="text" class="field-input" data-field="refinar" placeholder="Escribí y Enter" maxlength="80">
-        <div class="synonyms-row hidden" id="refinarSuggestionsRow">
-          <span class="synonyms-label">Sugerencias (click para excluir):</span>
-          <div class="synonyms-list" id="refinarSuggestionsList"></div>
+      <details class="advanced-options" id="advancedCriteria">
+        <summary>Más filtros <span>Deseables, sector y exclusiones (opcionales)</span></summary>
+        <div class="radar-grid advanced-grid">
+          <div class="field">
+            <div class="field-label">Deseables</div>
+            <div class="field-desc">Se usan para ampliar, no para excluir perfiles</div>
+            <div class="chips" id="chips-deseables"></div>
+            <input type="text" class="field-input" data-field="deseables" placeholder="Ej.: Excel" maxlength="80">
+          </div>
+          <div class="field">
+            <div class="field-label">Sector</div>
+            <div class="field-desc">Sector o industria, solo si es importante</div>
+            <div class="chips" id="chips-dominio"></div>
+            <input type="text" class="field-input" data-field="dominio" placeholder="Ej.: telecomunicaciones" maxlength="80">
+          </div>
+          <div class="field">
+            <div class="field-label field-label-exclude">Excluir perfiles</div>
+            <div class="field-desc">Usá esto solo para descartar algo concreto</div>
+            <div class="chips" id="chips-refinar"></div>
+            <input type="text" class="field-input" data-field="refinar" placeholder="Ej.: pasantía" maxlength="80">
+            <div class="synonyms-row hidden" id="refinarSuggestionsRow">
+              <span class="synonyms-label">Sugerencias para excluir:</span>
+              <div class="synonyms-list" id="refinarSuggestionsList"></div>
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
     </div>
-  </section>
-
-  <section class="card">
-    <h2>3 · Dónde buscar</h2>
-    <p class="hint">Elegí la red. Cada una tiene su propia sintaxis, ya ajustada.</p>
-    <div class="network-recommendations" id="networkRecommendations" aria-live="polite"></div>
-    <div class="network-tabs" id="networkTabs"></div>
-    <p class="network-description" id="networkDescription"></p>
-    <div class="custom-site-row hidden" id="customSiteRow">
-      <label>Dominio con perfiles públicos <input type="text" id="customSiteInput" placeholder="ej: portfolio.ejemplo.com"></label>
-    </div>
-    <div class="github-mode-row hidden" id="githubModeRow">
-      <label><input type="radio" name="ghmode" value="people" checked> Buscar personas</label>
-      <label><input type="radio" name="ghmode" value="repos"> Buscar repositorios</label>
-      <label class="stars-input hidden" id="starsInputWrap">Mín. estrellas <input type="number" id="minStars" min="0" placeholder="100"></label>
-    </div>
-  </section>
-
-  <section class="card public-search-setup" id="publicSearchSetup" aria-labelledby="publicSearchTitle">
-    <div class="public-search-heading">
-      <div><span class="public-search-kicker">DESCUBRIMIENTO PÚBLICO</span><h2 id="publicSearchTitle">Perfiles encontrados</h2></div>
-      <span class="public-search-cap">Top 15 · LinkedIn + GitHub</span>
-    </div>
-    <p class="hint">RADAR consulta solo perfiles públicos indexados de LinkedIn y GitHub. Para evitar ciudades homónimas, indicá localidad y país en Alcance. Se muestran hasta 15 perfiles con evidencia visible de toda la ubicación; si el fragmento no la confirma, el perfil queda fuera. Revisá residencia y requisitos en la fuente antes de contactar.</p>
-    <ol class="public-search-guide" aria-label="Cómo usar el listado">
-      <li><span>01</span><div><strong>Definí la ubicación</strong><small>Localidad y país en Alcance</small></div></li>
-      <li><span>02</span><div><strong>Revisá el top 15</strong><small>Perfiles públicos con señales visibles</small></div></li>
-      <li><span>03</span><div><strong>Ampliá el hunting</strong><small>Booleano, X-Ray y otros portales</small></div></li>
-    </ol>
-    <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
-    <p class="public-search-method-note">Se consultan LinkedIn y GitHub. El listado no confirma que una persona siga en el puesto, resida hoy en esa localidad o esté buscando trabajo; verificá esos datos en la fuente.</p>
-    <div class="public-search-action">
-      <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles públicos</button>
-      <button class="btn btn-ghost btn-small" id="checkProfilesConnectionBtn" type="button" disabled>Probar conexión sin buscar</button>
-      <span class="hint" id="publicSearchConfigNote">La conexión segura con el proveedor todavía no está configurada.</span>
-    </div>
-    <p class="public-search-status" id="publicSearchStatus" role="status" aria-live="polite"></p>
-    <div class="public-search-results" id="publicSearchResults" aria-live="polite"></div>
-    <div class="public-search-refine hidden" id="publicSearchRefine" aria-live="polite">
-      <div><strong id="publicSearchRefineTitle"></strong><p id="publicSearchRefineText"></p></div>
-      <button class="btn btn-dark" id="broadenPublicSearchBtn" type="button">Probar perfiles equivalentes</button>
-    </div>
-    <p class="platform-note">El puntaje compara evidencia visible en el título y el fragmento; un dato ausente queda sin verificar, no se toma como ausencia del perfil. No mide desempeño ni calidad profesional. Confirmá los requisitos y la ubicación en la fuente antes de contactar.</p>
   </section>
 
   <div class="generate-row">
-    <button class="btn btn-primary" id="generateBtn" type="button">Armar booleano</button>
+    <button class="btn btn-primary" id="generateBtn" type="button">Preparar búsqueda</button>
   </div>
 
   <section class="results" id="results">
@@ -196,6 +159,50 @@
       </label>
       <p class="platform-note">Quita el filtro de sector y conserva el cargo, las señales del perfil y la ubicación elegida. Usalo si la búsqueda precisa trae pocos resultados; la localidad nunca se elimina al ampliar.</p>
     </div>
+
+    <section class="card public-search-setup" id="publicSearchSetup" aria-labelledby="publicSearchTitle">
+      <div class="public-search-heading">
+        <div><span class="public-search-kicker">LISTADO DE PERFILES</span><h2 id="publicSearchTitle">Perfiles públicos para revisar</h2></div>
+        <span class="public-search-cap">Hasta 15 · LinkedIn + GitHub</span>
+      </div>
+      <p class="hint">Buscamos perfiles públicos y los ordenamos por las señales visibles de esta búsqueda. La ubicación debe coincidir; confirmá residencia, requisitos y actualidad en cada fuente.</p>
+      <details class="public-search-explainer">
+        <summary>¿Cómo se arma este listado?</summary>
+        <p>RADAR revisa resultados públicos indexados de LinkedIn y GitHub. No accede a perfiles privados ni confirma disponibilidad. Si no aparece evidencia suficiente de la localidad y el país, el perfil queda afuera.</p>
+      </details>
+      <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
+      <div class="public-search-action">
+        <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles</button>
+        <button class="btn btn-ghost btn-small" id="checkProfilesConnectionBtn" type="button" disabled>Probar conexión</button>
+        <span class="hint" id="publicSearchConfigNote">La conexión segura con el proveedor todavía no está configurada.</span>
+      </div>
+      <p class="public-search-status" id="publicSearchStatus" role="status" aria-live="polite"></p>
+      <div class="public-search-results" id="publicSearchResults" aria-live="polite"></div>
+      <div class="public-search-refine hidden" id="publicSearchRefine" aria-live="polite">
+        <div><strong id="publicSearchRefineTitle"></strong><p id="publicSearchRefineText"></p></div>
+        <button class="btn btn-dark" id="broadenPublicSearchBtn" type="button">Probar perfiles equivalentes</button>
+      </div>
+      <p class="platform-note">El puntaje describe evidencia visible, no calidad profesional. Un dato ausente queda sin verificar.</p>
+    </section>
+
+    <section class="card network-options-card hidden" id="networkOptionsCard">
+      <h2>Otras rutas de hunting</h2>
+      <p class="hint">El listado usa LinkedIn y GitHub. Elegí otra fuente para adaptar la consulta y abrirla en su portal.</p>
+      <div class="network-recommendations" id="networkRecommendations" aria-live="polite"></div>
+      <details class="advanced-options advanced-networks" id="moreNetworks">
+        <summary>Más portales y redes <span>LinkedIn, GitHub, X-Ray y fuentes especializadas</span></summary>
+        <div class="network-tabs" id="networkTabs"></div>
+        <p class="network-description" id="networkDescription"></p>
+      </details>
+      <div class="custom-site-row hidden" id="customSiteRow">
+        <label>Dominio con perfiles públicos <input type="text" id="customSiteInput" placeholder="ej: portfolio.ejemplo.com"></label>
+      </div>
+      <div class="github-mode-row hidden" id="githubModeRow">
+        <label><input type="radio" name="ghmode" value="people" checked> Buscar personas</label>
+        <label><input type="radio" name="ghmode" value="repos"> Buscar repositorios</label>
+        <label class="stars-input hidden" id="starsInputWrap">Mín. estrellas <input type="number" id="minStars" min="0" placeholder="100"></label>
+      </div>
+    </section>
 
     <div class="result-secondary hidden" id="resultLinkedinNative">
       <div class="platform-head">

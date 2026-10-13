@@ -70,6 +70,7 @@
   const publicSearchRefineText = document.getElementById("publicSearchRefineText");
   const broadenPublicSearchBtn = document.getElementById("broadenPublicSearchBtn");
   const resultsEl = document.getElementById("results");
+  const networkOptionsCard = document.getElementById("networkOptionsCard");
   const resultXray = document.getElementById("resultXray");
   const resultGithub = document.getElementById("resultGithub");
   const resultLinkedinNative = document.getElementById("resultLinkedinNative");
@@ -161,7 +162,13 @@
   // ---------------------------------------------------------------
   // Chips
   // ---------------------------------------------------------------
+  function hideGeneratedResults() {
+    resultsEl.classList.remove("show");
+    networkOptionsCard.classList.add("hidden");
+  }
+
   function renderChips(field) {
+    hideGeneratedResults();
     const wrap = document.getElementById("chips-" + field);
     wrap.innerHTML = "";
     state[field].forEach((term, i) => {
@@ -391,6 +398,7 @@
     networkDescriptionEl.textContent = NETWORK_DESCRIPTIONS[id] || "";
     customSiteRow.classList.toggle("hidden", id !== "custom");
     githubModeRow.classList.toggle("hidden", id !== "github");
+    if (resultsEl.classList.contains("show")) renderResults();
   }
   renderNetworkTabs();
   networkDescriptionEl.textContent = NETWORK_DESCRIPTIONS[selectedNetwork] || "";
@@ -783,6 +791,7 @@
     noLocationCheckbox.checked = !pendingAnalysis.alcance.length;
     renderRefinarSuggestions(pendingAnalysis.refinarSuggestion || []);
     resultsEl.classList.remove("show");
+    networkOptionsCard.classList.add("hidden");
     jdReview.classList.add("hidden");
     pendingAnalysis = null;
     jdNeedsReview = false;
@@ -811,6 +820,7 @@
     jdNeedsReview = !!jdInput.value.trim();
     jdReview.classList.add("hidden");
     resultsEl.classList.remove("show");
+    networkOptionsCard.classList.add("hidden");
   });
   document.getElementById("analyzeBtn").addEventListener("click", () => runAnalysis());
   document.getElementById("applyJdBtn").addEventListener("click", applyPendingAnalysis);
@@ -911,6 +921,7 @@
     jdNeedsReview = true;
     jdReview.classList.add("hidden");
     resultsEl.classList.remove("show");
+    networkOptionsCard.classList.add("hidden");
     const isTxt = file.type === "text/plain" || /\.txt$/i.test(file.name);
     const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
     const isDocx = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx$/i.test(file.name);
@@ -1168,6 +1179,7 @@
     }
 
     resultsEl.classList.add("show");
+    networkOptionsCard.classList.remove("hidden");
     renderPublicSearchSources();
     renderOutcomeSummary();
     return universal;
@@ -1717,6 +1729,7 @@
     relaxedModeCheckbox.checked = false;
     selectNetwork("linkedin");
     resultsEl.classList.remove("show");
+    networkOptionsCard.classList.add("hidden");
     Object.values(errorSlots).forEach((el) => (el.textContent = ""));
     renderRefinarSuggestions([]);
     generatorWarning.classList.add("hidden");
