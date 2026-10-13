@@ -100,7 +100,7 @@ describe("RADAR talent search flow", () => {
   it("updates the readiness checklist as the recruiter clarifies the profile", () => {
     cy.get("#readinessProfile").should("contain.text", "Incompleto");
     cy.get("#readinessLocation").should("contain.text", "Falta ubicación");
-    cy.get("#readinessJd").should("contain.text", "Carga manual");
+    cy.get("#readinessJd").should("contain.text", "Manual");
     cy.get(".field-entry-help").should("contain.text", "Enter").and("contain.text", "editar");
 
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
@@ -224,7 +224,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
-    cy.get("#publicSearchStatus").should("contain.text", "Listo: 20 perfiles");
+    cy.get("#publicSearchStatus").should("contain.text", "Resultado parcial: 20 perfiles");
     cy.get("#publicSearchResults").should("contain.text", "Búsqueda en Canary Islands,Spain");
     cy.get("#publicSearchResults").should("contain.text", "No respondió GitHub");
     cy.get(".public-search-next-actions").should("contain.text", "Seguí con otras rutas");
