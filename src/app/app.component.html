@@ -26,20 +26,26 @@
 
 <main class="wrap">
 
-  <p class="intro">Cargá la búsqueda, confirmá a quién necesitás y elegí cómo encontrar perfiles. RADAR te guía y conserva tus criterios antes de buscar.</p>
+  <section class="welcome" aria-labelledby="welcomeTitle">
+    <p class="welcome-kicker">RADAR · HUNTING GUIADO</p>
+    <h2 id="welcomeTitle">Definí el perfil antes de salir a buscar.</h2>
+    <p>Partí de una JD o completá el perfil a mano. Revisá los criterios y la ubicación; las consultas externas solo se ejecutan cuando las elegís.</p>
+  </section>
 
   <section class="card">
     <h2>1 · Contá a quién necesitás</h2>
-    <p class="hint">Pegá la JD, subí un archivo o describí el perfil con tus palabras.</p>
+    <p class="hint">Pegá o adjuntá la JD. ¿No tenés una? Dejá el cuadro vacío y completá el perfil de abajo.</p>
 
     <div id="dropzone" class="dropzone">
-      <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description o brief de búsqueda" placeholder="Ej: Busco una persona que audite instalaciones de telecom en Canarias, con Ekahau y nPerf. También podés pegar una JD o soltar un archivo..."></textarea>
+      <label class="input-caption" for="jdInput">Descripción del puesto o contexto de la búsqueda <span>Opcional si vas a cargar el perfil manualmente</span></label>
+      <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description o brief de búsqueda" placeholder="Ej.: Técnico/a de redes con experiencia en FTTH y fibra óptica, para trabajar en Valencia, España..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <div class="row-actions">
       <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar y revisar perfil</button>
       <label class="file-label">
-        <span>Subir .txt, .pdf o .docx</span>
+        <span class="file-label-title">Adjuntar archivo</span>
+        <span class="file-label-hint">PDF, DOCX o TXT</span>
         <input type="file" id="fileInput" accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
       </label>
       <button class="btn btn-ghost" id="clearAllBtn" type="button">Borrar todo</button>
@@ -69,11 +75,10 @@
 
     <div class="radar-grid">
       <div class="field">
-        <div class="field-letter">R</div>
-        <div class="field-label">Cargo o familia de puestos</div>
+        <label class="field-label" for="roleInput">Cargo o familia de puestos</label>
         <div class="field-desc">Podés dejarlo vacío si buscás por habilidades</div>
         <div class="chips" id="chips-rol"></div>
-        <input type="text" class="field-input" data-field="rol" placeholder="Ej.: Técnico de redes" maxlength="80">
+        <input id="roleInput" type="text" class="field-input" data-field="rol" placeholder="Ej.: Técnico/a de redes" maxlength="80">
         <div class="synonyms-row hidden" id="synonymsRow">
           <span class="synonyms-label">+ sinónimos:</span>
           <div class="synonyms-list" id="synonymsList"></div>
@@ -84,52 +89,50 @@
         </div>
       </div>
       <div class="field field-alt">
-        <div class="field-letter">A</div>
-        <div class="field-label">Experiencia y conocimientos</div>
+        <label class="field-label" for="signalsInput">Experiencia y conocimientos</label>
         <div class="field-desc">Agregá tareas, herramientas o habilidades del perfil</div>
         <div class="chips" id="chips-atributos"></div>
-        <input type="text" class="field-input" data-field="atributos" placeholder="Ej.: fibra óptica" maxlength="80">
-        <span class="priority-subhead">¿Qué requisitos tienen que cumplirse sí o sí?</span>
+        <input id="signalsInput" type="text" class="field-input" data-field="atributos" placeholder="Ej.: instalación FTTH" maxlength="80">
+        <label class="priority-subhead" for="requiredInput">¿Qué requisitos son obligatorios?</label>
         <div class="chips" id="chips-imprescindibles"></div>
-        <input type="text" class="field-input" data-field="imprescindibles" placeholder="Solo condiciones obligatorias" maxlength="80">
+        <input id="requiredInput" type="text" class="field-input" data-field="imprescindibles" placeholder="Solo lo que debe cumplir sí o sí" maxlength="80">
         <div class="synonyms-row hidden" id="aiAtributosRow">
           <span class="synonyms-label">+ sugeridos por IA:</span>
           <div class="synonyms-list" id="aiAtributosList"></div>
         </div>
       </div>
       <div class="field field-alt">
-        <div class="field-letter">A</div>
-        <div class="field-label">Alcance</div>
-        <div class="field-desc">País y localidad</div>
+        <div class="field-label">Ubicación</div>
+        <div class="field-desc">Seleccioná el país y agregá localidad o región. No se infieren países a partir de ciudades.</div>
         <div class="alcance-country-row">
           <select id="countrySelect" aria-label="País">
             <option value="">País...</option>
           </select>
         </div>
         <div class="chips" id="chips-alcance"></div>
-        <input type="text" class="field-input" data-field="alcance" placeholder="Escribí y Enter" maxlength="80">
+        <input id="locationInput" type="text" class="field-input" data-field="alcance" aria-label="Localidad o región" placeholder="Ej.: Valencia, Islas Canarias" maxlength="80">
         <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Buscar sin restricción geográfica</label>
       </div>
       <details class="advanced-options" id="advancedCriteria">
         <summary>Más filtros <span>Deseables, sector y exclusiones (opcionales)</span></summary>
         <div class="radar-grid advanced-grid">
           <div class="field">
-            <div class="field-label">Deseables</div>
+            <label class="field-label" for="desirableInput">Deseables</label>
             <div class="field-desc">Se usan para ampliar, no para excluir perfiles</div>
             <div class="chips" id="chips-deseables"></div>
-            <input type="text" class="field-input" data-field="deseables" placeholder="Ej.: Excel" maxlength="80">
+            <input id="desirableInput" type="text" class="field-input" data-field="deseables" placeholder="Ej.: Excel" maxlength="80">
           </div>
           <div class="field">
-            <div class="field-label">Sector</div>
+            <label class="field-label" for="sectorInput">Sector</label>
             <div class="field-desc">Sector o industria, solo si es importante</div>
             <div class="chips" id="chips-dominio"></div>
-            <input type="text" class="field-input" data-field="dominio" placeholder="Ej.: telecomunicaciones" maxlength="80">
+            <input id="sectorInput" type="text" class="field-input" data-field="dominio" placeholder="Ej.: telecomunicaciones" maxlength="80">
           </div>
           <div class="field">
-            <div class="field-label field-label-exclude">Excluir perfiles</div>
+            <label class="field-label field-label-exclude" for="excludeInput">Excluir perfiles</label>
             <div class="field-desc">Usá esto solo para descartar algo concreto</div>
             <div class="chips" id="chips-refinar"></div>
-            <input type="text" class="field-input" data-field="refinar" placeholder="Ej.: pasantía" maxlength="80">
+            <input id="excludeInput" type="text" class="field-input" data-field="refinar" placeholder="Ej.: pasantía" maxlength="80">
             <div class="synonyms-row hidden" id="refinarSuggestionsRow">
               <span class="synonyms-label">Sugerencias para excluir:</span>
               <div class="synonyms-list" id="refinarSuggestionsList"></div>
@@ -141,6 +144,10 @@
   </section>
 
   <div class="generate-row">
+    <div class="generate-copy">
+      <span>3 · Prepará tus rutas</span>
+      <p>Genera las consultas y el listado. Vos decidís cuándo buscar perfiles públicos.</p>
+    </div>
     <button class="btn btn-primary" id="generateBtn" type="button">Preparar búsqueda</button>
   </div>
 
