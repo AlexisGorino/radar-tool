@@ -97,6 +97,28 @@ describe("RADAR talent search flow", () => {
     cy.get("#networkTabs").should("be.visible");
   });
 
+  it("updates the readiness checklist as the recruiter clarifies the profile", () => {
+    cy.get("#readinessProfile").should("contain.text", "Falta completar");
+    cy.get("#readinessLocation").should("contain.text", "Falta ubicación");
+    cy.get("#readinessJd").should("contain.text", "Carga manual");
+    cy.get(".field-entry-help").should("contain.text", "Enter").and("contain.text", "etiqueta");
+
+    cy.get('[data-field="rol"]').type("Analista de datos{enter}");
+    cy.get('[data-field="atributos"]').type("SQL{enter}");
+    cy.get("#readinessProfile").should("contain.text", "Configurado").and("contain.text", "Analista de datos");
+
+    cy.get('[data-field="alcance"]').type("Valencia{enter}");
+    cy.get("#readinessLocation").should("contain.text", "Revisar").and("contain.text", "agregá también el país");
+    cy.get("#countrySelect").select("España");
+    cy.get("#readinessLocation").should("contain.text", "Configurada").and("contain.text", "España");
+
+    cy.get("#jdInput").type("Buscamos una persona para el equipo de datos.", { delay: 0 });
+    cy.get("#readinessJd").should("contain.text", "Revisar JD");
+    cy.get("#analyzeBtn").click();
+    cy.get("#jdReview").should("be.visible");
+    cy.get("#readinessJd").should("contain.text", "Revisar JD");
+  });
+
   it("shows the precise shortlist rules in the published Angular UI", () => {
     cy.get("#publicSearchSetup").should("not.be.visible");
     cy.get("html").should("have.attr", "data-radar-ready", "true");

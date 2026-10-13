@@ -72,6 +72,7 @@
   <section class="card">
     <h2>2 · Revisá el perfil a buscar</h2>
     <p class="hint">Ajustá lo esencial: cargo, qué sabe o debe hacer y dónde buscar. Los filtros opcionales están debajo.</p>
+    <p class="field-entry-help">Presioná <kbd>Enter</kbd> después de cada término para sumarlo al perfil. Vas a poder quitarlo o cambiar su prioridad desde la etiqueta.</p>
 
     <div class="radar-grid">
       <div class="field">
@@ -141,6 +142,30 @@
         </div>
       </details>
     </div>
+  </section>
+
+  <section class="readiness-panel" id="searchReadiness" aria-labelledby="searchReadinessTitle" aria-live="polite">
+    <div class="readiness-heading">
+      <h2 id="searchReadinessTitle">Chequeo rápido</h2>
+      <p>RADAR valida estos puntos antes de generar las rutas.</p>
+    </div>
+    <ul class="readiness-list">
+      <li class="readiness-item" id="readinessProfile" data-state="pending">
+        <span class="readiness-marker" aria-hidden="true"></span>
+        <span><strong>Perfil</strong><small class="readiness-detail">Agregá cargo o señales suficientes.</small></span>
+        <span class="readiness-status">Pendiente</span>
+      </li>
+      <li class="readiness-item" id="readinessLocation" data-state="pending">
+        <span class="readiness-marker" aria-hidden="true"></span>
+        <span><strong>Ubicación</strong><small class="readiness-detail">Indicá localidad y país o elegí buscar sin límite.</small></span>
+        <span class="readiness-status">Pendiente</span>
+      </li>
+      <li class="readiness-item" id="readinessJd" data-state="ready">
+        <span class="readiness-marker" aria-hidden="true"></span>
+        <span><strong>JD o carga manual</strong><small class="readiness-detail">Podés continuar sin una JD.</small></span>
+        <span class="readiness-status">Carga manual</span>
+      </li>
+    </ul>
   </section>
 
   <div class="generate-row">

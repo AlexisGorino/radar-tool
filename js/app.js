@@ -50,6 +50,9 @@
   const jdInput = document.getElementById("jdInput");
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
+  const readinessProfile = document.getElementById("readinessProfile");
+  const readinessLocation = document.getElementById("readinessLocation");
+  const readinessJd = document.getElementById("readinessJd");
   const countrySelect = document.getElementById("countrySelect");
   const noLocationCheckbox = document.getElementById("noLocationCheckbox");
   const networkTabsEl = document.getElementById("networkTabs");
@@ -167,6 +170,41 @@
     networkOptionsCard.classList.add("hidden");
   }
 
+  function setReadiness(item, stateName, status, detail) {
+    item.dataset.state = stateName;
+    item.querySelector(".readiness-status").textContent = status;
+    item.querySelector(".readiness-detail").textContent = detail;
+  }
+
+  function updateSearchReadiness() {
+    const profileIssue = RadarReview.profileIssue(state);
+    if (profileIssue) {
+      setReadiness(readinessProfile, "attention", "Falta completar", profileIssue);
+    } else {
+      const profileSummary = state.rol.length
+        ? `Cargo y señales listos: ${state.rol[0]}.`
+        : `Búsqueda por señales: ${state.imprescindibles.length + state.atributos.length + state.deseables.length} agregadas.`;
+      setReadiness(readinessProfile, "ready", "Configurado", profileSummary);
+    }
+
+    if (noLocationCheckbox.checked) {
+      setReadiness(readinessLocation, "ready", "Sin límite", "Las rutas pueden ser amplias; el listado público requiere localidad y país.");
+    } else if (!state.alcance.length) {
+      setReadiness(readinessLocation, "attention", "Falta ubicación", "Indicá localidad y país, o elegí buscar sin límite geográfico.");
+    } else {
+      const locationIssue = RadarTalentDiscovery.locationScopeError(state);
+      setReadiness(readinessLocation, locationIssue ? "attention" : "ready", locationIssue ? "Revisar" : "Configurada", locationIssue || `Alcance agregado: ${state.alcance.join(", ")}.`);
+    }
+
+    if (jdInput.value.trim() && jdNeedsReview) {
+      setReadiness(readinessJd, "attention", "Revisar JD", "Analizá y confirmá el relevamiento antes de generar las rutas.");
+    } else if (jdInput.value.trim()) {
+      setReadiness(readinessJd, "ready", "JD confirmada", "Los campos aplicados se pueden revisar y editar arriba.");
+    } else {
+      setReadiness(readinessJd, "ready", "Carga manual", "No hace falta una JD si completás el perfil y su alcance.");
+    }
+  }
+
   function renderChips(field) {
     hideGeneratedResults();
     const wrap = document.getElementById("chips-" + field);
@@ -211,6 +249,7 @@
       wrap.appendChild(chip);
     });
     renderNetworkRecommendations();
+    updateSearchReadiness();
   }
 
   function renderAllChips() {
@@ -354,10 +393,12 @@
     }
   });
   noLocationCheckbox.addEventListener("change", () => {
-    if (!noLocationCheckbox.checked) return;
-    state.alcance = [];
-    countrySelect.value = "";
-    renderChips("alcance");
+    if (noLocationCheckbox.checked) {
+      state.alcance = [];
+      countrySelect.value = "";
+      renderChips("alcance");
+    }
+    updateSearchReadiness();
   });
 
   // ---------------------------------------------------------------
@@ -795,6 +836,7 @@
     jdReview.classList.add("hidden");
     pendingAnalysis = null;
     jdNeedsReview = false;
+    updateSearchReadiness();
     document.getElementById("chips-rol").scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
@@ -805,6 +847,7 @@
       return;
     }
     jdNeedsReview = true;
+    updateSearchReadiness();
     const result = RadarExtractor.analyzeJD(text, {
       fileName: typeof fileName === "string" ? fileName : currentFileName,
       sourceMeta: sourceMeta === undefined ? currentSourceMeta : sourceMeta,
@@ -821,6 +864,7 @@
     jdReview.classList.add("hidden");
     resultsEl.classList.remove("show");
     networkOptionsCard.classList.add("hidden");
+    updateSearchReadiness();
   });
   document.getElementById("analyzeBtn").addEventListener("click", () => runAnalysis());
   document.getElementById("applyJdBtn").addEventListener("click", applyPendingAnalysis);
@@ -922,6 +966,7 @@
     jdReview.classList.add("hidden");
     resultsEl.classList.remove("show");
     networkOptionsCard.classList.add("hidden");
+    updateSearchReadiness();
     const isTxt = file.type === "text/plain" || /\.txt$/i.test(file.name);
     const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
     const isDocx = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx$/i.test(file.name);
@@ -1733,6 +1778,7 @@
     Object.values(errorSlots).forEach((el) => (el.textContent = ""));
     renderRefinarSuggestions([]);
     generatorWarning.classList.add("hidden");
+    updateSearchReadiness();
   });
 
   // ---------------------------------------------------------------
@@ -1832,6 +1878,7 @@
     state.seniority = Array.isArray(entry.seniority) ? entry.seniority.slice() : [];
     renderAllChips();
     noLocationCheckbox.checked = !state.alcance.length;
+    updateSearchReadiness();
     relaxedModeCheckbox.checked = false;
     if (entry.network && RadarNetworks.NETWORKS[entry.network]) {
       selectNetwork(entry.network);
