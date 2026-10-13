@@ -107,6 +107,7 @@ describe("RADAR talent search flow", () => {
   });
 
   it("keeps the public-profile search disabled until its server endpoint is configured", () => {
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "");
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
     cy.get('[data-field="atributos"]').type("SQL{enter}");
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
