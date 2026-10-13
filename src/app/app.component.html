@@ -27,22 +27,22 @@
 <main class="wrap">
 
   <section class="welcome" aria-labelledby="welcomeTitle">
-    <p class="welcome-kicker">RADAR · HUNTING GUIADO</p>
-    <h2 id="welcomeTitle">Definí el perfil antes de salir a buscar.</h2>
-    <p>Partí de una JD o completá el perfil a mano. Revisá los criterios y la ubicación; las consultas externas solo se ejecutan cuando las elegís.</p>
+    <p class="welcome-kicker">RADAR · BÚSQUEDA DE TALENTO</p>
+    <h2 id="welcomeTitle">Prepará tu búsqueda.</h2>
+    <p>Pegá la JD o completá el perfil. Revisá los datos antes de generar.</p>
   </section>
 
   <section class="card">
-    <h2>1 · Contá a quién necesitás</h2>
-    <p class="hint">Pegá o adjuntá la JD. ¿No tenés una? Dejá el cuadro vacío y completá el perfil de abajo.</p>
+    <h2>1 · ¿A quién buscás?</h2>
+    <p class="hint">Pegá o adjuntá la JD. También podés cargar el perfil a mano.</p>
 
     <div id="dropzone" class="dropzone">
-      <label class="input-caption" for="jdInput">Descripción del puesto o contexto de la búsqueda <span>Opcional si vas a cargar el perfil manualmente</span></label>
-      <textarea id="jdInput" maxlength="20000" aria-label="Texto de la job description o brief de búsqueda" placeholder="Ej.: Técnico/a de redes con experiencia en FTTH y fibra óptica, para trabajar en Valencia, España..."></textarea>
+      <label class="input-caption" for="jdInput">Descripción del puesto <span>Opcional</span></label>
+      <textarea id="jdInput" maxlength="20000" aria-label="Descripción del puesto" placeholder="Ej.: Técnico/a de redes con experiencia en FTTH, para trabajar en Valencia, España..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <div class="row-actions">
-      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar y revisar perfil</button>
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar JD</button>
       <label class="file-label">
         <span class="file-label-title">Adjuntar archivo</span>
         <span class="file-label-hint">PDF, DOCX o TXT</span>
@@ -57,27 +57,27 @@
       </div>
       <div class="jd-review-grid" id="jdReviewGrid"></div>
       <div class="jd-review-questions" id="jdReviewQuestions"></div>
-      <p class="jd-review-help">Confirmá el cargo, los requisitos y la ubicación. Si falta un dato importante, RADAR te va a preguntar antes de continuar.</p>
+      <p class="jd-review-help">Confirmá cargo, requisitos y ubicación antes de seguir.</p>
       <p class="jd-review-warning hidden" id="jdReviewWarning"></p>
       <div class="jd-review-actions">
         <button class="btn btn-primary" id="applyJdBtn" type="button">Confirmar perfil y continuar</button>
         <button class="btn btn-ghost" id="dismissJdBtn" type="button">Seguir editando la JD</button>
         <button class="btn btn-ghost hidden" id="aiAnalyzeJdBtn" type="button">✨ Mejorar análisis con Gemini</button>
       </div>
-      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">Al tocar “Mejorar análisis”, se enviará el texto de esta JD directamente a Google Gemini usando tu API key. RADAR no lo envía a Mindata.</p>
+      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">La JD se envía a Google Gemini con tu clave. No pasa por Mindata.</p>
       <p class="jd-review-ai-status" id="jdReviewAiStatus" role="status"></p>
     </section>
   </section>
 
   <section class="card">
-    <h2>2 · Revisá el perfil a buscar</h2>
-    <p class="hint">Ajustá lo esencial: cargo, qué sabe o debe hacer y dónde buscar. Los filtros opcionales están debajo.</p>
-    <p class="field-entry-help">Presioná <kbd>Enter</kbd> después de cada término para sumarlo al perfil. Vas a poder quitarlo o cambiar su prioridad desde la etiqueta.</p>
+      <h2>2 · Definí el perfil</h2>
+    <p class="hint">Completá cargo, requisitos y ubicación. Los demás filtros son opcionales.</p>
+    <p class="field-entry-help"><kbd>Enter</kbd> agrega cada término. Después podés editarlo o quitarlo.</p>
 
     <div class="radar-grid">
       <div class="field">
         <label class="field-label" for="roleInput">Cargo o familia de puestos</label>
-        <div class="field-desc">Podés dejarlo vacío si buscás por habilidades</div>
+        <div class="field-desc">Opcional si buscás por requisitos</div>
         <div class="chips" id="chips-rol"></div>
         <input id="roleInput" type="text" class="field-input" data-field="rol" placeholder="Ej.: Técnico/a de redes" maxlength="80">
         <div class="synonyms-row hidden" id="synonymsRow">
@@ -91,7 +91,7 @@
       </div>
       <div class="field field-alt">
         <label class="field-label" for="signalsInput">Experiencia y conocimientos</label>
-        <div class="field-desc">Agregá tareas, herramientas o habilidades del perfil</div>
+        <div class="field-desc">Tareas, herramientas o habilidades clave</div>
         <div class="chips" id="chips-atributos"></div>
         <input id="signalsInput" type="text" class="field-input" data-field="atributos" placeholder="Ej.: instalación FTTH" maxlength="80">
         <label class="priority-subhead" for="requiredInput">¿Qué requisitos son obligatorios?</label>
@@ -104,7 +104,7 @@
       </div>
       <div class="field field-alt">
         <div class="field-label">Ubicación</div>
-        <div class="field-desc">Seleccioná el país y agregá localidad o región. No se infieren países a partir de ciudades.</div>
+        <div class="field-desc">Elegí país y localidad. RADAR no adivina el país por la ciudad.</div>
         <div class="alcance-country-row">
           <select id="countrySelect" aria-label="País">
             <option value="">País...</option>
@@ -119,19 +119,19 @@
         <div class="radar-grid advanced-grid">
           <div class="field">
             <label class="field-label" for="desirableInput">Deseables</label>
-            <div class="field-desc">Se usan para ampliar, no para excluir perfiles</div>
+            <div class="field-desc">Suman contexto, no excluyen perfiles</div>
             <div class="chips" id="chips-deseables"></div>
             <input id="desirableInput" type="text" class="field-input" data-field="deseables" placeholder="Ej.: Excel" maxlength="80">
           </div>
           <div class="field">
             <label class="field-label" for="sectorInput">Sector</label>
-            <div class="field-desc">Sector o industria, solo si es importante</div>
+            <div class="field-desc">Solo si ayuda a definir el perfil</div>
             <div class="chips" id="chips-dominio"></div>
             <input id="sectorInput" type="text" class="field-input" data-field="dominio" placeholder="Ej.: telecomunicaciones" maxlength="80">
           </div>
           <div class="field">
             <label class="field-label field-label-exclude" for="excludeInput">Excluir perfiles</label>
-            <div class="field-desc">Usá esto solo para descartar algo concreto</div>
+            <div class="field-desc">Términos que querés excluir</div>
             <div class="chips" id="chips-refinar"></div>
             <input id="excludeInput" type="text" class="field-input" data-field="refinar" placeholder="Ej.: pasantía" maxlength="80">
             <div class="synonyms-row hidden" id="refinarSuggestionsRow">
@@ -147,17 +147,17 @@
   <section class="readiness-panel" id="searchReadiness" aria-labelledby="searchReadinessTitle" aria-live="polite">
     <div class="readiness-heading">
       <h2 id="searchReadinessTitle">Chequeo rápido</h2>
-      <p>RADAR valida estos puntos antes de generar las rutas.</p>
+      <p>Revisá estos datos antes de generar.</p>
     </div>
     <ul class="readiness-list">
       <li class="readiness-item" id="readinessProfile" data-state="pending">
         <span class="readiness-marker" aria-hidden="true"></span>
-        <span><strong>Perfil</strong><small class="readiness-detail">Agregá cargo o señales suficientes.</small></span>
+        <span><strong>Perfil</strong><small class="readiness-detail">Agregá cargo o señales.</small></span>
         <span class="readiness-status">Pendiente</span>
       </li>
       <li class="readiness-item" id="readinessLocation" data-state="pending">
         <span class="readiness-marker" aria-hidden="true"></span>
-        <span><strong>Ubicación</strong><small class="readiness-detail">Indicá localidad y país o elegí buscar sin límite.</small></span>
+        <span><strong>Ubicación</strong><small class="readiness-detail">Indicá localidad y país.</small></span>
         <span class="readiness-status">Pendiente</span>
       </li>
       <li class="readiness-item" id="readinessJd" data-state="ready">
@@ -170,8 +170,8 @@
 
   <div class="generate-row">
     <div class="generate-copy">
-      <span>3 · Prepará tus rutas</span>
-      <p>Genera las consultas y el listado. Vos decidís cuándo buscar perfiles públicos.</p>
+      <span>3 · Generá las búsquedas</span>
+      <p>Revisá las consultas y elegí cuándo buscar perfiles.</p>
     </div>
     <button class="btn btn-primary" id="generateBtn" type="button">Preparar búsqueda</button>
   </div>
@@ -183,13 +183,13 @@
       <div class="boolean-box boolean-box-lg" id="out-universal">—</div>
       <p class="platform-note platform-note-warn hidden" id="generatorWarning"></p>
       <p class="platform-note strategy-note" id="strategyNote" aria-live="polite"></p>
-      <p class="platform-note">AND / OR / NOT y comillas. Sirve tal cual en LinkedIn Recruiter y en la mayoría de los buscadores internos de portales y ATS.</p>
+      <p class="platform-note">AND exige ambos términos; OR acepta cualquiera; NOT excluye. Las comillas buscan una frase.</p>
       <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
       <label class="relaxed-toggle">
         <input type="checkbox" id="relaxedModeCheckbox">
         Ampliar búsqueda
       </label>
-      <p class="platform-note">Quita el filtro de sector y conserva el cargo, las señales del perfil y la ubicación elegida. Usalo si la búsqueda precisa trae pocos resultados; la localidad nunca se elimina al ampliar.</p>
+      <p class="platform-note">Amplía sin quitar cargo ni ubicación. Usalo si aparecen pocos perfiles.</p>
     </div>
 
     <section class="card public-search-setup" id="publicSearchSetup" aria-labelledby="publicSearchTitle">
@@ -197,16 +197,16 @@
         <div><span class="public-search-kicker">LISTADO DE PERFILES</span><h2 id="publicSearchTitle">Perfiles públicos para revisar</h2></div>
         <span class="public-search-cap">Hasta 20 · LinkedIn + GitHub</span>
       </div>
-      <p class="hint">Buscamos perfiles públicos y los ordenamos por las señales visibles de esta búsqueda. La ubicación debe coincidir; confirmá residencia, requisitos y actualidad en cada fuente.</p>
+      <p class="hint">Solo incluye resultados con localidad y país visibles. Confirmalos en la fuente.</p>
       <details class="public-search-explainer">
-        <summary>¿Cómo se arma este listado?</summary>
-        <p>RADAR revisa hasta una página de resultados públicos de LinkedIn y GitHub. Ordena los perfiles por señales visibles de cargo y requisitos; solo incluye resultados cuyo texto muestra la localidad y el país elegidos. La cantidad puede ser menor a 20 si las fuentes indexan pocos perfiles o no muestran ubicación suficiente. Confirmá identidad, residencia y experiencia en cada fuente.</p>
+        <summary>¿Cómo se filtra?</summary>
+        <p>Incluye perfiles cuyo resultado muestra la localidad y el país elegidos. Puede haber menos de 20. Revisá identidad, residencia y experiencia en la fuente.</p>
       </details>
       <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
       <div class="public-search-action">
         <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles</button>
         <button class="btn btn-ghost btn-small" id="checkProfilesConnectionBtn" type="button" disabled>Probar conexión</button>
-        <span class="hint" id="publicSearchConfigNote">La conexión segura con el proveedor todavía no está configurada.</span>
+        <span class="hint" id="publicSearchConfigNote">Servicio de búsqueda no configurado.</span>
       </div>
       <p class="public-search-status" id="publicSearchStatus" role="status" aria-live="polite"></p>
       <div class="public-search-results" id="publicSearchResults" aria-live="polite"></div>
@@ -214,12 +214,12 @@
         <div><strong id="publicSearchRefineTitle"></strong><p id="publicSearchRefineText"></p></div>
         <button class="btn btn-dark" id="broadenPublicSearchBtn" type="button">Probar perfiles equivalentes</button>
       </div>
-      <p class="platform-note">El puntaje describe evidencia visible, no calidad profesional. Un dato ausente queda sin verificar.</p>
+      <p class="platform-note">El puntaje compara texto visible; no mide idoneidad. Los datos ausentes quedan sin verificar.</p>
     </section>
 
     <section class="card network-options-card hidden" id="networkOptionsCard">
       <h2>Otras rutas de hunting</h2>
-      <p class="hint">El listado usa LinkedIn y GitHub. Elegí otra fuente para adaptar la consulta y abrirla en su portal.</p>
+      <p class="hint">El listado usa LinkedIn y GitHub. Acá podés abrir búsquedas en otros portales.</p>
       <div class="network-recommendations" id="networkRecommendations" aria-live="polite"></div>
       <details class="advanced-options advanced-networks" id="moreNetworks">
         <summary>Más portales y redes <span>LinkedIn, GitHub, X-Ray y fuentes especializadas</span></summary>
@@ -243,7 +243,7 @@
       </div>
       <div class="boolean-box" id="out-linkedin">—</div>
       <div class="engine-buttons" id="linkedinTiers"></div>
-      <p class="platform-note">Empezá por la primera ruta sugerida y probá las otras si necesitás ampliar o cambiar el enfoque. “Sin título” busca habilidades sin exigir el cargo literal. La ubicación escrita en la consulta no reemplaza el filtro “Ubicación” de LinkedIn: seleccioná allí la ciudad o región antes de evaluar perfiles.</p>
+      <p class="platform-note">“Sin título” busca por requisitos. En LinkedIn, aplicá también el filtro de ubicación.</p>
     </div>
 
     <div class="result-secondary" id="resultXray">
@@ -258,7 +258,7 @@
       </div>
       <div class="engine-buttons" id="xrayTiers"></div>
       <p class="platform-note" id="xrayNote"></p>
-      <p class="platform-note platform-note-warn">Probado en vivo: Bing viene ignorando el <code>site:</code> en X-Ray (devuelve resultados sin relación, de cualquier sitio). Empezá siempre por Google — si tampoco trae nada, copiá el booleano y pegalo directo en el buscador del sitio.</p>
+      <p class="platform-note platform-note-warn">Bing puede ignorar <code>site:</code> y mostrar resultados ajenos. Probá Google o buscá dentro del portal.</p>
     </div>
 
     <div class="result-secondary hidden" id="resultGithub">
@@ -268,12 +268,12 @@
       <div class="engine-buttons">
         <a class="btn btn-engine" id="openGithub" href="#" target="_blank" rel="noopener noreferrer">Abrir en GitHub</a>
       </div>
-      <p class="platform-note">Búsqueda nativa de GitHub, no X-Ray: usa sus propios calificadores (language:, location:, stars:).</p>
+      <p class="platform-note">Búsqueda de personas o proyectos con filtros propios de GitHub.</p>
     </div>
 
     <section class="outcome-panel" id="outcomePanel" aria-labelledby="outcomeTitle">
       <h3 id="outcomeTitle">¿Cómo te fue con esta fuente?</h3>
-      <p class="platform-note">Tu señal ayuda a calibrar las rutas. Guardamos solo el conteo por fuente en este navegador; no se guardan la búsqueda ni datos de candidatos.</p>
+      <p class="platform-note">Guardamos solo el conteo local, no la búsqueda ni los perfiles.</p>
       <div class="outcome-actions" role="group" aria-label="Evaluar resultados de búsqueda">
         <button class="btn btn-engine" type="button" data-outcome="relevant">Encontré perfiles útiles</button>
         <button class="btn btn-engine" type="button" data-outcome="noisy">Hubo mucho ruido</button>
@@ -284,7 +284,10 @@
 
   </section>
 
-  <p class="privacy-note">La JD se analiza en este navegador y no se guarda en un servidor de Mindata. El historial y los conteos agregados de resultados quedan en este navegador. Al entrar y generar búsquedas, RADAR registra en una hoja de uso tu nombre, apellido, fecha, acción y red, nunca el contenido de la JD. El feedback escrito se envía a la persona elegida al tocar Enviar. Si usás Gemini, el texto de la JD se envía directamente a Google al tocar “Mejorar análisis” o “Sugerir con IA”. Si iniciás una búsqueda de perfiles públicos, RADAR envía al proveedor externo solo los términos de búsqueda seleccionados (cargo, señales y ubicación), no el documento completo; el proveedor informa que conserva las consultas y resultados hasta 31 días. Los resultados se muestran solo durante esta sesión y no se guardan en RADAR.</p>
+  <details class="privacy-note">
+    <summary>Privacidad: JD local; datos de acceso registrados. Ver detalles.</summary>
+    <p>La JD se analiza en este navegador y no se guarda en Mindata. El historial y los conteos quedan en este navegador. RADAR registra en una hoja tu nombre, apellido, fecha, acción y red; nunca la JD. El feedback se envía al contacto que elijas. Si usás Gemini, Google recibe la JD. Para buscar perfiles, el proveedor recibe cargo, señales y ubicación; informa que conserva consultas y resultados hasta 31 días. Los resultados solo se muestran durante esta sesión y no se guardan en RADAR.</p>
+  </details>
 
   <div class="feedback-row">
     <button class="btn btn-ghost btn-small" id="feedbackBtn" type="button">¿Sugerencias o encontraste un bug?</button>
@@ -298,7 +301,7 @@
       <h3 id="historyPanelTitle">Historial de búsquedas</h3>
       <button class="btn-close" id="closeHistoryBtn" type="button" aria-label="Cerrar">×</button>
     </div>
-    <p class="hint">Últimas búsquedas en este navegador. Click para recuperar los campos.</p>
+    <p class="hint">Guardadas en este navegador. Hacé clic para recuperar una.</p>
     <div id="historyList" class="history-list"></div>
     <button class="btn btn-ghost btn-small" id="clearHistoryBtn" type="button">Borrar historial</button>
   </div>
@@ -311,14 +314,14 @@
       <button class="btn-close" id="closeHelpBtn" type="button" aria-label="Cerrar">×</button>
     </div>
     <dl class="help-dl">
-      <dt>R — Rol</dt><dd>Como lo pondría el candidato en su propio perfil, no como lo llama la empresa puertas adentro.</dd>
-      <dt>A — Atributos</dt><dd>2 o 3 skills que de verdad filtran, no la lista entera de la JD.</dd>
-      <dt>D — Dominio</dt><dd>La industria (banca, retail, fintech...), solo si pesa tanto como el skill técnico.</dd>
-      <dt>A — Alcance</dt><dd>País y localidad, nada más. Modalidad y seniority casi nunca están escritos tal cual en un perfil — meterlos en el booleano filtra buenos candidatos en vez de acercarte a ellos. Si el JD los menciona, aparecen como sugerencia en Refinar para que decidas vos.</dd>
-      <dt>R — Refinar</dt><dd>Lo que querés sacar de en medio — típico: excluir "junior" cuando buscás senior.</dd>
+      <dt>R — Rol</dt><dd>Usá el título que pondría la persona en su perfil.</dd>
+      <dt>A — Atributos</dt><dd>Elegí las habilidades clave de la JD.</dd>
+      <dt>D — Dominio</dt><dd>Agregá la industria si define la búsqueda.</dd>
+      <dt>A — Alcance</dt><dd>Indicá país y localidad. Confirmá la ubicación antes de buscar.</dd>
+      <dt>R — Refinar</dt><dd>Excluí términos concretos, como "pasantía".</dd>
     </dl>
-    <p class="hint">Pegá la JD entera y tocá "Analizar JD": arma los cinco campos solo. No es infalible, revisalo antes de generar.</p>
-    <p class="hint">El historial es local a este navegador — nadie más lo ve, ni vos desde otra PC.</p>
+    <p class="hint">Analizá la JD y revisá los datos detectados antes de aplicarlos.</p>
+    <p class="hint">El historial solo está disponible en este navegador.</p>
     <p class="hint"><strong>Ctrl/Cmd + Enter</strong> arma el booleano sin tocar el mouse.</p>
   </div>
 </aside>
@@ -329,14 +332,10 @@
       <h3 id="aiPanelTitle">IA para sugerencias (opcional)</h3>
       <button class="btn-close" id="closeAiBtn" type="button" aria-label="Cerrar">×</button>
     </div>
-    <p class="ai-panel-question">¿Querés cargar una API gratuita para mejorar el RADAR?</p>
-    <p class="hint">Con una key propia de Gemini, RADAR sugiere sinónimos de rol y atributos de nicho. Es gratuita, no pide tarjeta:</p>
-    <ol class="ai-steps">
-      <li>Entrá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> y tocá "Create API key".</li>
-      <li>Copiá la key que te genera (algo como <code>AIzaSy...</code>).</li>
-      <li>Pegala en el campo de abajo y tocá "Guardar".</li>
-    </ol>
-    <p class="hint">La key se guarda solo en este navegador (<code>localStorage</code>), nunca en el código ni en ningún servidor de Mindata — la única llamada de red va directo de tu navegador a Gemini.</p>
+    <p class="ai-panel-question">Gemini puede sugerir sinónimos y habilidades de nicho.</p>
+    <p class="hint">Necesitás una clave propia de Google AI Studio:</p>
+    <p class="hint">Creá una clave en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> y pegala acá.</p>
+    <p class="hint">La clave se guarda en este navegador. La consulta va directo a Google, no pasa por Mindata.</p>
     <div class="feedback-form">
       <label class="feedback-label" for="aiKeyInput">Tu key de AI Studio</label>
       <input type="password" id="aiKeyInput" autocomplete="off" placeholder="Pegá tu key acá">
@@ -352,7 +351,7 @@
       <h3 id="feedbackPanelTitle">Reportar un bug o sugerencia</h3>
       <button class="btn-close" id="closeFeedbackBtn" type="button" aria-label="Cerrar">×</button>
     </div>
-    <p class="hint">Se manda directo, sin abrir tu mail. Elegí a quién.</p>
+    <p class="hint">Elegí a quién enviar el reporte.</p>
     <div class="feedback-form">
       <label class="feedback-label" for="feedbackTo">Enviar a</label>
       <select id="feedbackTo">
@@ -381,7 +380,7 @@
       <button class="btn-close" id="closeJdWarningBtn" type="button" aria-label="Cerrar">×</button>
     </div>
     <p id="jdWarningMessage"></p>
-    <p class="hint">Completá o corregí los campos de Rol, Atributos, Dominio y Alcance a mano abajo, o revisá que el texto pegado/subido no venga con el formato roto (pasa con algunos PDF escaneados o con columnas).</p>
+    <p class="hint">Revisá el archivo o pegá el texto. Los PDF escaneados o con columnas pueden leerse mal. También podés completar el perfil a mano.</p>
     <button class="btn btn-primary" id="closeJdWarningBtnBottom" type="button">Entendido</button>
   </div>
 </aside>

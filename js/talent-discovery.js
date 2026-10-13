@@ -10,11 +10,11 @@
   "use strict";
 
   const SOURCES = Object.freeze({
-    linkedin: { label: "LinkedIn", domain: "linkedin.com", path: /^\/(?:in|pub)\//i, description: "Perfiles profesionales de distintos rubros. El buscador público puede omitir perfiles privados o no indexados." },
-    github: { label: "GitHub", domain: "github.com", path: /^\/[^/]+\/?$/i, description: "Actividad y proyectos públicos, sobre todo para tecnología. No demuestra experiencia laboral ni disponibilidad." },
-    stackoverflow: { label: "Stack Overflow", domain: "stackoverflow.com", path: /^\/users\/\d+\//i, description: "Participación técnica pública en preguntas y respuestas; útil para perfiles de ingeniería." },
-    xing: { label: "Xing", domain: "xing.com", path: /^\/profile\//i, description: "Perfiles profesionales con mayor presencia en Alemania, Austria y Suiza." },
-    behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i, description: "Portfolios de diseño, UX/UI e ilustración; no es fuente adecuada para la mayoría de los otros puestos." },
+    linkedin: { label: "LinkedIn", domain: "linkedin.com", path: /^\/(?:in|pub)\//i, description: "Perfiles profesionales públicos; algunos no aparecen indexados." },
+    github: { label: "GitHub", domain: "github.com", path: /^\/[^/]+\/?$/i, description: "Proyectos públicos; no confirma experiencia laboral." },
+    stackoverflow: { label: "Stack Overflow", domain: "stackoverflow.com", path: /^\/users\/\d+\//i, description: "Respuestas técnicas públicas; útil en ingeniería." },
+    xing: { label: "Xing", domain: "xing.com", path: /^\/profile\//i, description: "Más perfiles en Alemania, Austria y Suiza." },
+    behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i, description: "Portfolios de diseño e ilustración." },
   });
   const PUBLIC_SOURCE_IDS = Object.freeze(["linkedin", "github"]);
   const MAX_SOURCES = PUBLIC_SOURCE_IDS.length;
@@ -128,7 +128,7 @@
       return "Chile y sus regiones ya no forman parte del alcance geográfico de RADAR. Elegí otro país y su localidad.";
     }
     if (places.some((place) => normalizeText(place) === "santiago")) {
-      return "Alcance indica “Santiago” sin una localidad completa. Escribí el nombre completo del lugar y su país; RADAR no va a asociar Santiago a ningún país automáticamente.";
+      return "Completá la ciudad y el país. RADAR no adivina a qué Santiago te referís.";
     }
     if (locationScopeNeedsCountry(state)) {
       return "Para exigir una localidad exacta sin mezclar ciudades homónimas, agregá también el país en Alcance.";
@@ -270,26 +270,26 @@
       error.sourceDiagnostics = sourceDiagnostics;
       throw error;
     };
-    if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito mensual; RADAR no inició consultas que pudieran generar cargos.");
-    if (payload.error === "hourly_quota_exhausted") throw new Error("Se alcanzó el cupo horario del proveedor; RADAR no inició la búsqueda. Esperá a que se renueve y volvé a intentar.");
-    if (payload.error === "rate_limited") throw new Error("La red compartida alcanzó el límite temporal de RADAR. Esperá un minuto y probá de nuevo.");
-    if (payload.error === "provider_rate_limited") throw new Error("SerpApi rechazó temporalmente la consulta por su límite de uso. Revisá el cupo horario o mensual y reintentá más tarde.");
+    if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito del mes. No se inició la búsqueda.");
+    if (payload.error === "hourly_quota_exhausted") throw new Error("Se agotó el cupo horario. Esperá y volvé a probar.");
+    if (payload.error === "rate_limited") throw new Error("Se alcanzó el límite temporal de RADAR. Probá en un minuto.");
+    if (payload.error === "provider_rate_limited") throw new Error("SerpApi rechazó temporalmente la consulta. Revisá el cupo.");
     if (payload.error === "sources_unavailable") {
       const codes = new Set((Array.isArray(payload.sourceErrors) ? payload.sourceErrors : []).map((item) => item.code));
-      if (codes.has("provider_credentials_rejected")) failWithSourceDetails("El proveedor rechazó la credencial configurada. La consulta no pudo completarse; revisá el secreto SERPAPI_KEY en Cloudflare.");
-      if (codes.has("provider_location_rejected")) failWithSourceDetails("El proveedor no reconoció la ubicación como contexto de búsqueda. La localidad sigue dentro de la consulta; probá elegir una localidad más específica o buscar solo con el país.");
-      if (codes.has("provider_query_rejected")) failWithSourceDetails("El proveedor rechazó el formato de búsqueda. RADAR conserva tus filtros; reducí la cantidad de términos y volvé a intentar.");
+      if (codes.has("provider_credentials_rejected")) failWithSourceDetails("El proveedor rechazó la credencial configurada. Revisá Cloudflare.");
+      if (codes.has("provider_location_rejected")) failWithSourceDetails("El proveedor no reconoció la ubicación. Probá una localidad o país más específico.");
+      if (codes.has("provider_query_rejected")) failWithSourceDetails("El proveedor rechazó el formato de búsqueda. Quitá algunos términos.");
       if (codes.has("provider_request_rejected")) failWithSourceDetails("El proveedor rechazó la consulta. Revisá la ubicación o los términos y probá una búsqueda más breve.");
-      if (codes.has("provider_timeout")) failWithSourceDetails("El proveedor tardó demasiado en responder. No se obtuvieron perfiles; revisá la conexión e intentá de nuevo manualmente.");
+      if (codes.has("provider_timeout")) failWithSourceDetails("El proveedor tardó demasiado en responder. Probá de nuevo.");
       if (codes.has("provider_network_error")) failWithSourceDetails("RADAR no pudo conectarse con el proveedor de búsqueda. Revisá la configuración y probá de nuevo.");
       if (codes.has("provider_unavailable")) failWithSourceDetails("El proveedor de búsqueda no respondió correctamente. No se obtuvieron perfiles; probá de nuevo más tarde.");
-      if (codes.has("source_unavailable")) failWithSourceDetails("La fuente respondió con un error inesperado. No se obtuvieron perfiles; intentá más tarde o probá otra fuente.");
+      if (codes.has("source_unavailable")) failWithSourceDetails("La fuente no está disponible. Probá más tarde u otra fuente.");
       failWithSourceDetails("No se pudo completar la consulta. No se obtuvieron perfiles; revisá la conexión o probá otra fuente.");
     }
-    if (payload.error === "free_plan_required") throw new Error("La búsqueda está pausada: el proveedor debe tener un plan gratuito activo para mantener el costo en USD 0.");
-    if (payload.error === "budget_unavailable") throw new Error("RADAR no pudo verificar que la cuenta siga dentro del plan gratuito; no inició la búsqueda.");
+    if (payload.error === "free_plan_required") throw new Error("No hay un plan gratuito activo. La búsqueda no se inició para evitar cargos.");
+    if (payload.error === "budget_unavailable") throw new Error("No se pudo verificar el cupo. La búsqueda no se inició.");
     if (response.status === 429) throw new Error("El proveedor limitó temporalmente esta búsqueda. Revisá el cupo horario o mensual y probá más tarde.");
-    if (response.status === 503) throw new Error("La búsqueda pública no está disponible ahora. Revisá la configuración del proveedor.");
+    if (response.status === 503) throw new Error("Servicio de búsqueda no disponible. Revisá la configuración.");
     if (!response.ok) throw new Error(`El proveedor de búsqueda respondió con un error (${response.status}).`);
     return {
       results: normalizeResults(payload, state),

@@ -304,6 +304,8 @@ textarea:focus,.field-input:focus,.jd-review-add input:focus{outline:0;border-co
 .engine-buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
 
 .privacy-note{color:var(--gray);font-size:11.5px;margin-top:24px;}
+.privacy-note summary{width:fit-content;cursor:pointer;font-weight:700;color:var(--gray);}
+.privacy-note p{max-width:900px;margin:8px 0 0;line-height:1.5;}
 
 .feedback-row{text-align:center;margin-top:14px;}
 

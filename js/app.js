@@ -17,28 +17,22 @@
   // Qué tipo de perfil aparece en cada red y con qué confianza, según pruebas
   // en vivo (no supuestos): ver TESTING.md, sección "Auditoría de redes".
   const NETWORK_DESCRIPTIONS = {
-    linkedin:
-      "Perfiles profesionales de muchos rubros. La búsqueda interna requiere iniciar sesión y su filtro de ubicación debe confirmarse allí. Google X-Ray es una alternativa para páginas públicas indexadas; puede estar desactualizada.",
-    github:
-      "Útil para desarrollo, datos e infraestructura cuando hay proyectos o contribuciones públicas. Un repositorio no confirma experiencia laboral, residencia ni disponibilidad; evitá esta fuente para puestos sin actividad técnica pública.",
-    stackoverflow:
-      "Perfiles con participación pública en preguntas y respuestas, principalmente de tecnología. La actividad técnica puede aportar contexto, pero no equivale a historial laboral.",
-    xing: "Red profesional con mayor uso en Alemania, Austria y Suiza. Fuera de esos mercados puede ofrecer poca cobertura; verificá país y ciudad en el perfil.",
-    behance:
-      "Portfolios públicos de diseño, UX/UI e ilustración. Sirve para evaluar trabajos publicados; no confirma empleo actual ni disponibilidad.",
-    resumes:
-      "Documentos de CV que los buscadores ya tienen indexados. Pueden estar antiguos o publicados fuera de contexto; comprobá la fuente y tratá los datos personales con cuidado.",
-    custom:
-      "Acota a un dominio que publique perfiles o portfolios. En portales de empleo el buscador puede devolver anuncios, no candidatos; verificá cada tipo de resultado.",
+    linkedin: "Perfiles profesionales. Confirmá la ubicación con el filtro de LinkedIn; los datos públicos pueden estar desactualizados.",
+    github: "Útil para perfiles técnicos con actividad pública. No confirma empleo ni residencia.",
+    stackoverflow: "Aporta señales de actividad técnica, no historial laboral.",
+    xing: "Más usado en Alemania, Austria y Suiza. Confirmá país y ciudad en el perfil.",
+    behance: "Portfolios públicos de diseño e ilustración. Revisá los trabajos en el sitio.",
+    resumes: "CV indexados, posiblemente antiguos. Verificá la fuente y cuidá los datos personales.",
+    custom: "Limita la búsqueda a un dominio. Puede mostrar ofertas en vez de perfiles.",
   };
 
   const NOTES = {
-    linkedin: "X-Ray consulta páginas públicas de LinkedIn indexadas en Google. Puede omitir perfiles privados o mostrar datos antiguos; usá el filtro de ubicación de LinkedIn para confirmar la ciudad.",
-    stackoverflow: "Busca páginas de perfiles con actividad pública. La coincidencia técnica es una señal para revisar, no una equivalencia con experiencia laboral.",
-    xing: "Cobertura más fuerte en Alemania, Austria y Suiza. Los resultados indexados no reemplazan la verificación de residencia actual.",
-    behance: "Busca portfolios públicos; evaluá trabajos y especialidad dentro del sitio.",
-    resumes: "Busca archivos PDF/Word ya indexados; no consulta bases privadas ni confirma que el CV esté vigente.",
-    custom: "El dominio solo limita páginas indexadas. Confirmá que cada resultado sea un perfil y no una oferta de empleo.",
+    linkedin: "X-Ray muestra páginas públicas indexadas. Confirmá ciudad en LinkedIn.",
+    stackoverflow: "La actividad técnica es una señal; no confirma experiencia laboral.",
+    xing: "Más cobertura en Alemania, Austria y Suiza. Confirmá residencia actual.",
+    behance: "Revisá portfolio y especialidad dentro del sitio.",
+    resumes: "Busca CV indexados; pueden estar desactualizados.",
+    custom: "Verificá que cada resultado sea un perfil, no una oferta.",
   };
 
   const HISTORY_KEY = "radar-history-v1";
@@ -136,29 +130,29 @@
     if (!endpoint) return;
     checkProfilesConnectionBtn.disabled = true;
     checkProfilesConnectionBtn.textContent = "Comprobando…";
-    publicSearchStatus.textContent = "Verificando el servicio y el cupo gratuito; esta comprobación no ejecuta búsquedas.";
+    publicSearchStatus.textContent = "Revisando conexión y cupo. No consume búsquedas.";
     try {
       const response = await fetch(endpoint, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" });
       const payload = await response.json();
       if (payload.ready) {
-        publicSearchStatus.textContent = "Conexión correcta. El plan gratuito permite iniciar una búsqueda; esta comprobación no consumió consultas.";
+        publicSearchStatus.textContent = "Conexión correcta. Hay cupo disponible; la prueba no consumió búsquedas.";
         return;
       }
       const messages = {
-        free_quota_exhausted: "El servicio responde, pero ya no quedan consultas gratuitas este mes. No se inició ninguna búsqueda.",
-        hourly_quota_exhausted: "El servicio responde, pero se alcanzó el límite horario. Esperá a que se renueve; no se consumió una búsqueda.",
-        free_plan_required: "El proveedor no informa un plan gratuito activo. RADAR no lanzará búsquedas que puedan generar cargos.",
-        budget_unavailable: "No se pudo verificar la cuenta del proveedor. No se inició ninguna búsqueda ni se consumió una consulta.",
-        rate_limited: "La red alcanzó el límite temporal de RADAR. Esperá un minuto y volvé a comprobar.",
-        not_configured: "El Worker no tiene configurada la clave de SerpApi.",
-        rate_limit_not_configured: "El Worker no tiene configurado el limitador de solicitudes.",
+        free_quota_exhausted: "Se agotó el cupo gratuito del mes. No se inició la búsqueda.",
+        hourly_quota_exhausted: "Se alcanzó el límite por hora. Esperá y volvé a probar.",
+        free_plan_required: "No hay un plan gratuito activo. RADAR no inició la búsqueda.",
+        budget_unavailable: "No se pudo comprobar el cupo. No se inició la búsqueda.",
+        rate_limited: "RADAR alcanzó el límite temporal. Probá en un minuto.",
+        not_configured: "Falta configurar la clave del proveedor.",
+        rate_limit_not_configured: "Falta configurar el límite de solicitudes.",
       };
       publicSearchStatus.textContent = messages[payload.error] || `No se pudo verificar la conexión (${response.status}). No se ejecutó una búsqueda.`;
     } catch {
-      publicSearchStatus.textContent = "No se pudo conectar con el Worker. No se ejecutó una búsqueda ni se consumió una consulta.";
+      publicSearchStatus.textContent = "Sin conexión con el servicio. No se consumió una búsqueda.";
     } finally {
       checkProfilesConnectionBtn.disabled = false;
-      checkProfilesConnectionBtn.textContent = "Probar conexión sin buscar";
+      checkProfilesConnectionBtn.textContent = "Probar conexión";
     }
   }
 
@@ -179,29 +173,29 @@
   function updateSearchReadiness() {
     const profileIssue = RadarReview.profileIssue(state);
     if (profileIssue) {
-      setReadiness(readinessProfile, "attention", "Falta completar", profileIssue);
+      setReadiness(readinessProfile, "attention", "Incompleto", profileIssue);
     } else {
       const profileSummary = state.rol.length
-        ? `Cargo y señales listos: ${state.rol[0]}.`
-        : `Búsqueda por señales: ${state.imprescindibles.length + state.atributos.length + state.deseables.length} agregadas.`;
+        ? `Cargo: ${state.rol[0]}.`
+        : `${state.imprescindibles.length + state.atributos.length + state.deseables.length} señales.`;
       setReadiness(readinessProfile, "ready", "Configurado", profileSummary);
     }
 
     if (noLocationCheckbox.checked) {
-      setReadiness(readinessLocation, "ready", "Sin límite", "Las rutas pueden ser amplias; el listado público requiere localidad y país.");
+      setReadiness(readinessLocation, "ready", "Sin límite", "El listado público sí requiere localidad y país.");
     } else if (!state.alcance.length) {
-      setReadiness(readinessLocation, "attention", "Falta ubicación", "Indicá localidad y país, o elegí buscar sin límite geográfico.");
+      setReadiness(readinessLocation, "attention", "Falta ubicación", "Elegí país y localidad, o buscá sin límite.");
     } else {
       const locationIssue = RadarTalentDiscovery.locationScopeError(state);
       setReadiness(readinessLocation, locationIssue ? "attention" : "ready", locationIssue ? "Revisar" : "Configurada", locationIssue || `Alcance agregado: ${state.alcance.join(", ")}.`);
     }
 
     if (jdInput.value.trim() && jdNeedsReview) {
-      setReadiness(readinessJd, "attention", "Revisar JD", "Analizá y confirmá el relevamiento antes de generar las rutas.");
+      setReadiness(readinessJd, "attention", "Revisar JD", "Confirmá los datos detectados.");
     } else if (jdInput.value.trim()) {
-      setReadiness(readinessJd, "ready", "JD confirmada", "Los campos aplicados se pueden revisar y editar arriba.");
+      setReadiness(readinessJd, "ready", "JD confirmada", "Podés editar los campos arriba.");
     } else {
-      setReadiness(readinessJd, "ready", "Carga manual", "No hace falta una JD si completás el perfil y su alcance.");
+      setReadiness(readinessJd, "ready", "Manual", "Completá perfil y ubicación.");
     }
   }
 
@@ -546,21 +540,21 @@
     const gaps = reviewGaps(result);
     const ambiguousLocationChoices = (result.ambiguousLocations || []).map((choice) => choice.locality ? `${choice.locality} · ${choice.country}` : choice.country);
     const descriptions = {
-      source: ["¿El texto leído coincide con la JD original?", "Detectamos caracteres dañados o señales de lectura incompleta. Compará el texto de arriba con el original antes de seguir."],
-      intent: ["¿Es un brief de búsqueda escrito con tus palabras?", "No encontramos estructura suficiente para reconocer una JD. Si es una necesidad de contratación, completá cargo, señales del perfil y ubicación abajo."],
+      source: ["¿El texto coincide con la JD original?", "La lectura puede estar incompleta. Compará con el archivo antes de seguir."],
+      intent: ["¿Es un brief de búsqueda?", "No parece una JD. Si es una búsqueda real, completá cargo, señales y ubicación."],
       role: result.rol.length
-        ? [`¿Se trata de ${result.rol[0]}?`, "Confirmá el cargo, corregilo arriba o elegí una búsqueda por requisitos sin título."]
-        : ["No encontramos un cargo confiable.", "Podés escribir el cargo arriba o buscar solo por requisitos."],
+        ? [`¿Buscás ${result.rol[0]}?`, "Confirmá o corregí el cargo. También podés buscar por requisitos." ]
+        : ["No detectamos el cargo.", "Escribilo o buscá por requisitos."],
       requirements: result.atributos.length || (result.imprescindibles || []).length || (result.atributosDeseables || []).length
-        ? ["¿Qué condiciones son realmente obligatorias?", "Por defecto, las señales detectadas son alternativas: alcanza con que el perfil coincida con una. Marcá como imprescindibles solo las que deben cumplirse todas; dejá las equivalentes en alternativas y lo opcional como deseable."]
-        : ["¿Qué diferencia a este perfil?", "Agregá al menos una habilidad, tarea clave, certificación o experiencia concreta. Para buscar sin título hacen falta dos señales y un sector, o tres señales."],
+        ? ["¿Qué es obligatorio?", "Las señales son alternativas: alcanza una. Marcá como imprescindibles solo las que deben cumplirse todas." ]
+        : ["¿Qué distingue al perfil?", "Agregá una habilidad, tarea o experiencia concreta. Sin cargo, hacen falta señales suficientes para identificarlo."],
       location: result.locationNeedsClarification
-        ? ["La JD menciona Santiago, pero no indica el país y la localidad completa.", "Completá Alcance con la ciudad/provincia y el país. RADAR no va a inferir una ubicación a partir de la palabra Santiago."]
+        ? ["La JD dice Santiago, pero falta el país.", "Indicá ciudad y país. RADAR no elige por vos entre localidades con el mismo nombre."]
         : ambiguousLocationChoices.length
-        ? [`¿Cuál es la ubicación correcta: ${ambiguousLocationChoices.join(" o ")}?`, "Hay nombres de localidades que se repiten entre países. Elegí el lugar correcto para evitar filtrar el hunting en el país equivocado."]
+        ? [`¿Qué ubicación corresponde: ${ambiguousLocationChoices.join(" o ")}?`, "Elegí ciudad y país para evitar una búsqueda en otro lugar."]
         : result.alcance.length
-        ? [`¿La ubicación correcta es ${result.alcance[result.alcance.length - 1]}?`, "Confirmá el alcance exacto; también podés ampliarlo al país o buscar sin ubicación." ]
-        : [result.fileCountrySuggestion ? `El archivo dice ${result.fileCountrySuggestion}; el texto de la JD no lo confirma.` : "La JD no indica ubicación.", "Agregá una ubicación arriba o confirmá que querés buscar sin ese filtro."],
+        ? [`¿La ubicación es ${result.alcance[result.alcance.length - 1]}?`, "Confirmala, ampliá al país o buscá sin ubicación." ]
+        : [result.fileCountrySuggestion ? `El archivo menciona ${result.fileCountrySuggestion}, pero la JD no.` : "Falta la ubicación.", "Agregá una ubicación o elegí buscar sin ese filtro."],
     };
     gaps.forEach((gap) => {
       const row = document.createElement("div");
@@ -721,18 +715,18 @@
     jdReviewSummary.textContent = result.isResume
       ? "El documento parece un CV. No lo vamos a aplicar a los campos de búsqueda."
       : result.isJobPosting || result.isBrief
-        ? `Detectamos ${quality.wordCount || 0} palabras. Revisá título, requisitos y ubicación antes de continuar.`
-        : "No pudimos confirmar que el texto sea una descripción de puesto. Si lo escribiste con tus palabras, completá el relevamiento de abajo.";
+        ? "Revisá cargo, requisitos y ubicación detectados."
+        : "No parece una JD. Completá el perfil manualmente.";
 
     jdReviewGrid.textContent = "";
     const fields = [
       ["Rol", result.rol, result.rol[0] && quality.evidence && quality.evidence.rol ? [{ term: result.rol[0], text: quality.evidence.rol }] : []],
-      ["Imprescindibles · se exigen todos (AND)", result.imprescindibles || [], quality.evidence && (quality.evidence.imprescindibles || quality.evidence.atributos), "imprescindibles"],
-      ["Señales alternativas · alcanza con una (OR)", result.atributos, quality.evidence && quality.evidence.atributos, "atributos"],
-      ["Deseables · solo ruta equilibrada", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
+      ["Obligatorios · se exigen todos", result.imprescindibles || [], quality.evidence && (quality.evidence.imprescindibles || quality.evidence.atributos), "imprescindibles"],
+      ["Alternativas · alcanza una", result.atributos, quality.evidence && quality.evidence.atributos, "atributos"],
+      ["Deseables · opcional", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
       ["Dominio", result.dominio, quality.evidence && quality.evidence.dominio, "dominio"],
       ["Ubicación", result.alcance, quality.evidence && quality.evidence.alcance, "alcance"],
-      ["Contexto (no filtra la búsqueda)", [...(result.seniority || []), ...(result.modality || [])], []],
+      ["Contexto · no filtra", [...(result.seniority || []), ...(result.modality || [])], []],
     ];
     fields.forEach(([label, terms, evidence, fieldName, promotable]) => {
       const card = document.createElement("div");
@@ -1129,18 +1123,19 @@
     document.getElementById("out-universal").textContent = universal;
     const requiredCount = state.imprescindibles.length;
     const alternativeCount = state.atributos.length;
-    const requiredSummary = requiredCount ? `${requiredCount} imprescindible${requiredCount === 1 ? "" : "s"} (se exigen todas)` : "sin imprescindibles marcados";
-    const alternativeSummary = alternativeCount ? `${alternativeCount} alternativa${alternativeCount === 1 ? "" : "s"} (alcanza una)` : "sin alternativas";
+    const requiredSummary = requiredCount ? `${requiredCount} obligatoria${requiredCount === 1 ? "" : "s"}` : "sin obligatorias";
+    const alternativeSummary = alternativeCount ? `${alternativeCount} alternativa${alternativeCount === 1 ? "" : "s"}` : "sin alternativas";
     const optionalSummary = state.deseables.length
-      ? relaxed ? "los deseables entran como alternativas" : "los deseables quedan fuera de esta consulta específica"
+      ? relaxed ? "incluye deseables" : "omite deseables"
       : "sin deseables";
+    const sectorSummary = relaxed ? "sin sector" : state.dominio.length ? `sector: ${state.dominio.join(" / ")}` : "sin sector";
     const locationSummary = state.alcance.length ? `ubicación: ${state.alcance[state.alcance.length - 1]}` : "sin restricción geográfica";
     const roleSummary = state.rol.length ? `cargo: ${state.rol.join(" / ")}` : "sin título, por señales";
-    strategyNote.textContent = `Esta ruta busca ${roleSummary}; combina ${requiredSummary}, ${alternativeSummary}; ${optionalSummary}; ${relaxed ? "sin filtro de sector" : state.dominio.length ? "con filtro de sector" : "sin filtro de sector indicado"}; ${locationSummary}.`;
+    strategyNote.textContent = `${roleSummary} · ${requiredSummary} · ${alternativeSummary} · ${optionalSummary} · ${sectorSummary} · ${locationSummary}.`;
     const truncated = RadarGenerator.getTruncatedFields(state);
     const friendlyField = { rol: "Rol", imprescindibles: "Imprescindibles", atributos: "Alternativas", deseables: "Deseables", dominio: "Dominio", alcance: "Alcance" };
     generatorWarning.textContent = truncated.length
-      ? "Esta red admite hasta 6 términos por grupo. Se recortaron términos de: " + truncated.map((field) => friendlyField[field] || field).join(", ") + ". Quitá los menos importantes para evitar cortes invisibles."
+      ? "Se admiten hasta 6 términos por grupo. Quitá los menos importantes de: " + truncated.map((field) => friendlyField[field] || field).join(", ") + "."
       : "";
     generatorWarning.classList.toggle("hidden", truncated.length === 0);
 
@@ -1171,12 +1166,12 @@
         const name = isRoleless ? "Sin título" : tier.label.includes("Específica") ? "Específica" : tier.label.includes("Equilibrada") ? "Equilibrada" : "Amplia";
         title.textContent = `${i + 1} · ${name}`;
         detail.textContent = isRoleless
-          ? "Sin exigir cargo; mantiene imprescindibles y ubicación"
+          ? "Busca por requisitos y ubicación"
           : tier.label.includes("Específica")
-            ? "Exige cargo, filtros confirmados y ubicación"
+            ? "Cargo, filtros y ubicación"
             : tier.label.includes("Equilibrada")
-              ? state.deseables.length ? "Mantiene imprescindibles e incluye 1 deseable como alternativa" : state.atributos.length ? "Mantiene imprescindibles y usa 1 señal alternativa" : "Mantiene cargo, imprescindibles y ubicación"
-              : "Mantiene cargo, imprescindibles y ubicación";
+              ? state.deseables.length ? "Incluye una señal deseable" : state.atributos.length ? "Incluye una señal alternativa" : "Cargo, requisitos y ubicación"
+              : "Cargo, requisitos y ubicación";
         a.append(title, detail);
         a.setAttribute("aria-label", `Buscar en LinkedIn: ${title.textContent}. ${detail.textContent}`);
         tiersWrap.appendChild(a);
@@ -1268,9 +1263,9 @@
     findProfilesBtn.disabled = !getPublicSearchEndpoint() || selectedCount === 0;
     checkProfilesConnectionBtn.disabled = !getPublicSearchEndpoint();
     if (getPublicSearchEndpoint()) {
-      publicSearchConfigNote.textContent = "La búsqueda usa consultas resumidas y no envía la JD completa.";
+      publicSearchConfigNote.textContent = "Solo se envían cargo, señales y ubicación.";
     } else {
-      publicSearchConfigNote.textContent = "Falta configurar el endpoint seguro; la clave del proveedor nunca va en el navegador.";
+      publicSearchConfigNote.textContent = "Servicio no configurado. La clave no se expone en el navegador.";
     }
     publicSearchStatus.textContent = "";
     publicSearchResults.replaceChildren();
@@ -1285,16 +1280,16 @@
       const geography = document.createElement("p");
       geography.className = "public-search-geography";
       geography.textContent = locationContext.mode === "provider_location" && locationContext.canonicalName
-        ? `Contexto de búsqueda: ${locationContext.canonicalName}. Solo pasan perfiles cuyo texto indexado muestra la ubicación indicada; confirmá residencia en la fuente.`
-        : `La ubicación indicada se conserva en la consulta${locationContext.countryCode ? ` y Google se orienta a ${locationContext.countryCode}` : ""}. Los fragmentos sin evidencia completa de localidad y país se excluyen.`;
+        ? `Búsqueda en ${locationContext.canonicalName}. Confirmá residencia en el perfil.`
+        : `Ubicación aplicada${locationContext.countryCode ? ` · ${locationContext.countryCode}` : ""}. Se excluyen resultados sin ciudad y país visibles.`;
       publicSearchResults.appendChild(geography);
     }
     if (!rows.length) {
       const empty = document.createElement("p");
       empty.className = "public-search-empty";
       empty.textContent = sourceErrors && sourceErrors.length
-        ? "Las fuentes que respondieron no devolvieron perfiles verificables; las fuentes con error quedan sin confirmar."
-        : "No aparecieron perfiles con evidencia pública suficiente de la localidad y el país indicados. Ampliá la consulta solo si aceptás revisar otra ubicación.";
+        ? "Las fuentes respondieron sin perfiles verificables. Las que fallaron quedan pendientes."
+        : "Sin perfiles con localidad y país visibles. Revisá los criterios o la ubicación.";
       publicSearchResults.appendChild(empty);
     } else {
       const summary = document.createElement("div");
@@ -1304,7 +1299,7 @@
         ? "1 perfil público para revisar"
         : `${rows.length} perfiles públicos para revisar`;
       const summaryNote = document.createElement("span");
-      summaryNote.textContent = "Ordenados por coincidencias visibles; hasta 20 entre LinkedIn y GitHub. La ubicación aparece en el resultado público; confirmá identidad, residencia y experiencia en el perfil.";
+      summaryNote.textContent = "Orden por coincidencias visibles. Confirmá ubicación y experiencia en la fuente.";
       summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
       const shareTools = document.createElement("div");
@@ -1335,7 +1330,7 @@
       const shareHint = document.createElement("span");
       shareHint.id = "publicShareHint";
       shareHint.className = "public-profile-share-hint";
-      shareHint.textContent = "Elegí perfiles. Se abrirá un borrador para que revises y envíes; WhatsApp admite hasta 8 por mensaje.";
+      shareHint.textContent = "Elegí perfiles. Revisá el borrador antes de enviarlo; WhatsApp admite hasta 8.";
       shareTools.append(selectAllLabel, selectedCount, emailButton, whatsappButton, shareHint);
       publicSearchResults.appendChild(shareTools);
       const list = document.createElement("ol");
@@ -1351,7 +1346,7 @@
         const title = document.createElement("div");
         title.className = "public-profile-title";
         const name = document.createElement("strong");
-        name.textContent = row.name || "Nombre no visible en el resultado";
+        name.textContent = row.name || "Nombre no visible";
         const headline = document.createElement("span");
         headline.textContent = row.title;
         title.append(name, headline);
@@ -1387,15 +1382,15 @@
 
         const snippet = document.createElement("p");
         snippet.className = "public-profile-snippet";
-        snippet.textContent = row.snippet || "La fuente no publicó un fragmento descriptivo para este resultado.";
+        snippet.textContent = row.snippet || "Sin descripción pública.";
         const details = document.createElement("details");
         details.className = "public-profile-details";
         const detailsSummary = document.createElement("summary");
-        detailsSummary.textContent = "Ver señales y cobertura";
+        detailsSummary.textContent = "Ver coincidencias";
         const evidence = document.createElement("p");
         evidence.className = "public-profile-evidence";
-        const signalText = row.visibleSignals.length ? `Señales visibles: ${row.visibleSignals.join(" · ")}. ` : "No se detectaron señales textuales suficientes. ";
-        evidence.textContent = `${signalText}Cobertura del fragmento: ${row.scoreBreakdown.join(" · ")}.`;
+        const signalText = row.visibleSignals.length ? `Coincidencias: ${row.visibleSignals.join(" · ")}. ` : "Sin coincidencias claras. ";
+        evidence.textContent = `${signalText}Evidencia: ${row.scoreBreakdown.join(" · ")}.`;
         details.append(detailsSummary, evidence);
         const link = document.createElement("a");
         link.className = "public-profile-link";
@@ -1412,7 +1407,7 @@
       const partial = document.createElement("p");
       partial.className = "public-search-partial";
       const failedLabels = sourceErrors.map((item) => RadarTalentDiscovery.SOURCES[item.source]?.label || item.source);
-      partial.textContent = `No se pudo completar ${failedLabels.length === 1 ? "esta fuente" : "estas fuentes"}: ${failedLabels.join(", ")}. Revisá el detalle y podés reintentar solo las fuentes con error.`;
+      partial.textContent = `No respondió ${failedLabels.join(", ")}. Podés reintentar esa fuente.`;
       publicSearchResults.appendChild(partial);
 
       const retrySources = [...new Set(sourceErrors.map((item) => item.source))]
@@ -1429,9 +1424,9 @@
     const nextActions = document.createElement("aside");
     nextActions.className = "public-search-next-actions";
     const nextTitle = document.createElement("strong");
-    nextTitle.textContent = "Usá las otras acciones de hunting";
+    nextTitle.textContent = "Seguí con otras rutas";
     const nextCopy = document.createElement("span");
-    nextCopy.textContent = "El listado público es un primer filtro. Compará la búsqueda nativa, el booleano y X-Ray para ampliar fuentes y validar el perfil.";
+    nextCopy.textContent = "Probá el booleano, X-Ray o la búsqueda directa en otros portales.";
     const nextLink = document.createElement("a");
     nextLink.className = "btn btn-ghost btn-small";
     nextLink.href = "#results";
@@ -1447,7 +1442,7 @@
     section.className = "public-search-diagnostics";
     section.setAttribute("aria-label", "Resultado por fuente");
     const heading = document.createElement("strong");
-    heading.textContent = "Qué pasó en cada fuente";
+    heading.textContent = "Estado por fuente";
     const list = document.createElement("ul");
     const errorMessages = {
       provider_rate_limited: "El proveedor alcanzó su límite temporal.",
@@ -1465,9 +1460,9 @@
       const label = RadarTalentDiscovery.SOURCES[item.source]?.label || item.source;
       let detail = "No hubo diagnóstico disponible.";
       if (item.status === "error") detail = errorMessages[item.code] || "No se pudo completar la consulta.";
-      else if (item.status === "profiles_found") detail = `${item.profileCount} perfiles públicos admitidos de ${item.organicCount} resultados indexados.`;
-      else if (item.status === "no_public_profiles") detail = `El buscador devolvió ${item.organicCount} resultados, pero ninguno tenía una URL de perfil reconocible en esta fuente.`;
-      else if (item.status === "no_indexed_results") detail = "El buscador no encontró páginas indexadas con estos términos.";
+      else if (item.status === "profiles_found") detail = `${item.profileCount} perfiles válidos de ${item.organicCount} resultados.`;
+      else if (item.status === "no_public_profiles") detail = `Hubo ${item.organicCount} resultados, pero ninguno era un perfil reconocible.`;
+      else if (item.status === "no_indexed_results") detail = "Sin resultados indexados para estos términos.";
       entry.textContent = `${label}: ${detail}`;
       list.appendChild(entry);
     });
@@ -1480,9 +1475,9 @@
     section.className = "public-search-next-questions";
     section.setAttribute("aria-label", "Preguntas para seguir refinando la búsqueda");
     const title = document.createElement("strong");
-    title.textContent = "¿Qué podemos revisar de la JD para abrir otra ruta?";
+    title.textContent = "¿Qué querés ajustar?";
     const explanation = document.createElement("p");
-    explanation.textContent = "No aparecieron perfiles indexados con estas condiciones. Elegí qué dato querés revisar; RADAR no va a flexibilizar un requisito por su cuenta.";
+    explanation.textContent = "No hubo perfiles verificables. Elegí qué criterio revisar; RADAR no cambia requisitos por su cuenta.";
     section.append(title, explanation);
     const questions = [
       { label: "¿El cargo puede tener otro nombre?", selector: '[data-field="rol"]' },
@@ -1521,7 +1516,7 @@
       lines.push(`${index + 1}. ${clean(row.name || "Nombre no visible", 70)} — ${clean(row.title, 120)} (${clean(row.sourceLabel, 40)})`);
       lines.push(row.url, "");
     });
-    lines.push("Los enlaces provienen de resultados públicos indexados. Confirmá identidad, experiencia y ubicación en la fuente; el orden de RADAR no determina idoneidad ni disponibilidad.");
+    lines.push("Resultados públicos. Confirmá identidad, experiencia y ubicación en la fuente.");
     return lines.join("\n");
   }
 
@@ -1543,11 +1538,11 @@
     email.disabled = selected.length === 0 || emailUrl.length > MAX_SHARE_URL_LENGTH;
     whatsapp.disabled = selected.length === 0 || selected.length > MAX_WHATSAPP_SHARE_PROFILES || whatsappUrl.length > MAX_SHARE_URL_LENGTH;
     if (selected.length > MAX_WHATSAPP_SHARE_PROFILES) {
-      hint.textContent = "Para WhatsApp, dejá seleccionados hasta 8 perfiles. El correo puede incluir una lista más extensa.";
+      hint.textContent = "WhatsApp admite hasta 8 perfiles por mensaje.";
     } else if (emailUrl.length > MAX_SHARE_URL_LENGTH) {
-      hint.textContent = "El correo quedó demasiado largo para abrirse con seguridad. Reducí la selección; podés compartir hasta 8 por WhatsApp.";
+      hint.textContent = "El correo es demasiado largo. Reducí la selección; WhatsApp admite hasta 8.";
     } else {
-      hint.textContent = "Elegí perfiles. Se abrirá un borrador para que revises y envíes; WhatsApp admite hasta 8 por mensaje.";
+      hint.textContent = "Elegí perfiles y revisá el borrador antes de enviarlo.";
     }
     email.dataset.shareUrl = emailUrl;
     whatsapp.dataset.shareUrl = whatsappUrl;
@@ -1579,7 +1574,7 @@
     const message = document.createElement("p");
     message.textContent = error instanceof Error ? error.message : "La consulta no pudo completarse.";
     const note = document.createElement("span");
-    note.textContent = "No mostramos una lista vacía como si la búsqueda hubiera terminado correctamente. No se hacen reintentos automáticos.";
+    note.textContent = "No se inició un reintento automático. Podés volver a probar.";
     panel.append(heading, message, note);
     const diagnostics = renderSourceDiagnostics(error && error.sourceDiagnostics);
     if (diagnostics) panel.appendChild(diagnostics);
@@ -1602,7 +1597,7 @@
     if (!publicSearchEndpoint) return;
     const locationError = RadarTalentDiscovery.locationScopeError(state);
     if (locationError) {
-      publicSearchStatus.textContent = `${locationError} No se consumió una búsqueda.`;
+      publicSearchStatus.textContent = `${locationError} No se consumió cupo.`;
       document.querySelector('[data-field="alcance"]')?.focus({ preventScroll: true });
       return;
     }
@@ -1614,7 +1609,7 @@
     const sequence = ++publicSearchSequence;
     const plan = RadarTalentDiscovery.buildPlan(state, selected, RadarGenerator, { strategy });
     if (!plan.queries.length) {
-      publicSearchStatus.textContent = "No se pudo formar una consulta válida. Quitá términos largos o reducí la cantidad de señales y volvé a intentar.";
+      publicSearchStatus.textContent = "No se pudo armar la consulta. Acortá o quitá algunas señales.";
       return;
     }
     findProfilesBtn.disabled = true;
@@ -1627,8 +1622,8 @@
       ? ` Se omitieron por longitud: ${plan.skippedSources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(", ")}.`
       : "";
     publicSearchStatus.textContent = sourceOverride
-      ? `Reintentando ${plan.queries.map((query) => query.label).join(", ")} con los mismos criterios. Consume una búsqueda por fuente del cupo mensual.`
-      : `Consultando ${plan.queries.length} fuentes públicas. Esta ruta consume una búsqueda por fuente del cupo mensual; no se ejecutan intentos extra automáticamente.${skippedNote}`;
+      ? `Reintentando ${plan.queries.map((query) => query.label).join(", ")}. Consume una consulta por fuente.`
+      : `Consultando ${plan.queries.length} fuentes. Consume una consulta por fuente.${skippedNote}`;
     publicSearchResults.replaceChildren();
     try {
       const response = await RadarTalentDiscovery.search(publicSearchEndpoint, plan, state);
@@ -1645,21 +1640,21 @@
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
       const partial = response.sourceErrors.length > 0;
       publicSearchStatus.textContent = count
-        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} ${count === 1 ? "perfil público ordenado" : "perfiles públicos ordenados"} por evidencia visible. Confirmá ubicación y requisitos en cada fuente.`
+        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} ${count === 1 ? "perfil" : "perfiles"}. Revisá los datos en la fuente.`
         : partial
-          ? "Respuesta parcial: algunas fuentes fallaron y las que respondieron no devolvieron perfiles verificables."
-          : "Búsqueda completada sin perfiles verificables.";
+          ? "Respuesta parcial: no hubo perfiles verificables y algunas fuentes fallaron."
+          : "Búsqueda completada: sin perfiles verificables.";
       if (count <= 3 && strategy !== "market") {
         const nextStrategy = strategy === "precise" ? "equivalent" : "market";
         broadenPublicSearchBtn.dataset.strategy = nextStrategy;
         broadenPublicSearchBtn.textContent = nextStrategy === "equivalent" ? "Probar perfiles equivalentes" : "Ampliar sin cargo ni sector";
-        publicSearchRefineTitle.textContent = count ? `Aparecieron ${count} perfiles. ¿Querés ampliar?` : "No aparecieron perfiles verificables con esta ruta.";
+        publicSearchRefineTitle.textContent = count ? `Hay ${count} perfiles. ¿Ampliamos?` : "Sin perfiles verificables.";
         const retryNote = partial
           ? " Hay fuentes con error; podés reintentarlas por separado sin volver a consultar las demás."
           : "";
         publicSearchRefineText.textContent = nextStrategy === "equivalent"
-          ? `Siguiente intento: deja de exigir el título literal y busca perfiles por señales del puesto. Mantiene la localidad, los imprescindibles y las exclusiones. Consume una búsqueda adicional por fuente seleccionada.${retryNote}`
-          : `Última ampliación: quita el cargo literal y el sector, y conserva la localidad, los imprescindibles y las exclusiones. Si sigue sin alcanzar, revisá si alguna señal marcada como imprescindible admite equivalencias o elegí otra fuente. Consume una búsqueda adicional por fuente seleccionada.${retryNote}`;
+          ? `Busca por requisitos sin exigir el título. Conserva ubicación y obligatorias. Consume una consulta adicional por fuente.${retryNote}`
+          : `Quita cargo y sector; conserva ubicación y obligatorias. Consume una consulta adicional por fuente.${retryNote}`;
         publicSearchRefine.classList.remove("hidden");
       } else {
         publicSearchRefine.classList.add("hidden");
@@ -1700,7 +1695,7 @@
 
   document.getElementById("generateBtn").addEventListener("click", () => {
     if (jdNeedsReview && jdInput.value.trim()) {
-      showError("La JD o el brief cambió. Analizalo y aplicá el relevamiento, o borrá el texto para seguir con los campos manuales.");
+      showError("La JD cambió. Volvé a analizarla o borrá el texto para seguir manualmente.");
       return;
     }
     if (selectedNetwork === "custom" && !customSiteInput.value.trim()) {
