@@ -153,11 +153,16 @@
   <section class="card public-search-setup" id="publicSearchSetup" aria-labelledby="publicSearchTitle">
     <div class="public-search-heading">
       <div><span class="public-search-kicker">DESCUBRIMIENTO PÚBLICO</span><h2 id="publicSearchTitle">Perfiles encontrados</h2></div>
-      <span class="public-search-cap">Hasta 40 · 10 por fuente</span>
+      <span class="public-search-cap">Top 15 · LinkedIn + GitHub</span>
     </div>
-    <p class="hint">RADAR consulta resultados públicos indexados, valida que cada enlace parezca un perfil y ordena las señales visibles contra esta búsqueda. No accede a perfiles privados ni afirma que una persona esté disponible o sea la mejor contratación.</p>
+    <p class="hint">RADAR consulta solo perfiles públicos indexados de LinkedIn y GitHub. Para evitar ciudades homónimas, indicá localidad y país en Alcance. Se muestran hasta 15 perfiles con evidencia visible de toda la ubicación; si el fragmento no la confirma, el perfil queda fuera. Revisá residencia y requisitos en la fuente antes de contactar.</p>
+    <ol class="public-search-guide" aria-label="Cómo usar el listado">
+      <li><span>01</span><div><strong>Definí la ubicación</strong><small>Localidad y país en Alcance</small></div></li>
+      <li><span>02</span><div><strong>Revisá el top 15</strong><small>Perfiles públicos con señales visibles</small></div></li>
+      <li><span>03</span><div><strong>Ampliá el hunting</strong><small>Booleano, X-Ray y otros portales</small></div></li>
+    </ol>
     <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
-    <p class="public-search-method-note">Elegí hasta cuatro fuentes. Cada selección consulta páginas públicas de ese sitio; la lista no confirma que una persona siga en el puesto, resida hoy en esa localidad o esté buscando trabajo.</p>
+    <p class="public-search-method-note">Se consultan LinkedIn y GitHub. El listado no confirma que una persona siga en el puesto, resida hoy en esa localidad o esté buscando trabajo; verificá esos datos en la fuente.</p>
     <div class="public-search-action">
       <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles públicos</button>
       <button class="btn btn-ghost btn-small" id="checkProfilesConnectionBtn" type="button" disabled>Probar conexión sin buscar</button>
@@ -165,6 +170,10 @@
     </div>
     <p class="public-search-status" id="publicSearchStatus" role="status" aria-live="polite"></p>
     <div class="public-search-results" id="publicSearchResults" aria-live="polite"></div>
+    <aside class="public-search-next-step" aria-label="Otras acciones de hunting">
+      <div><strong>¿Querés ampliar el alcance?</strong><p>Usá las otras acciones de hunting para explorar perfiles con booleanos, X-Ray en Google y búsquedas dentro de otros portales.</p></div>
+      <a class="btn btn-dark" href="#results">Ver booleanos y X-Ray</a>
+    </aside>
     <div class="public-search-refine hidden" id="publicSearchRefine" aria-live="polite">
       <div><strong id="publicSearchRefineTitle"></strong><p id="publicSearchRefineText"></p></div>
       <button class="btn btn-dark" id="broadenPublicSearchBtn" type="button">Probar perfiles equivalentes</button>

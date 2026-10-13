@@ -630,6 +630,12 @@ a.btn:hover,
 .boolean-box-lg { border-radius: 2px; }
 
 .public-search-setup { background: #fff; }
+.public-search-guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0 12px; padding: 0; list-style: none; }
+.public-search-guide li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 11px 12px; border: 1px solid #e2e0d9; background: #faf9f6; }
+.public-search-guide li > span { color: var(--red); font-size: 11px; font-weight: 800; letter-spacing: .05em; }
+.public-search-guide li div { display: grid; gap: 3px; }
+.public-search-guide strong { color: #292927; font-size: 11px; }
+.public-search-guide small { color: #68675f; font-size: 10px; line-height: 1.4; }
 .public-search-method-note { max-width: 780px; margin: 10px 0 0; color: #65645e; font-size: 11px; line-height: 1.5; }
 .public-source-option { align-items: flex-start; flex: 1 1 240px; min-width: min(240px, 100%); padding: 10px 11px; }
 .public-source-option input { margin-top: 3px; }
@@ -640,6 +646,10 @@ a.btn:hover,
 .public-search-refine strong { color: #282825; font-size: 12px; }
 .public-search-refine p { max-width: 740px; margin: 4px 0 0; color: #62615a; font-size: 11px; line-height: 1.5; }
 .public-search-refine .btn { flex: 0 0 auto; }
+.public-search-next-step { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 14px 16px; border: 1px solid #e2e0d9; background: #faf9f6; }
+.public-search-next-step strong { color: #292927; font-size: 12px; }
+.public-search-next-step p { margin: 4px 0 0; color: #62615a; font-size: 11px; line-height: 1.5; }
+.public-search-next-step .btn { flex: 0 0 auto; }
 .public-search-cap,
 .public-source-option,
 .public-profile-card,
@@ -656,4 +666,6 @@ a.btn:hover,
   .wrap { padding: 22px 14px 42px; }
   .card { margin-bottom: 11px; }
   .public-search-refine { align-items: flex-start; flex-direction: column; }
+  .public-search-guide { grid-template-columns: 1fr; }
+  .public-search-next-step { align-items: flex-start; flex-direction: column; }
 }

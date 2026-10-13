@@ -72,6 +72,19 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("shows the precise shortlist rules in the published Angular UI", () => {
+    cy.get("#publicSearchSetup").should("contain.text", "Top 15 · LinkedIn + GitHub");
+    cy.get("#publicSearchSetup").should("contain.text", "Localidad y país");
+    cy.get("#publicSearchSetup").should("contain.text", "Ver booleanos y X-Ray");
+    cy.get("#countrySelect option").should("not.contain.text", "Chile");
+    cy.get('[data-field="rol"]').type("Analista de datos{enter}");
+    cy.get('[data-field="atributos"]').type("SQL{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input').should("have.length", 2);
+    cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub");
+  });
+
   it("keeps the public-profile search disabled until its server endpoint is configured", () => {
     cy.get("#publicSearchSetup").should("be.visible");
     cy.get("#findProfilesBtn").should("be.disabled");
