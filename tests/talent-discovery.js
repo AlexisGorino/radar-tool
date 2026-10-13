@@ -24,7 +24,7 @@ test("builds source-specific queries and preserves the exact Canary Islands scop
   const plan = Discovery.buildPlan(canaryState, ["linkedin", "stackoverflow", "github", "behance", "resumes"], Generator);
   assert.equal(plan.queries.length, 2);
   assert.deepEqual(plan.queries.map((query) => query.source), ["linkedin", "github"]);
-  assert.equal(plan.maxResults, 15);
+  assert.equal(plan.maxResults, 20);
   assert.equal(plan.location, "España, Islas Canarias");
   plan.queries.forEach(({ query }) => {
     assert.match(query, /Canarias/i);
@@ -154,7 +154,7 @@ test("scores exact locality evidence separately from country-only evidence", () 
   assert.ok(exactPlaceAndCountry.score > countryOnly.score);
 });
 
-test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 15", () => {
+test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 20", () => {
   const results = Array.from({ length: 55 }, (_, index) => ({
     source: "linkedin",
     url: `https://linkedin.com/in/profile-${index}${index === 1 ? "?trk=duplicate" : ""}`,
@@ -167,8 +167,8 @@ test("requires locality and country evidence, deduplicates profiles and caps the
   results.push({ source: "linkedin", url: "https://linkedin.com/in/country-only", title: "Paula Pérez - Telecom - LinkedIn", snippet: "FTTH España" });
   results.push({ source: "stackoverflow", url: "https://stackoverflow.com/users/42/ana", title: "Ana Persona - Telecom", snippet: "FTTH Islas Canarias España" });
   const normalized = Discovery.normalizeResults({ results }, canaryState);
-  assert.equal(normalized.length, 15);
-  assert.equal(new Set(normalized.map((row) => row.url)).size, 15);
+  assert.equal(normalized.length, 20);
+  assert.equal(new Set(normalized.map((row) => row.url)).size, 20);
   assert.ok(normalized.every((row) => !row.url.includes("/jobs/")));
   assert.ok(normalized.every((row) => ["linkedin", "github"].includes(row.source)));
 
@@ -181,7 +181,7 @@ test("requires locality and country evidence, deduplicates profiles and caps the
 });
 
 test("search omits credentials, does not send the JD, and reports provider errors clearly", async () => {
-  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 15, location: "Argentina" };
+  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 20, location: "Argentina" };
   let request;
   const found = await Discovery.search("https://radar.example/api/search", payload, canaryState, async (url, options) => {
     request = { url, options };

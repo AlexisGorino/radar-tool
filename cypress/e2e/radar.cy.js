@@ -128,7 +128,7 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
     cy.get("#publicSearchSetup").should("be.visible");
-    cy.get("#publicSearchSetup").should("contain.text", "Hasta 15 · LinkedIn + GitHub");
+    cy.get("#publicSearchSetup").should("contain.text", "Hasta 20 · LinkedIn + GitHub");
     cy.get("#publicSearchSetup").should("contain.text", "la localidad y el país");
     cy.get('#publicSearchSources input').should("have.length", 2);
     cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub");
@@ -170,19 +170,25 @@ describe("RADAR talent search flow", () => {
   it("builds a public-profile shortlist, preserves the selected locality, and labels missing evidence", () => {
     cy.intercept("POST", "/mock-search", (request) => {
       expect(request.body.location).to.equal("España, Islas Canarias");
-      expect(request.body.maxResults).to.equal(15);
+      expect(request.body.maxResults).to.equal(20);
       expect(request.body.queries.map((query) => query.source)).to.include("linkedin");
       expect(request.body.queries.map((query) => query.source)).to.include("github");
       request.reply({
         statusCode: 200,
         body: {
-          count: 3,
+          count: 24,
           locationContext: { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" },
           sourceErrors: [{ source: "github", code: "source_unavailable" }],
           results: [
-            { source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Telecom Technician - LinkedIn", snippet: "FTTH, OTDR. Islas Canarias, España.", position: 1 },
-            { source: "linkedin", url: "https://www.linkedin.com/in/juan-gomez", title: "Juan Gómez - Technician - LinkedIn", snippet: "Telecomunicaciones · España", position: 2 },
-            { source: "linkedin", url: "https://www.linkedin.com/jobs/view/123", title: "Oferta laboral - LinkedIn", snippet: "FTTH Islas Canarias", position: 3 },
+            ...Array.from({ length: 22 }, (_, index) => ({
+              source: "linkedin",
+              url: `https://www.linkedin.com/in/candidate-${index + 1}`,
+              title: `${index === 0 ? "Ana Pérez" : `Perfil Candidato ${index + 1}`} - Telecom Technician - LinkedIn`,
+              snippet: "FTTH, OTDR. Islas Canarias, España.",
+              position: index + 1,
+            })),
+            { source: "linkedin", url: "https://www.linkedin.com/in/juan-gomez", title: "Juan Gómez - Technician - LinkedIn", snippet: "Telecomunicaciones · España", position: 23 },
+            { source: "linkedin", url: "https://www.linkedin.com/jobs/view/123", title: "Oferta laboral - LinkedIn", snippet: "FTTH Islas Canarias", position: 24 },
           ],
         },
       });
@@ -205,9 +211,10 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").should("be.enabled").click();
-    cy.get(".public-profile-card").should("have.length", 1);
-    cy.get(".public-search-results-heading").should("contain.text", "1 perfil público para revisar");
+    cy.get(".public-profile-card").should("have.length", 20);
+    cy.get(".public-search-results-heading").should("contain.text", "20 perfiles públicos para revisar");
     cy.get(".public-profile-rank").first().should("have.text", "01");
+    cy.get(".public-profile-rank").last().should("have.text", "20");
     cy.get(".public-profile-score").first().should("contain.text", "/100");
     cy.get(".public-profile-details summary").first().click();
     cy.get(".public-profile-details[open]").should("contain.text", "Señales visibles");

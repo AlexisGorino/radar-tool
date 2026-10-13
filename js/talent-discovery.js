@@ -18,7 +18,7 @@
   });
   const PUBLIC_SOURCE_IDS = Object.freeze(["linkedin", "github"]);
   const MAX_SOURCES = PUBLIC_SOURCE_IDS.length;
-  const MAX_RESULTS = 15;
+  const MAX_RESULTS = 20;
   const MAX_QUERY_LENGTH = 900;
 
   function cleanTerms(values) {

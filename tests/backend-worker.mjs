@@ -9,7 +9,7 @@ async function test(name, run) {
 }
 
 const validPlan = {
-  maxResults: 15,
+  maxResults: 20,
   location: "España, Islas Canarias",
   queries: [
     { source: "linkedin", query: 'site:linkedin.com/in "Telecom technician" FTTH Canarias' },
@@ -79,15 +79,15 @@ async function main() {
     }
   });
 
-  await test("balances LinkedIn and GitHub representation and returns at most 15 results", () => {
+  await test("balances LinkedIn and GitHub representation and returns at most 20 results", () => {
     const lists = [
       Array.from({ length: 40 }, (_, i) => ({ source: "linkedin", position: i + 1 })),
       Array.from({ length: 40 }, (_, i) => ({ source: "github", position: i + 1 })),
     ];
     const chosen = takeBalanced(lists);
-    assert.equal(chosen.length, 15);
-    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 8);
-    assert.equal(chosen.filter((row) => row.source === "github").length, 7);
+    assert.equal(chosen.length, 20);
+    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 10);
+    assert.equal(chosen.filter((row) => row.source === "github").length, 10);
   });
 
   await test("requires a confirmed free plan and enough remaining monthly searches before querying", async () => {
@@ -159,9 +159,9 @@ async function main() {
       });
       const json = await response.json();
       assert.equal(response.status, 200);
-      assert.equal(json.results.length, 15);
-      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 8);
-      assert.equal(json.results.filter((row) => row.source === "github").length, 7);
+      assert.equal(json.results.length, 20);
+      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 10);
+      assert.equal(json.results.filter((row) => row.source === "github").length, 10);
       assert.deepEqual(json.sourceDiagnostics, [
         { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 40, code: null },
         { source: "github", status: "profiles_found", organicCount: 40, profileCount: 40, code: null },

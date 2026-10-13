@@ -7,7 +7,7 @@ const SOURCES = Object.freeze({
 });
 const PUBLIC_SOURCE_IDS = new Set(["linkedin", "github"]);
 const MAX_SOURCES = PUBLIC_SOURCE_IDS.size;
-const MAX_RESULTS = 15;
+const MAX_RESULTS = 20;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
 const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;

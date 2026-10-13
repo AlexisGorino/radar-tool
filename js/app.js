@@ -1304,7 +1304,7 @@
         ? "1 perfil público para revisar"
         : `${rows.length} perfiles públicos para revisar`;
       const summaryNote = document.createElement("span");
-      summaryNote.textContent = "Top 15 por señales visibles. La localidad y el país aparecen en el resultado público; confirmá identidad y residencia en el perfil.";
+      summaryNote.textContent = "Ordenados por coincidencias visibles; hasta 20 entre LinkedIn y GitHub. La ubicación aparece en el resultado público; confirmá identidad, residencia y experiencia en el perfil.";
       summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
       const shareTools = document.createElement("div");

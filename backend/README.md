@@ -1,9 +1,10 @@
 # Búsqueda pública de perfiles
 
 El frontend de GitHub Pages no contiene credenciales. `worker.mjs` es un proxy
-de alcance limitado para SerpApi; acepta hasta cuatro consultas `site:` por
-solicitud, pide resultados públicos de Google, valida dominio/ruta y devuelve
-únicamente título, fragmento, URL y posición. No persiste consultas ni perfiles.
+de alcance limitado para SerpApi; acepta hasta dos consultas `site:` por
+solicitud (LinkedIn y GitHub), pide resultados públicos de Google, valida
+dominio/ruta y devuelve únicamente título, fragmento, URL y posición. No
+persiste consultas ni perfiles.
 
 ## Configuración segura
 
@@ -34,10 +35,11 @@ solicitud, pide resultados públicos de Google, valida dominio/ruta y devuelve
 
 - El proveedor busca páginas públicas indexadas; no consulta LinkedIn Recruiter,
   perfiles privados, ATS ni disponibilidad de una persona.
-- Se seleccionan hasta cuatro fuentes por búsqueda; el Worker devuelve hasta 50
-  enlaces totales y alterna fuentes antes de que el frontend ordene por señales
-  visibles. El plan gratis da margen aproximado para 62 búsquedas completas al
-  mes si se usan cuatro fuentes en todas ellas (250 / 4, antes de reintentos).
+- Se seleccionan LinkedIn, GitHub o ambas fuentes. El Worker devuelve hasta 20
+  enlaces por búsqueda (hasta 10 por fuente según la página pública consultada)
+  y alterna fuentes antes de que el frontend ordene por señales visibles. Cada
+  fuente consume una consulta del proveedor; el Worker valida el plan y el cupo
+  antes de iniciar búsquedas.
 - La ciudad/región más específica debe aparecer en el fragmento para que RADAR
   la marque como visible. La búsqueda que incluya el país pero no la ciudad se
   etiqueta como ubicación sin confirmar.
