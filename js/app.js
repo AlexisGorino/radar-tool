@@ -1516,7 +1516,7 @@
       lines.push(`${index + 1}. ${clean(row.name || "Nombre no visible", 70)} — ${clean(row.title, 120)} (${clean(row.sourceLabel, 40)})`);
       lines.push(row.url, "");
     });
-    lines.push("Resultados públicos. Confirmá identidad, experiencia y ubicación en la fuente.");
+    lines.push("Verificá identidad, experiencia y ubicación. El orden no determina idoneidad.");
     return lines.join("\n");
   }
 

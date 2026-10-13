@@ -30,7 +30,7 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Santiago{enter}");
     cy.get("#generateBtn").click();
     cy.get("#findProfilesBtn").should("be.enabled").click();
-    cy.get("#publicSearchStatus").should("contain.text", "nombre completo del lugar y su país");
+    cy.get("#publicSearchStatus").should("contain.text", "Completá la ciudad y el país");
     cy.then(() => expect(searchCalls).to.equal(0));
   });
 
@@ -73,7 +73,7 @@ describe("RADAR talent search flow", () => {
   });
 
   it("keeps optional filters and extra portals out of the first view", () => {
-    cy.get("#welcomeTitle").should("contain.text", "Definí el perfil antes de salir a buscar");
+    cy.get("#welcomeTitle").should("contain.text", "Prepará tu búsqueda");
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
     cy.get('label[for="roleInput"]').should("contain.text", "Cargo o familia de puestos");
     cy.get('label[for="signalsInput"]').should("contain.text", "Experiencia y conocimientos");
@@ -98,10 +98,10 @@ describe("RADAR talent search flow", () => {
   });
 
   it("updates the readiness checklist as the recruiter clarifies the profile", () => {
-    cy.get("#readinessProfile").should("contain.text", "Falta completar");
+    cy.get("#readinessProfile").should("contain.text", "Incompleto");
     cy.get("#readinessLocation").should("contain.text", "Falta ubicación");
     cy.get("#readinessJd").should("contain.text", "Carga manual");
-    cy.get(".field-entry-help").should("contain.text", "Enter").and("contain.text", "etiqueta");
+    cy.get(".field-entry-help").should("contain.text", "Enter").and("contain.text", "editar");
 
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
     cy.get('[data-field="atributos"]').type("SQL{enter}");
@@ -142,7 +142,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get("#publicSearchSetup").should("be.visible");
     cy.get("#findProfilesBtn").should("be.disabled");
-    cy.get("#publicSearchConfigNote").should("contain.text", "Falta configurar el endpoint seguro");
+    cy.get("#publicSearchConfigNote").should("contain.text", "Servicio no configurado");
   });
 
   it("checks provider readiness without spending a search credit", () => {
@@ -163,7 +163,7 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
     cy.get("#checkProfilesConnectionBtn").should("be.enabled").click();
-    cy.get("#publicSearchStatus").should("contain.text", "esta comprobación no consumió consultas");
+    cy.get("#publicSearchStatus").should("contain.text", "la prueba no consumió búsquedas");
     cy.then(() => expect(paidSearchCalls).to.equal(0));
   });
 
@@ -217,17 +217,17 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-rank").last().should("have.text", "20");
     cy.get(".public-profile-score").first().should("contain.text", "/100");
     cy.get(".public-profile-details summary").first().click();
-    cy.get(".public-profile-details[open]").should("contain.text", "Señales visibles");
+    cy.get(".public-profile-details[open]").should("contain.text", "Coincidencias");
     cy.contains("Ana Pérez").should("be.visible");
     cy.contains("Ubicación solicitada visible").should("be.visible");
     cy.get(".public-profile-card").should("not.contain.text", "Juan Gómez");
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
-    cy.get("#publicSearchStatus").should("contain.text", "perfiles públicos ordenados por evidencia visible");
-    cy.get("#publicSearchResults").should("contain.text", "Contexto de búsqueda: Canary Islands,Spain");
-    cy.get("#publicSearchResults").should("contain.text", "No se pudo completar esta fuente: GitHub");
-    cy.get(".public-search-next-actions").should("contain.text", "Usá las otras acciones de hunting");
+    cy.get("#publicSearchStatus").should("contain.text", "Listo: 20 perfiles");
+    cy.get("#publicSearchResults").should("contain.text", "Búsqueda en Canary Islands,Spain");
+    cy.get("#publicSearchResults").should("contain.text", "No respondió GitHub");
+    cy.get(".public-search-next-actions").should("contain.text", "Seguí con otras rutas");
     cy.get(".public-search-next-actions a").should("have.attr", "href", "#results");
     cy.get("#publicSearchSources input").should("have.length", 2);
   });
@@ -312,7 +312,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Mantiene la localidad, los imprescindibles");
+    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Conserva ubicación y obligatorias");
     cy.get("#broadenPublicSearchBtn").click();
     cy.then(() => {
       expect(sentQueries).to.have.length(2);
@@ -321,11 +321,11 @@ describe("RADAR talent search flow", () => {
       expect(sentQueries[1]).to.match(/Santiago de Compostela/i);
       expect(sentQueries[1]).to.match(/MS Project/i);
     });
-    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "quita el cargo literal y el sector");
+    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Quita cargo y sector");
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
-    cy.get("#publicSearchSources").should("contain.text", "Actividad y proyectos públicos");
+    cy.get("#publicSearchSources").should("contain.text", "Proyectos públicos");
     cy.get("#broadenPublicSearchBtn").click();
-    cy.get(".public-search-next-questions").should("be.visible").and("contain.text", "¿Qué podemos revisar de la JD");
+    cy.get(".public-search-next-questions").should("be.visible").and("contain.text", "¿Qué querés ajustar?");
     cy.get(".public-search-next-questions").contains("¿El cargo puede tener otro nombre?").click();
     cy.get('[data-field="rol"]').should("be.focused");
     cy.then(() => expect(sentQueries).to.have.length(3));
@@ -409,7 +409,7 @@ describe("RADAR talent search flow", () => {
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").click();
     cy.get(".public-search-diagnostics").should("contain.text", "El proveedor agotó el tiempo de espera");
-    cy.get(".public-search-diagnostics").should("contain.text", "no encontró páginas indexadas");
+    cy.get(".public-search-diagnostics").should("contain.text", "Sin resultados indexados");
     cy.wait("@partialSearch");
     cy.get(".public-search-retry").should("contain.text", "LinkedIn").click();
     cy.wait("@partialSearch").then(() => {
@@ -442,7 +442,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#findProfilesBtn").click();
     cy.get("#publicSearchRefine").should("be.visible");
     cy.get("#publicSearchStatus").should("contain.text", "Respuesta parcial");
-    cy.get(".public-search-empty").should("contain.text", "fuentes con error quedan sin confirmar");
+    cy.get(".public-search-empty").should("contain.text", "Las que fallaron quedan pendientes");
   });
 
   it("shows an actionable limit message when the public search provider rate-limits a request", () => {
@@ -462,7 +462,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get("#findProfilesBtn").should("be.enabled").click();
     cy.get(".public-search-error").should("contain.text", "límite temporal");
-    cy.get(".public-search-error").should("contain.text", "No mostramos una lista vacía");
+    cy.get(".public-search-error").should("contain.text", "No se inició un reintento automático");
     cy.get("#findProfilesBtn").should("be.enabled");
   });
 
@@ -487,7 +487,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#findProfilesBtn").click();
     cy.wait("@failedPublicSearch");
     cy.get(".public-search-error").should("contain.text", "tardó demasiado en responder");
-    cy.get(".public-search-error").should("contain.text", "No se hacen reintentos automáticos");
+    cy.get(".public-search-error").should("contain.text", "No se inició un reintento automático");
     cy.get(".public-search-empty").should("not.exist");
   });
 
