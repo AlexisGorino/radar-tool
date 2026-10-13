@@ -114,7 +114,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get("#publicSearchSetup").should("be.visible");
     cy.get("#findProfilesBtn").should("be.disabled");
-    cy.get("#publicSearchConfigNote").should("contain.text", "La conexión segura con el proveedor todavía no está configurada");
+    cy.get("#publicSearchConfigNote").should("contain.text", "Falta configurar el endpoint seguro");
   });
 
   it("checks provider readiness without spending a search credit", () => {
