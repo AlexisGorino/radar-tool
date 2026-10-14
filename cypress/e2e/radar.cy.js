@@ -714,7 +714,9 @@ describe("RADAR talent search flow", () => {
     cy.get("#chips-atributos").contains("button", "!").click();
     cy.get("#chips-imprescindibles").should("contain.text", "Selenium");
     cy.get('[data-field="atributos"]').type("Cypress{enter}");
-    cy.get("#advancedCriteria > summary").click();
+    cy.get("#advancedCriteria").then(($details) => {
+      if (!$details.prop("open")) cy.wrap($details).find("summary").click();
+    });
     cy.get('[data-field="deseables"]').type("Playwright{enter}");
     cy.get('[data-field="dominio"]').type("retail{enter}");
     cy.get('[data-field="alcance"]').type("Rosario{enter}");
