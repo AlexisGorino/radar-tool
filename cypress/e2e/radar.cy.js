@@ -6,6 +6,7 @@ describe("RADAR talent search flow", () => {
       onBeforeLoad(win) {
         win.localStorage.setItem("radar-auth-v1", "ok");
         win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        win.localStorage.setItem("radar-experience-mode-v1", "guided");
       },
     });
     cy.get("#appShell").should("be.visible");
@@ -195,7 +196,7 @@ describe("RADAR talent search flow", () => {
     cy.get('label[for="requiredInput"]').should("contain.text", "requisitos son obligatorios");
     cy.contains(".field-desc", "Alternativas: alcanza con que coincida una").should("be.visible");
     cy.get(".required-help").should("contain.text", "todos deben cumplirse");
-    cy.get("#generateBtn").should("contain.text", "Preparar búsqueda");
+    cy.get("#generateBtn").should("contain.text", "Ver opciones de búsqueda");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get('[data-field="deseables"]').should("not.be.visible");
     cy.get('[data-field="refinar"]').should("not.be.visible");
@@ -212,6 +213,39 @@ describe("RADAR talent search flow", () => {
     cy.get("#moreNetworks").should("not.have.attr", "open");
     cy.get("#moreNetworks > summary").click();
     cy.get("#networkTabs").should("be.visible");
+  });
+
+  it("offers a guided route and an expert route without changing the search criteria", () => {
+    cy.get("#appShell").should("have.attr", "data-experience-mode", "guided");
+    cy.get("#experienceModeHint").should("contain.text", "Confirmá ubicación y requisitos");
+    cy.get("#expertModeBtn").click();
+    cy.get("#appShell").should("have.attr", "data-experience-mode", "expert");
+    cy.get("#expertModeBtn").should("have.attr", "aria-pressed", "true");
+    cy.get("#advancedCriteria").should("have.attr", "open");
+    cy.get('[data-field="deseables"]').should("be.visible");
+    cy.get("#ideaModeBtn").click();
+    cy.get("#jdInput").type("QA con Playwright en Barcelona{enter}");
+    cy.get("#guidedModeBtn").click();
+    cy.get("#appShell").should("have.attr", "data-experience-mode", "guided");
+    cy.get("#advancedCriteria").should("not.have.attr", "open");
+    cy.get("#jdInput").should("have.value", "QA con Playwright en Barcelona\n");
+    cy.window().its("localStorage.radar-experience-mode-v1").should("equal", "guided");
+  });
+
+  it("puts the shortlist before the manual search routes", () => {
+    cy.get('[data-field="rol"]').type("QA{enter}");
+    cy.get('[data-field="atributos"]').type("Playwright{enter}");
+    cy.get('[data-field="alcance"]').type("Barcelona{enter}");
+    cy.get("#countrySelect").select("España");
+    cy.get("#generateBtn").click();
+    cy.get("#publicSearchSetup").should("be.visible");
+    cy.get("#resultHero").should("be.visible");
+    cy.get("#publicSearchSetup").then(($shortlist) => {
+      cy.get("#resultHero").then(($manualSearch) => {
+        expect($shortlist[0].compareDocumentPosition($manualSearch[0]) & Node.DOCUMENT_POSITION_FOLLOWING).to.be.greaterThan(0);
+      });
+    });
+    cy.get("#publicSearchTitle").should("contain.text", "Lista de perfiles para revisar");
   });
 
   it("updates the readiness checklist as the recruiter clarifies the profile", () => {

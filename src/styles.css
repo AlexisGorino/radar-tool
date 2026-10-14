@@ -817,3 +817,79 @@ summary:focus-visible { outline: 3px solid rgb(167 25 36 / 35%); outline-offset:
   .readiness-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
   .readiness-list { grid-template-columns: 1fr; }
 }
+
+/* Keep the first decision simple, with a direct route for experienced sourcers. */
+.app-shell[data-experience-mode="guided"] .expert-only,
+.app-shell[data-experience-mode="expert"] .guided-only { display: none !important; }
+.welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 28px;
+  padding: 23px 25px 20px;
+}
+.welcome-kicker,
+.welcome h2,
+.welcome-copy { grid-column: 1; }
+.welcome h2 { font-size: clamp(21px, 2.2vw, 26px); letter-spacing: -.025em; }
+.welcome-copy { max-width: 620px; }
+.experience-switch {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  width: min(100%, 390px);
+  padding: 4px;
+  border: 1px solid #deddd7;
+  border-radius: 7px;
+  background: #f8f7f3;
+}
+.experience-option {
+  display: grid;
+  gap: 4px;
+  min-height: 62px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #44433d;
+  text-align: left;
+  cursor: pointer;
+}
+.experience-option:hover { background: #fff; }
+.experience-option.is-active { border-color: #cfcac0; background: #fff; color: #292925; box-shadow: 0 1px 2px rgb(32 32 27 / 5%); }
+.experience-option-title { font-size: 11px; font-weight: 800; }
+.experience-option-copy { color: #68675f; font-size: 9.5px; line-height: 1.35; }
+.welcome > .experience-status {
+  grid-column: 1 / -1;
+  margin: 15px 0 0;
+  padding-top: 11px;
+  border-top: 1px solid #eceae4;
+  color: #565650;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.experience-status::first-letter { color: var(--red); }
+.experience-option:focus-visible { outline: 3px solid rgb(167 28 39 / 22%); outline-offset: 2px; }
+.result-hero { border-left-width: 1px; }
+.result-hero-title { margin: 0; color: #292925; font-size: 17px; letter-spacing: -.01em; }
+.result-hero-intro { max-width: 720px; margin: 5px 0 14px; color: #5f5e58; font-size: 11.5px; line-height: 1.5; }
+.public-search-setup { border-top: 3px solid #47744e; }
+.public-search-setup .public-search-kicker { color: #47744e; }
+.public-search-action .btn-primary { min-width: 160px; }
+.public-search-explainer { padding-bottom: 2px; }
+.public-search-explainer summary { font-size: 11px; }
+.generate-row { justify-content: space-between; }
+
+@media (max-width: 760px) {
+  .welcome { grid-template-columns: 1fr; row-gap: 0; }
+  .experience-switch { grid-column: 1; grid-row: auto; width: 100%; margin-top: 14px; }
+  .experience-status { grid-column: 1; }
+}
+@media (max-width: 430px) {
+  .experience-switch { grid-template-columns: 1fr; }
+  .experience-option { min-height: 0; }
+  .public-search-heading { gap: 8px; }
+  .public-search-cap { white-space: normal; }
+}

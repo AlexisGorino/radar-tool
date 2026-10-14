@@ -47,6 +47,8 @@
   const intakeCaption = document.getElementById("intakeCaption");
   const intakeOptional = intakeCaption.querySelector("span");
   const intakeModeHint = document.getElementById("intakeModeHint");
+  const experienceModeHint = document.getElementById("experienceModeHint");
+  const experienceModeButtons = [...document.querySelectorAll("[data-experience-mode]")];
   const dropzone = document.getElementById("dropzone");
   const fileInput = document.getElementById("fileInput");
   const readinessProfile = document.getElementById("readinessProfile");
@@ -134,6 +136,34 @@
       ? "Escribí como te salga. RADAR separa cargo, sector y conocimientos, y te pregunta lo importante."
       : "Pegala o adjuntala. RADAR separará los datos para que los revises.";
   }
+
+  function setExperienceMode(mode, persist = true) {
+    const expertMode = mode === "expert";
+    const appShell = document.getElementById("appShell");
+    appShell.dataset.experienceMode = expertMode ? "expert" : "guided";
+    experienceModeButtons.forEach((button) => {
+      const selected = button.dataset.experienceMode === appShell.dataset.experienceMode;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+    experienceModeHint.textContent = expertMode
+      ? "Modo directo: ajustá los campos y abrí los filtros extra cuando los necesites."
+      : "1. Describí el perfil · 2. Confirmá ubicación y requisitos · 3. Elegí dónde buscar";
+
+    const advancedCriteria = document.getElementById("advancedCriteria");
+    advancedCriteria.open = expertMode;
+    if (persist) {
+      try {
+        localStorage.setItem("radar-experience-mode-v1", appShell.dataset.experienceMode);
+      } catch { /* La preferencia es opcional; el modo sigue funcionando sin almacenamiento. */ }
+    }
+  }
+
+  const savedExperienceMode = (() => {
+    try { return localStorage.getItem("radar-experience-mode-v1"); }
+    catch { return null; }
+  })();
+  setExperienceMode(savedExperienceMode === "expert" ? "expert" : "guided", false);
 
   function getPublicSearchEndpoint() {
     return (document.querySelector('meta[name="radar-search-endpoint"]')?.content || "").trim();
@@ -968,6 +998,9 @@
   });
   descriptionModeBtn.addEventListener("click", () => setIntakeMode("description"));
   ideaModeBtn.addEventListener("click", () => setIntakeMode("idea"));
+  experienceModeButtons.forEach((button) => {
+    button.addEventListener("click", () => setExperienceMode(button.dataset.experienceMode));
+  });
   document.getElementById("analyzeBtn").addEventListener("click", () => runAnalysis());
   document.getElementById("applyJdBtn").addEventListener("click", applyPendingAnalysis);
   document.getElementById("dismissJdBtn").addEventListener("click", () => jdReview.classList.add("hidden"));
