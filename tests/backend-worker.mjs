@@ -299,6 +299,51 @@ async function main() {
     }
   });
 
+  await test("does not list GitHub users that match only language and city but not the vacancy signal", async () => {
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.hostname === "api.github.com" && url.pathname === "/search/users") {
+        assert.equal(url.searchParams.get("q"), 'type:user language:TypeScript location:"Buenos Aires"');
+        return new Response(JSON.stringify({ total_count: 2, items: [
+          { login: "unrelated-python", html_url: "https://github.com/unrelated-python" },
+          { login: "qa-playwright", html_url: "https://github.com/qa-playwright" },
+        ] }), { status: 200 });
+      }
+      if (url.hostname === "api.github.com" && /^\/users\//.test(url.pathname)) {
+        const login = url.pathname.split("/").at(-1);
+        return new Response(JSON.stringify({
+          login,
+          name: login === "qa-playwright" ? "QA Playwright" : "Python Developer",
+          bio: login === "qa-playwright" ? "QA automation engineer with Playwright" : "Python developer",
+          location: "Buenos Aires, Argentina",
+          public_repos: 4,
+          html_url: `https://github.com/${login}`,
+        }), { status: 200 });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    };
+    try {
+      const plan = {
+        maxResults: 20,
+        location: "Argentina, Buenos Aires",
+        queries: [{ source: "github", query: 'type:user language:TypeScript location:"Buenos Aires"', profileEvidence: { required: [], alternatives: ["Playwright"], role: ["QA Engineer", "QA Automation Engineer"] } }],
+      };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(plan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.deepEqual(payload.results.map((row) => row.url), ["https://github.com/qa-playwright"]);
+      assert.equal(payload.sourceDiagnostics[0].profileCount, 1);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   await test("returns a retry hint when the shared network limiter blocks a request", async () => {
     const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
       method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(validPlan),

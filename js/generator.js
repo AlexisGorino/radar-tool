@@ -131,7 +131,8 @@
 
   function buildXRayTiers(state, siteDomain, relaxed, looseRol) {
     const tiers = [{ label: "Precisa", query: buildXRayQuery(state, siteDomain, relaxed, looseRol) }];
-    const role = looseRol ? orGroupRaw(state.rol) : orGroup(state.rol);
+    const roleTerms = (state.rol || []).slice(0, 2);
+    const role = looseRol ? orGroupRaw(roleTerms) : orGroup(roleTerms);
     const location = orGroup((state.alcance || []).slice(-1).flatMap(expandLocationTerm));
     const usefulAttributes = (state.atributos || []).filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase()));
     const expandedAttributes = [...usefulAttributes, ...(state.deseables || [])].filter((term) => !Keywords.GENERIC_SKILLS.some((generic) => generic.toLowerCase() === term.toLowerCase()));
@@ -212,7 +213,7 @@
   }
 
   function buildLinkedinBooleanTier(state, maxAtributos, includeDeseables) {
-    const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix);
+    const rol = (state.rol || []).map(stripAbbreviatedTitlePrefix).slice(0, 2);
     // A bare title such as "Auditor" matches many unrelated professions.
     // Keep the JD's industry attached in every tier when the title is broad.
     const broadRole = rol.length === 1 && rol[0].trim().split(/\s+/).length === 1;
@@ -236,6 +237,30 @@
 
   function buildLinkedinBoolean(state) {
     return buildLinkedinBooleanTier(state, LINKEDIN_MAX_ATRIBUTOS_ESPECIFICA);
+  }
+
+  function buildPublicLinkedinQuery(state, strategy) {
+    const mode = strategy || "precise";
+    const useRole = mode !== "equivalent" && mode !== "market";
+    const roles = useRole ? (state.rol || []).map(stripAbbreviatedTitlePrefix).slice(0, 2) : [];
+    const required = (state.imprescindibles || []).filter(Boolean);
+    // When there is no hard requirement, keep at most two alternatives. This
+    // respects the field's "any one of these" meaning without creating the
+    // long Boolean that tends to break LinkedIn's search box.
+    const anchor = required.length ? [] : (state.atributos || []).filter(Boolean).slice(0, 2);
+    if (!required.length && !anchor.length) anchor.push(...(state.deseables || []).filter(Boolean).slice(0, 1));
+    const sector = mode !== "market" ? (state.dominio || []).filter(Boolean).slice(0, 1) : [];
+    const location = (state.alcance || []).filter(Boolean).slice(-1);
+    const blocks = [];
+    if (roles.length === 1) blocks.push(quoteIfPhrase(roles[0]));
+    else if (roles.length > 1) blocks.push("(" + roles.map(quoteIfPhrase).join(" OR ") + ")");
+    required.forEach((term) => blocks.push(quoteIfPhrase(term)));
+    if (anchor.length === 1) blocks.push(quoteIfPhrase(anchor[0]));
+    else if (anchor.length > 1) blocks.push("(" + anchor.map(quoteIfPhrase).join(" OR ") + ")");
+    sector.forEach((term) => blocks.push(quoteIfPhrase(term)));
+    location.forEach((term) => blocks.push(quoteIfPhrase(term)));
+    (state.refinar || []).forEach((term) => blocks.push("-" + quoteIfPhrase(term)));
+    return "site:linkedin.com/in " + blocks.join(" ");
   }
 
   // Three progressively broader tries instead of one shot: if the specific
@@ -372,6 +397,7 @@
     linkedinSearchUrl,
     buildLinkedinBoolean,
     buildLinkedinBooleanTiers,
+    buildPublicLinkedinQuery,
     getTruncatedFields,
     detectGithubLanguage,
     stripAbbreviatedTitlePrefix,

@@ -76,6 +76,14 @@ function validatePlan(body) {
       if (!location || normalizeLocation(location[1]) !== normalizeLocation(requested.locality)
         || !/\btype:user\b/i.test(query) || !/\blanguage:[\w+#.-]+/i.test(query)
         || /\b(?:site|in):/i.test(query)) return false;
+      if (entry.profileEvidence !== undefined) {
+        const evidence = entry.profileEvidence;
+        if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return false;
+        for (const key of ["required", "alternatives", "role"]) {
+          if (!Array.isArray(evidence[key]) || evidence[key].length > 8
+            || evidence[key].some((term) => typeof term !== "string" || !term.trim() || term.length > 100)) return false;
+        }
+      }
     }
     if (unique.has(entry.source)) return false;
     unique.add(entry.source);
@@ -300,19 +308,26 @@ async function githubRequest(url, token) {
   return response.json();
 }
 
-async function lookupGithubUsers(query, rawLocation, token) {
+async function lookupGithubUsers(query, rawLocation, token, profileEvidence = {}) {
   const url = new URL("https://api.github.com/search/users");
   url.searchParams.set("q", query);
   url.searchParams.set("per_page", String(MAX_GITHUB_PROFILES));
   const data = await githubRequest(url.toString(), token);
   if (!data || !Array.isArray(data.items)) throw new Error("source_unavailable");
   const language = query.match(/\blanguage:([\w+#.-]+)/i)?.[1] || "";
+  const requiredSignals = Array.isArray(profileEvidence.required) ? profileEvidence.required : [];
+  const alternativeSignals = Array.isArray(profileEvidence.alternatives) ? profileEvidence.alternatives : [];
+  const roleSignals = Array.isArray(profileEvidence.role) ? profileEvidence.role : [];
   const details = await Promise.all(data.items.slice(0, MAX_GITHUB_PROFILES).map(async (user) => {
     const login = String(user && user.login || "");
     if (!/^[a-z\d-]{1,39}$/i.test(login)) return null;
     const profileUrl = new URL(`/users/${encodeURIComponent(login)}`, "https://api.github.com");
     const profile = await githubRequest(profileUrl.toString(), token);
     if (!profile || !exactGithubLocation(profile.location, rawLocation)) return null;
+    const normalizedBio = normalizeLocation(profile.bio || "");
+    if (requiredSignals.some((term) => !normalizedBio.includes(normalizeLocation(term)))) return null;
+    if (alternativeSignals.length && !alternativeSignals.some((term) => normalizedBio.includes(normalizeLocation(term)))) return null;
+    if (roleSignals.length && !roleSignals.some((term) => normalizedBio.includes(normalizeLocation(term)))) return null;
     const title = `${String(profile.name || profile.login).slice(0, 100)} - ${String(profile.bio || "GitHub").slice(0, 120)}`;
     const location = String(profile.location || "").slice(0, 180);
     const bio = String(profile.bio || "").slice(0, 500);
@@ -434,7 +449,7 @@ export default {
     const settledSources = await Promise.all(activeQueries.map(async (entry) => {
       try {
         const result = entry.source === "github"
-          ? await lookupGithubUsers(entry.query, plan.location, env.GITHUB_TOKEN)
+          ? await lookupGithubUsers(entry.query, plan.location, env.GITHUB_TOKEN, entry.profileEvidence)
           : await lookup(entry.query, location, entry.source, env.SERPAPI_KEY);
         return { source: entry.source, ...await result };
       } catch (error) {

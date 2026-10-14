@@ -35,6 +35,12 @@ persiste consultas ni perfiles.
 
 - El proveedor busca páginas públicas indexadas; no consulta LinkedIn Recruiter,
   perfiles privados, ATS ni disponibilidad de una persona.
+- LinkedIn se consulta como una búsqueda X-Ray corta: cargo y un máximo de dos
+  señales alternativas, más la localidad. Los requisitos marcados como
+  imprescindibles se conservan todos. Los perfiles de GitHub se consultan con
+  los filtros compatibles con su API y solo se muestran si la ubicación exacta,
+  una señal del puesto y la familia de rol aparecen en su bio pública; por eso
+  esta fuente puede devolver pocos perfiles.
 - Se seleccionan LinkedIn, GitHub o ambas fuentes. El Worker devuelve hasta 20
   enlaces por búsqueda (hasta 10 por fuente según la página pública consultada)
   y alterna fuentes antes de que el frontend ordene por señales visibles. Cada

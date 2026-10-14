@@ -81,6 +81,24 @@
     return original;
   }
 
+  function compactRoleFamily(roles, seniority) {
+    const selected = cleanTerms(roles);
+    if (selected.length > 1) return selected;
+    const expanded = expandRoleFamily(roles, seniority);
+    if (expanded.length <= 2) return expanded;
+    const seniorityText = normalizeText([...(Array.isArray(seniority) ? seniority : []), ...expanded].join(" "));
+    const junior = /\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(seniorityText);
+    const primary = expanded[0];
+    const primaryHasSeniority = /\b(?:senior|sr|ssr|junior|jr|trainee|intern)\b/i.test(primary);
+    const baseSignature = normalizeText(primary).replace(/\b(?:senior|sr|ssr|junior|jr|trainee|intern)\b/g, "").replace(/\bproyectos\b/g, "proyecto").replace(/\s+/g, " ").trim();
+    const juniorAlias = junior && expanded.slice(1).find((term) => /\b(?:junior|jr|trainee|intern)\b/i.test(term));
+    const alias = juniorAlias || expanded.slice(1).find((term) => {
+      const signature = normalizeText(term).replace(/\b(?:senior|sr|ssr|junior|jr|trainee|intern)\b/g, "").replace(/\bproyectos\b/g, "proyecto").replace(/\s+/g, " ").trim();
+      return primaryHasSeniority || signature !== baseSignature;
+    });
+    return alias ? [primary, alias] : [primary];
+  }
+
   function buildGithubUserQuery(state) {
     const required = cleanTerms(state && state.imprescindibles);
     const alternatives = cleanTerms(state && state.atributos);
@@ -98,6 +116,9 @@
     // qualifiers. It does not search bios, so bios are checked only after
     // fetching each public profile; do not route this source through X-Ray.
     const escapedLocality = locality.replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
+    // GitHub's user search does not search profile bios for free text. Keep its
+    // supported qualifiers here and check job signals against the returned
+    // public bio instead of accidentally searching usernames for a skill.
     return `type:user language:${language} location:"${escapedLocality}"`.slice(0, 240);
   }
 
@@ -117,7 +138,7 @@
       // the JD's requirements and its most specific location in the query.
       const queryState = strategy === "market"
         ? { ...state, rol: [], dominio: [] }
-        : { ...state, rol: expandRoleFamily(state.rol, state.seniority) };
+        : { ...state, rol: compactRoleFamily(state.rol, state.seniority) };
       if (id === "github") {
         const query = buildGithubUserQuery(queryState);
         if (!query) {
@@ -125,13 +146,17 @@
           skippedReasons[id] = "requires_language_signal";
           return null;
         }
-        return { source: id, query, label: source.label };
+        const profileEvidence = {
+          required: cleanTerms(state.imprescindibles),
+          alternatives: cleanTerms(state.atributos).slice(0, 2).length
+            ? cleanTerms(state.atributos).slice(0, 2)
+            : cleanTerms(state.deseables).slice(0, 1),
+          role: cleanTerms(expandRoleFamily(state.rol, state.seniority)),
+        };
+        return { source: id, query, label: source.label, profileEvidence };
       }
-      const tiers = generator.buildXRayTiers(queryState, "linkedin.com/in", false, false);
-      const preferred = strategy === "equivalent"
-        ? tiers.find((tier) => tier.label.includes("sin título")) || tiers[1]
-        : tiers[0];
-      const usable = preferred && preferred.query && preferred.query.length <= MAX_QUERY_LENGTH ? preferred : null;
+      const query = generator.buildPublicLinkedinQuery(queryState, strategy);
+      const usable = query && query.length <= MAX_QUERY_LENGTH ? { query } : null;
       if (!usable) {
         skippedSources.push(id);
         skippedReasons[id] = "query_too_long";
@@ -140,7 +165,22 @@
       return { source: id, query: usable.query, label: source.label };
     }).filter(Boolean);
     const location = cleanTerms(state.alcance).join(", ");
-    return { queries: plan, maxResults: MAX_RESULTS, location, skippedSources, skippedReasons };
+    const selectedSignals = cleanTerms(state.imprescindibles).length
+      ? cleanTerms(state.imprescindibles)
+      : cleanTerms(state.atributos).slice(0, 2).length
+        ? cleanTerms(state.atributos).slice(0, 2)
+        : cleanTerms(state.deseables).slice(0, 1).length
+          ? cleanTerms(state.deseables).slice(0, 1)
+          : cleanTerms(state.dominio).slice(0, 1);
+    const signalSummary = selectedSignals.length > 1 && !cleanTerms(state.imprescindibles).length
+      ? selectedSignals.join(" o ")
+      : selectedSignals.join(" + ");
+    const searchSummary = [
+      cleanTerms(state.rol)[0] && strategy !== "equivalent" && strategy !== "market" ? cleanTerms(state.rol)[0] : "",
+      signalSummary,
+      cleanTerms(state.alcance).at(-1) || "",
+    ].filter(Boolean).join(" · ");
+    return { queries: plan, maxResults: MAX_RESULTS, location, skippedSources, skippedReasons, searchSummary };
   }
 
   function normalizeText(value) {
@@ -377,5 +417,5 @@
     };
   }
 
-  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, buildGithubUserQuery, expandRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
+  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, buildGithubUserQuery, expandRoleFamily, compactRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
 });

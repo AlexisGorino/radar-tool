@@ -1258,7 +1258,7 @@
     const relaxed = relaxedModeCheckbox.checked;
     const queryState = {
       ...state,
-      rol: RadarTalentDiscovery.expandRoleFamily(state.rol, state.seniority),
+      rol: RadarTalentDiscovery.compactRoleFamily(state.rol, state.seniority),
     };
     document.querySelectorAll("[data-outcome]").forEach((button) => {
       button.disabled = false;
@@ -1771,9 +1771,13 @@
         ? `Se omitió ${RadarTalentDiscovery.SOURCES[source].label}: esta fuente sirve para perfiles técnicos y falta indicar un lenguaje o tecnología que pueda contrastar.`
         : `Se omitió ${RadarTalentDiscovery.SOURCES[source].label} porque la consulta es demasiado extensa.`).join(" ")}`
       : "";
+    const sourceNames = plan.queries.map((query) => query.label).join(" + ");
+    const linkedinQuotaNote = plan.queries.some((query) => query.source === "linkedin")
+      ? " LinkedIn puede usar 1 búsqueda SerpApi; una repetición idéntica puede salir de caché."
+      : " GitHub usa su límite gratuito por hora, sin consumir SerpApi.";
     publicSearchStatus.textContent = sourceOverride
-      ? `Reintentando ${plan.queries.map((query) => query.label).join(", ")}. Consume una consulta por fuente.`
-      : `Consultando ${plan.queries.length} fuentes. Consume una consulta por fuente.${skippedNote}`;
+      ? `Reintentando ${plan.searchSummary || "perfil y ubicación"} en ${sourceNames}.${linkedinQuotaNote}`
+      : `Buscando ${plan.searchSummary || "con los criterios confirmados"} en ${sourceNames}.${linkedinQuotaNote}${skippedNote}`;
     publicSearchResults.replaceChildren();
     try {
       const response = await RadarTalentDiscovery.search(publicSearchEndpoint, plan, state);

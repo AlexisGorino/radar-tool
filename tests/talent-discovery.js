@@ -41,6 +41,7 @@ test("uses first-party GitHub user search qualifiers instead of public-web X-Ray
   const plan = Discovery.buildPlan(state, ["github"], Generator);
   assert.deepEqual(plan.queries.map((entry) => entry.source), ["github"]);
   assert.equal(plan.queries[0].query, 'type:user language:Python location:"Buenos Aires"');
+  assert.deepEqual(plan.queries[0].profileEvidence.alternatives, ["Python", "AWS"]);
   assert.equal(plan.location, "Argentina, Buenos Aires");
   const roleOnly = Discovery.buildPlan({ ...state, rol: ["Python developer"], imprescindibles: [], atributos: [], deseables: [] }, ["github"], Generator);
   assert.equal(roleOnly.queries[0].query, 'type:user language:Python location:"Buenos Aires"');
@@ -74,9 +75,10 @@ test("widens junior project-management titles without dropping specific locality
   };
   const plan = Discovery.buildPlan(state, ["linkedin"], Generator);
   const query = plan.queries[0].query;
-  ["Jefe de Proyecto", "Project Manager", "Junior Project Manager", "Coordinador de Proyectos", "Santiago de Compostela", "MS Project", "telecomunicaciones"].forEach((term) => {
+  ["Jefe de Proyecto", "Junior Project Manager", "Santiago de Compostela", "MS Project", "telecomunicaciones"].forEach((term) => {
     assert.ok(query.toLowerCase().includes(term.toLowerCase()), `query missing ${term}: ${query}`);
   });
+  assert.doesNotMatch(query, /PRINCE2|Coordinador de Proyectos/);
   assert.ok(query.length <= 900, `query exceeds provider limit (${query.length})`);
   assert.doesNotMatch(query, /NOT junior|-junior/i, "experience level is search context, not an exclusion");
   const evidence = Discovery.termEvidence("Project Manager junior · telecomunicaciones · Santiago de Compostela", state);
@@ -111,11 +113,27 @@ test("expands QA titles to common automation variants without weakening the requ
     .forEach((title) => assert.ok(titles.includes(title), `missing title variant: ${title}`));
   const query = Discovery.buildPlan(state, ["linkedin"], Generator).queries[0].query;
   assert.match(query, /QA Automation Engineer/i);
-  assert.match(query, /Software Test Engineer/i);
+  assert.doesNotMatch(query, /Software Test Engineer/i);
+  assert.ok(query.length < 180, `LinkedIn query should stay compact (${query.length}): ${query}`);
   assert.match(query, /Playwright/i);
   assert.match(query, /Barcelona/i);
   assert.ok(query.length <= 900);
   assert.equal(Discovery.geographyEvidence("QA Automation Engineer · Playwright · Barcelona, Spain", state).confirmed, true);
+});
+
+test("builds a short LinkedIn X-Ray query around the strongest skill instead of every extracted synonym", () => {
+  const state = {
+    rol: ["Senior QA Engineer"], imprescindibles: [], atributos: ["Playwright", "TypeScript"],
+    deseables: [], dominio: [], alcance: ["España", "Barcelona"], refinar: [], seniority: ["senior"],
+  };
+  const query = Discovery.buildPlan(state, ["linkedin"], Generator).queries[0].query;
+  assert.equal(query, 'site:linkedin.com/in ("Senior QA Engineer" OR "QA Engineer") (Playwright OR TypeScript) Barcelona');
+  assert.ok(query.length < 140);
+  assert.doesNotMatch(query, /Software Test|Automation QA/);
+  const noTitle = Discovery.buildPlan(state, ["linkedin"], Generator, { strategy: "equivalent" }).queries[0].query;
+  assert.match(noTitle, /Playwright/);
+  assert.match(noTitle, /Barcelona/);
+  assert.doesNotMatch(noTitle, /QA Engineer/);
 });
 
 test("offers controlled no-title and no-sector recovery routes that retain hard criteria", () => {
