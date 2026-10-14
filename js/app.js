@@ -1225,12 +1225,16 @@
   // can re-render live without re-adding a history entry every toggle.
   function renderResults() {
     const relaxed = relaxedModeCheckbox.checked;
+    const queryState = {
+      ...state,
+      rol: RadarTalentDiscovery.expandRoleFamily(state.rol, state.seniority),
+    };
     document.querySelectorAll("[data-outcome]").forEach((button) => {
       button.disabled = false;
       button.setAttribute("aria-pressed", "false");
     });
     outcomeStatus.textContent = "";
-    const universal = RadarGenerator.buildUniversalBoolean(state, relaxed);
+    const universal = RadarGenerator.buildUniversalBoolean(queryState, relaxed);
     document.getElementById("out-universal").textContent = universal;
     const requiredCount = state.imprescindibles.length;
     const alternativeCount = state.atributos.length;
@@ -1254,7 +1258,7 @@
 
     resultLinkedinNative.classList.toggle("hidden", selectedNetwork !== "linkedin");
     if (selectedNetwork === "linkedin") {
-      const tiers = RadarGenerator.buildLinkedinBooleanTiers(state);
+      const tiers = RadarGenerator.buildLinkedinBooleanTiers(queryState);
       const roleless = tiers.find((tier) => tier.label.includes("sin título"));
       const visibleTiers = tiers.slice(0, 2);
       if (tiers.length > 2) {
@@ -1303,13 +1307,13 @@
       resultXray.classList.remove("hidden");
       let xrayQuery, label;
       if (net.mode === "resumes") {
-        xrayQuery = RadarGenerator.buildResumesQuery(state, relaxed);
+        xrayQuery = RadarGenerator.buildResumesQuery(queryState, relaxed);
         label = "Búsqueda — " + net.label;
         xrayTiersEl.textContent = "";
       } else {
         const siteDomain = selectedNetwork === "custom" ? customSiteInput.value.trim().replace(/^https?:\/\//, "") : net.site;
-        const tiers = RadarGenerator.buildXRayTiers(state, siteDomain, relaxed, net.looseRol);
-        xrayQuery = tiers[0] ? tiers[0].query : RadarGenerator.buildXRayQuery(state, siteDomain, relaxed, net.looseRol);
+        const tiers = RadarGenerator.buildXRayTiers(queryState, siteDomain, relaxed, net.looseRol);
+        xrayQuery = tiers[0] ? tiers[0].query : RadarGenerator.buildXRayQuery(queryState, siteDomain, relaxed, net.looseRol);
         xrayTiersEl.textContent = "";
         tiers.slice(1).forEach((tier) => {
           const link = document.createElement("a");

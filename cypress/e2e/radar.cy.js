@@ -698,6 +698,28 @@ describe("RADAR talent search flow", () => {
     cy.get("#out-universal").should("contain.text", "Selenium").and("contain.text", "Playwright").and("contain.text", "Rosario").and("not.contain.text", "retail");
   });
 
+  it("keeps QA automation title variants, Playwright, and Barcelona across sourcing routes", () => {
+    cy.get('[data-field="rol"]').type("QA Engineer{enter}");
+    cy.get('[data-field="atributos"]').type("Playwright{enter}");
+    cy.get('[data-field="alcance"]').type("España{enter}");
+    cy.get('[data-field="alcance"]').type("Barcelona{enter}");
+    cy.get("#generateBtn").click();
+
+    cy.get("#out-universal")
+      .should("contain.text", "QA Engineer")
+      .and("contain.text", "QA Automation Engineer")
+      .and("contain.text", "Software Test Engineer")
+      .and("contain.text", "Playwright")
+      .and("contain.text", "Barcelona");
+    cy.get("#linkedinTiers a").first().should(($route) => {
+      const query = decodeURIComponent(new URL($route.prop("href")).searchParams.get("keywords"));
+      expect(query).to.include("QA Automation Engineer");
+      expect(query).to.include("Playwright");
+      expect(query).to.include("Barcelona");
+    });
+    cy.get("#out-xray").should("contain.text", "QA Automation Engineer").and("contain.text", "Playwright").and("contain.text", "Barcelona");
+  });
+
   it("routes LinkedIn, GitHub, X-Ray networks, CV search, and custom sites to their intended destinations", () => {
     cy.get('[data-field="rol"]').type("UX Designer{enter}");
     cy.get('[data-field="atributos"]').type("Figma{enter}");
