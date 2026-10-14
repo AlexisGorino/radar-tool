@@ -312,20 +312,22 @@
       <h3 id="aiPanelTitle">IA para sugerencias (opcional)</h3>
       <button class="btn-close" id="closeAiBtn" type="button" aria-label="Cerrar">×</button>
     </div>
-    <p class="ai-panel-question">¿Querés cargar una API gratuita para mejorar el RADAR?</p>
-    <p class="hint">Con una key propia de Gemini, RADAR sugiere sinónimos de rol y atributos de nicho. Es gratuita, no pide tarjeta:</p>
+    <p class="ai-panel-question">Gemini puede analizar la JD y sugerir términos.</p>
+    <p class="hint">El uso depende de los límites disponibles en Google AI Studio:</p>
     <ol class="ai-steps">
       <li>Entrá a <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> y tocá "Create API key".</li>
       <li>Copiá la key que te genera (algo como <code>AIzaSy...</code>).</li>
       <li>Pegala en el campo de abajo y tocá "Guardar".</li>
     </ol>
     <p class="hint">La key se guarda solo en este navegador (<code>localStorage</code>), nunca en el código ni en ningún servidor de Mindata — la única llamada de red va directo de tu navegador a Gemini.</p>
+    <p class="hint">“Probar conexión” solo comprueba el acceso al modelo; no envía tu JD ni genera texto.</p>
     <div class="feedback-form">
       <label class="feedback-label" for="aiKeyInput">Tu key de AI Studio</label>
       <input type="password" id="aiKeyInput" autocomplete="off" placeholder="Pegá tu key acá">
       <button class="btn btn-primary" id="saveAiKeyBtn" type="button">Guardar</button>
+      <button class="btn btn-ghost" id="testAiKeyBtn" type="button">Probar conexión</button>
       <button class="btn btn-ghost" id="clearAiKeyBtn" type="button">Borrar key guardada</button>
-      <p class="hint" id="aiKeyHint"></p>
+      <p class="hint" id="aiKeyHint" aria-live="polite"></p>
     </div>
   </div>
 </aside>
@@ -386,10 +388,10 @@
 <script src="js/extractor.js?v=30"></script>
 <script src="js/generator.js?v=30"></script>
 <script src="js/review.js?v=30"></script>
-<script src="js/ai.js?v=30"></script>
+<script src="js/ai.js?v=33"></script>
 <script src="js/tracking.js?v=30"></script>
 <script src="js/outcome.js?v=30"></script>
 <script src="js/talent-discovery.js?v=32"></script>
-<script src="js/app.js?v=32"></script>
+<script src="js/app.js?v=33"></script>
 </body>
 </html>

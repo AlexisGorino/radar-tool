@@ -351,12 +351,14 @@
     <p class="hint">Necesitás una clave propia de Google AI Studio:</p>
     <p class="hint">Creá una clave en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a> y pegala acá.</p>
     <p class="hint">La clave se guarda en este navegador. La consulta va directo a Google, no pasa por Mindata.</p>
+    <p class="hint">“Probar conexión” solo comprueba el acceso al modelo; no envía tu JD ni genera texto.</p>
     <div class="feedback-form">
       <label class="feedback-label" for="aiKeyInput">Tu key de AI Studio</label>
       <input type="password" id="aiKeyInput" autocomplete="off" placeholder="Pegá tu key acá">
       <button class="btn btn-primary" id="saveAiKeyBtn" type="button">Guardar</button>
+      <button class="btn btn-ghost" id="testAiKeyBtn" type="button">Probar conexión</button>
       <button class="btn btn-ghost" id="clearAiKeyBtn" type="button">Borrar key guardada</button>
-      <p class="hint" id="aiKeyHint"></p>
+      <p class="hint" id="aiKeyHint" aria-live="polite"></p>
     </div>
   </div>
 </aside>

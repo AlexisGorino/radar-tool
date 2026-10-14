@@ -2073,6 +2073,7 @@
   // ---------------------------------------------------------------
   const aiKeyInput = document.getElementById("aiKeyInput");
   const aiKeyHint = document.getElementById("aiKeyHint");
+  const testAiKeyBtn = document.getElementById("testAiKeyBtn");
 
   function refreshAiKeyHint() {
     const key = RadarAI.getKey();
@@ -2095,8 +2096,24 @@
     }
     RadarAI.setKey(key);
     aiKeyInput.value = "";
-    refreshAiKeyHint();
+    aiKeyHint.classList.remove("hint-error");
+    aiKeyHint.textContent = "Key guardada en este navegador. Probá la conexión antes de usar Gemini.";
     renderSynonyms();
+  });
+  testAiKeyBtn.addEventListener("click", async () => {
+    testAiKeyBtn.disabled = true;
+    aiKeyHint.classList.remove("hint-error");
+    aiKeyHint.textContent = "Comprobando acceso al modelo…";
+    try {
+      await RadarAI.testConnection();
+      aiKeyHint.textContent = "Conexión correcta: el modelo está accesible. La prueba no genera texto.";
+      renderSynonyms();
+    } catch (err) {
+      aiKeyHint.classList.add("hint-error");
+      aiKeyHint.textContent = err.message || "No se pudo validar el acceso a Gemini.";
+    } finally {
+      testAiKeyBtn.disabled = false;
+    }
   });
   document.getElementById("clearAiKeyBtn").addEventListener("click", () => {
     RadarAI.setKey("");

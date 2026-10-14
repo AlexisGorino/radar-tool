@@ -61,29 +61,67 @@
 
   function parseSuggestions(data) {
     const empty = { roles: [], atributos: [] };
-    const text =
-      data &&
-      data.candidates &&
-      data.candidates[0] &&
-      data.candidates[0].content &&
-      data.candidates[0].content.parts &&
-      data.candidates[0].content.parts[0] &&
-      data.candidates[0].content.parts[0].text;
-    if (!text) return empty;
+    const text = responseText(data);
     let parsed;
     try {
       parsed = JSON.parse(text);
     } catch (err) {
-      return empty;
+      throw new Error("Gemini devolvió una respuesta que no se pudo interpretar. Probá de nuevo.");
     }
     if (!parsed || typeof parsed !== "object") return empty;
     return { roles: cleanList(parsed.roles), atributos: cleanList(parsed.atributos) };
   }
 
-  function errorForStatus(status) {
-    if (status === 400 || status === 403) return new Error("Key de Gemini inválida o sin permiso.");
+  function errorForStatus(status, message) {
+    const detail = String(message || "").toLowerCase();
+    if (/api.?key|credential|permission|unauthenticated|unauthorized|not authorized/.test(detail) || status === 401 || status === 403) {
+      return new Error("Gemini rechazó la API key o sus permisos. En Google AI Studio, verificá que la clave esté habilitada para Gemini API y que no tenga restricciones incompatibles.");
+    }
+    if (status === 400) return new Error("Gemini rechazó la solicitud. Revisá que el texto sea válido y volvé a intentar.");
     if (status === 429) return new Error("Límite de uso de Gemini alcanzado, probá de nuevo en un rato.");
+    if (status === 404) return new Error("El modelo de Gemini configurado no está disponible para esta API key.");
+    if (status === 0) return new Error("No se pudo conectar con Gemini. Revisá internet, extensiones de bloqueo o la configuración de red.");
     return new Error("Gemini no respondió (" + status + ").");
+  }
+
+  async function requestGemini(apiKey, url, body) {
+    let response;
+    try {
+      response = await fetch(url, {
+        method: body ? "POST" : "GET",
+        headers: { "x-goog-api-key": apiKey, ...(body ? { "Content-Type": "application/json" } : {}) },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+        signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined,
+      });
+    } catch (error) {
+      if (error && error.name === "TimeoutError") throw new Error("Gemini tardó demasiado en responder. Probá otra vez.");
+      throw errorForStatus(0);
+    }
+    let data = null;
+    try { data = await response.json(); } catch (error) { /* empty response */ }
+    if (!response.ok) {
+      const apiMessage = data && data.error && data.error.message;
+      throw errorForStatus(response.status, apiMessage);
+    }
+    return data;
+  }
+
+  async function testConnection() {
+    const apiKey = getKey();
+    if (!apiKey) throw new Error("Guardá primero tu API key de Gemini.");
+    const data = await requestGemini(apiKey, "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL);
+    if (!data || !data.name) throw new Error("Gemini respondió, pero no confirmó acceso al modelo.");
+    return true;
+  }
+
+  function responseText(data) {
+    const candidate = data && data.candidates && data.candidates[0];
+    const text = candidate && candidate.content && candidate.content.parts && candidate.content.parts
+      .map((part) => part && typeof part.text === "string" ? part.text : "")
+      .join("");
+    if (text) return text;
+    if (candidate && candidate.finishReason === "SAFETY") throw new Error("Gemini no pudo analizar el texto por sus filtros de seguridad. Revisá el contenido y probá con una versión sin datos personales.");
+    throw new Error("Gemini respondió sin contenido utilizable. Probá de nuevo o revisá que el texto describa una búsqueda.");
   }
 
   function buildAnalysisPrompt(jdText) {
@@ -97,19 +135,12 @@
     ].join("\n\n");
   }
 
-  function responseText(data) {
-    return data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]
-      ? data.candidates[0].content.parts[0].text
-      : "";
-  }
-
   function parseJsonResponse(data) {
     const text = responseText(data);
-    if (!text) return null;
     try {
       return JSON.parse(text);
     } catch (err) {
-      return null;
+      throw new Error("Gemini respondió, pero el análisis no llegó en un formato válido. Probá de nuevo.");
     }
   }
 
@@ -231,16 +262,11 @@
       },
       required: ["isJobPosting", "jobEvidence", "role", "roleAlternatives", "requiredSkills", "preferredSkills", "industries", "locations", "seniority", "modality"],
     };
-    const response = await fetch(ENDPOINT + "?key=" + encodeURIComponent(apiKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const data = await requestGemini(apiKey, ENDPOINT, {
         contents: [{ parts: [{ text: buildAnalysisPrompt(jdText) }] }],
         generationConfig: { responseMimeType: "application/json", responseSchema: schema },
-      }),
-    });
-    if (!response.ok) throw errorForStatus(response.status);
-    return parseJDAnalysis(await response.json(), jdText);
+      });
+    return parseJDAnalysis(data, jdText);
   }
 
   async function suggestTerms(role, jdText) {
@@ -262,15 +288,8 @@
       },
     };
 
-    const res = await fetch(ENDPOINT + "?key=" + encodeURIComponent(apiKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) throw errorForStatus(res.status);
-    return parseSuggestions(await res.json());
+    return parseSuggestions(await requestGemini(apiKey, ENDPOINT, body));
   }
 
-  return { getKey, setKey, buildPrompt, parseSuggestions, suggestTerms, buildAnalysisPrompt, parseJDAnalysis, analyzeJD };
+  return { getKey, setKey, buildPrompt, parseSuggestions, suggestTerms, buildAnalysisPrompt, parseJDAnalysis, analyzeJD, testConnection };
 });

@@ -7,10 +7,27 @@ const AI = require(path.join(__dirname, "..", "js", "ai.js"));
 let passed = 0;
 let failed = 0;
 const failures = [];
+const pending = [];
+let asyncTail = Promise.resolve();
 
 function test(name, fn) {
+  if (fn.constructor && fn.constructor.name === "AsyncFunction") {
+    asyncTail = asyncTail.then(() => fn()).then(() => { passed++; }).catch((err) => {
+      failed++;
+      failures.push({ name, err });
+    });
+    pending.push(asyncTail);
+    return;
+  }
   try {
-    fn();
+    const result = fn();
+    if (result && typeof result.then === "function") {
+      pending.push(result.then(() => { passed++; }).catch((err) => {
+        failed++;
+        failures.push({ name, err });
+      }));
+      return;
+    }
     passed++;
   } catch (err) {
     failed++;
@@ -40,13 +57,13 @@ test("parseSuggestions lee roles y atributos de una respuesta válida", () => {
   assert.deepStrictEqual(AI.parseSuggestions(data), { roles: ["Dev Backend"], atributos: ["Kafka"] });
 });
 
-test("parseSuggestions devuelve listas vacías si el JSON viene roto", () => {
+test("parseSuggestions informa si el JSON viene roto", () => {
   const data = { candidates: [{ content: { parts: [{ text: "no es json" }] } }] };
-  assert.deepStrictEqual(AI.parseSuggestions(data), { roles: [], atributos: [] });
+  assert.throws(() => AI.parseSuggestions(data), /no se pudo interpretar/);
 });
 
-test("parseSuggestions devuelve listas vacías si falta la respuesta", () => {
-  assert.deepStrictEqual(AI.parseSuggestions({}), { roles: [], atributos: [] });
+test("parseSuggestions informa si falta la respuesta", () => {
+  assert.throws(() => AI.parseSuggestions({}), /sin contenido utilizable/);
 });
 
 test("parseSuggestions descarta entradas que no son string y corta en 6", () => {
@@ -118,14 +135,90 @@ test("getKey/setKey redondean sobre un localStorage falso", () => {
   delete global.localStorage;
 });
 
-console.log(`\n${passed} passed, ${failed} failed (${passed + failed} total)\n`);
-if (failed) {
-  failures.forEach((f) => {
-    console.log(`FAIL: ${f.name}`);
-    console.log(`  ${f.err.message}\n`);
-  });
-  process.exit(1);
-} else {
-  console.log("All tests passed.");
-  process.exit(0);
-}
+test("Gemini usa x-goog-api-key y valida acceso sin generar contenido", async () => {
+  const store = { "radar-gemini-key-v1": "AIza-test-secret" };
+  global.localStorage = { getItem: (key) => store[key] || "", setItem: (key, value) => { store[key] = value; }, removeItem: (key) => { delete store[key]; } };
+  const previousFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async (url, options) => {
+    calls++;
+    assert.ok(!String(url).includes("AIza-test-secret"), "the API key must not be placed in the URL");
+    assert.strictEqual(options.headers["x-goog-api-key"], "AIza-test-secret");
+    return { ok: true, json: async () => ({ name: "models/gemini-3.8-flash" }) };
+  };
+  try {
+    assert.strictEqual(await AI.testConnection(), true);
+    assert.strictEqual(calls, 1);
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
+test("Gemini convierte el rechazo de clave en una instrucción clara", async () => {
+  global.localStorage = { getItem: () => "AIza-test-secret" };
+  const previousFetch = global.fetch;
+  global.fetch = async () => ({ ok: false, status: 403, json: async () => ({ error: { message: "API key not valid" } }) });
+  try {
+    await assert.rejects(AI.testConnection(), /API key o sus permisos/);
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
+test("Gemini envía la JD en JSON y devuelve criterios confirmables", async () => {
+  const jd = "Buscamos QA Analyst con Cypress en Córdoba, Argentina. Excel es deseable.";
+  const analysis = {
+    isJobPosting: true,
+    jobEvidence: "Buscamos QA Analyst",
+    role: { term: "QA Analyst", evidence: "Buscamos QA Analyst" },
+    roleAlternatives: ["Analista QA"],
+    requiredSkills: [{ term: "Cypress", evidence: "con Cypress" }],
+    preferredSkills: [{ term: "Excel", evidence: "Excel es deseable" }],
+    industries: [],
+    locations: [{ country: "Argentina", locality: "Córdoba", evidence: "en Córdoba, Argentina" }],
+    seniority: { term: "", evidence: "" },
+    modality: { term: "", evidence: "" },
+  };
+  global.localStorage = { getItem: () => "AIza-test-secret" };
+  const previousFetch = global.fetch;
+  global.fetch = async (url, options) => {
+    assert.ok(String(url).endsWith("/models/gemini-3.8-flash:generateContent"));
+    assert.ok(!String(url).includes("AIza-test-secret"));
+    assert.strictEqual(options.headers["x-goog-api-key"], "AIza-test-secret");
+    const prompt = options.body && JSON.parse(options.body).contents[0].parts[0].text;
+    assert.ok(prompt.includes(jd));
+    const responseSchema = JSON.parse(options.body).generationConfig.responseSchema;
+    assert.strictEqual(responseSchema.type, "OBJECT");
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }] }) };
+  };
+  try {
+    const result = await AI.analyzeJD(jd);
+    assert.strictEqual(result.isJobPosting, true);
+    assert.deepStrictEqual(result.rol, ["QA Analyst"]);
+    assert.deepStrictEqual(result.atributos, ["Cypress"]);
+    assert.deepStrictEqual(result.alcance, ["Argentina", "Córdoba"]);
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
+test("Gemini informa cuando la API responde sin contenido", async () => {
+  assert.throws(() => AI.parseJDAnalysis({ candidates: [] }, "Buscamos QA en Madrid"), /sin contenido utilizable/);
+});
+
+Promise.all(pending).then(() => {
+  console.log(`\n${passed} passed, ${failed} failed (${passed + failed} total)\n`);
+  if (failed) {
+    failures.forEach((f) => {
+      console.log(`FAIL: ${f.name}`);
+      console.log(`  ${f.err.message}\n`);
+    });
+    process.exit(1);
+  } else {
+    console.log("All tests passed.");
+    process.exit(0);
+  }
+});

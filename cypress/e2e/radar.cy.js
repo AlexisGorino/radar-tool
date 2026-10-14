@@ -96,6 +96,72 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("saves a Gemini key and confirms model access without sending a JD", () => {
+    cy.intercept("GET", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash", (request) => {
+      expect(request.url).not.to.include("AIza-qa-secret");
+      expect(request.headers["x-goog-api-key"]).to.equal("AIza-qa-secret");
+      request.reply({ statusCode: 200, body: { name: "models/gemini-3.8-flash" } });
+    }).as("geminiModelCheck");
+    cy.get("#aiSettingsBtn").click();
+    cy.get("#aiKeyInput").type("AIza-qa-secret");
+    cy.get("#saveAiKeyBtn").click();
+    cy.get("#aiKeyInput").should("have.value", "");
+    cy.get("#testAiKeyBtn").click();
+    cy.wait("@geminiModelCheck");
+    cy.get("#aiKeyHint").should("contain.text", "Conexión correcta");
+    cy.window().its("localStorage.radar-gemini-key-v1").should("equal", "AIza-qa-secret");
+  });
+
+  it("explains when Google rejects the Gemini key", () => {
+    cy.intercept("GET", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash", {
+      statusCode: 403,
+      body: { error: { message: "API key not valid" } },
+    }).as("geminiKeyRejected");
+    cy.get("#aiSettingsBtn").click();
+    cy.get("#aiKeyInput").type("AIza-bad-key");
+    cy.get("#saveAiKeyBtn").click();
+    cy.get("#testAiKeyBtn").click();
+    cy.wait("@geminiKeyRejected");
+    cy.get("#aiKeyHint").should("contain.text", "Gemini rechazó la API key");
+  });
+
+  it("analyzes a job description through the Gemini review button", () => {
+    const jd = "Buscamos QA Analyst con Cypress en Córdoba, Argentina. Excel es deseable.";
+    const analysis = {
+      isJobPosting: true,
+      jobEvidence: "Buscamos QA Analyst",
+      role: { term: "QA Analyst", evidence: "Buscamos QA Analyst" },
+      roleAlternatives: ["Analista QA"],
+      requiredSkills: [{ term: "Cypress", evidence: "con Cypress" }],
+      preferredSkills: [{ term: "Excel", evidence: "Excel es deseable" }],
+      industries: [],
+      locations: [{ country: "Argentina", locality: "Córdoba", evidence: "en Córdoba, Argentina" }],
+      seniority: { term: "", evidence: "" },
+      modality: { term: "", evidence: "" },
+    };
+    cy.intercept("POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", (request) => {
+      expect(request.headers["x-goog-api-key"]).to.equal("AIza-qa-secret");
+      expect(request.url).not.to.include("AIza-qa-secret");
+      expect(request.body.contents[0].parts[0].text).to.include(jd);
+      expect(request.body.generationConfig.responseMimeType).to.equal("application/json");
+      request.reply({ body: { candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }] } });
+    }).as("geminiAnalyzeJD");
+    cy.window().then((win) => win.localStorage.setItem("radar-gemini-key-v1", "AIza-qa-secret"));
+    cy.reload();
+    cy.get("#jdInput").type(jd, { delay: 0 });
+    cy.get("#analyzeBtn").click();
+    cy.get("#aiAnalyzeJdBtn").should("be.visible").click();
+    cy.wait("@geminiAnalyzeJD");
+    cy.get("#jdReviewAiStatus").should("contain.text", "Análisis actualizado");
+    cy.contains("#jdReviewQuestions button", "Sí, es este perfil").click();
+    cy.contains("#jdReviewQuestions button", "Sí, usar estas señales").click();
+    cy.contains("#jdReviewQuestions button", "Sí, limitar a esta ubicación").click();
+    cy.get("#applyJdBtn").click();
+    cy.get("#chips-rol").should("contain.text", "QA Analyst");
+    cy.get("#chips-imprescindibles").should("contain.text", "Cypress");
+    cy.get("#chips-alcance").should("contain.text", "Argentina").and("contain.text", "Córdoba");
+  });
+
   it("keeps optional filters and extra portals out of the first view", () => {
     cy.get("#welcomeTitle").should("contain.text", "búsqueda clara");
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
