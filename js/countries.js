@@ -175,6 +175,26 @@
     "Canadá": ["canada", "canadá"],
   };
 
+  // ISO 3166-1 alpha-2 abbreviations commonly used in public profile locations
+  // (for example, "Buenos Aires, AR"). Keep these separate from locality
+  // aliases so a country code can never satisfy a requested city by itself.
+  const COUNTRY_CODES = {
+    "Argentina": ["AR"], "México": ["MX"], "Colombia": ["CO"], "Perú": ["PE"],
+    "Uruguay": ["UY"], "Brasil": ["BR"], "Ecuador": ["EC"], "Bolivia": ["BO"],
+    "Paraguay": ["PY"], "Venezuela": ["VE"], "Panamá": ["PA"], "Costa Rica": ["CR"],
+    "República Dominicana": ["DO"], "Guatemala": ["GT"], "Honduras": ["HN"],
+    "El Salvador": ["SV"], "Nicaragua": ["NI"], "Cuba": ["CU"], "Haití": ["HT"],
+    "Belice": ["BZ"], "Guyana": ["GY"], "Surinam": ["SR"], "España": ["ES"],
+    "Reino Unido": ["GB", "UK"], "Alemania": ["DE"], "Francia": ["FR"],
+    "Italia": ["IT"], "Portugal": ["PT"], "Países Bajos": ["NL"], "Irlanda": ["IE"],
+    "Polonia": ["PL"], "Bélgica": ["BE"], "Suiza": ["CH"], "Rumania": ["RO"],
+    "Austria": ["AT"], "Suecia": ["SE"], "Noruega": ["NO"], "Dinamarca": ["DK"],
+    "Finlandia": ["FI"], "Grecia": ["GR"], "República Checa": ["CZ"], "Hungría": ["HU"],
+    "Bulgaria": ["BG"], "Croacia": ["HR"], "Chipre": ["CY"], "Estonia": ["EE"],
+    "Letonia": ["LV"], "Lituania": ["LT"], "Luxemburgo": ["LU"], "Malta": ["MT"],
+    "Eslovaquia": ["SK"], "Eslovenia": ["SI"], "Estados Unidos": ["US"], "Canadá": ["CA"],
+  };
+
   // Spanish connectors that stay lowercase in a place name unless they're
   // the first word ("Ciudad de México", not "Ciudad De México").
   const TITLE_CASE_LOWERCASE_WORDS = new Set(["de", "del", "do", "la", "las", "los", "y", "en"]);
@@ -399,6 +419,7 @@
     EUROPE,
     OTHER,
     BARE_COUNTRY_NAMES,
+    COUNTRY_CODES,
     countryList,
     detectCountry,
     detectLocationDetailed,

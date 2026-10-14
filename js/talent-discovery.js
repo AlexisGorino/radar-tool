@@ -146,7 +146,18 @@
     const countryPlaces = places.filter((place) => countryTerms.has(normalizeText(place)));
     const localityPlaces = places.filter((place) => !countryTerms.has(normalizeText(place)));
     const required = localityPlaces.length ? [...localityPlaces, ...countryPlaces] : countryPlaces.length ? countryPlaces : [places[places.length - 1]];
-    const missing = required.filter((place) => !hasPhrase(text, place));
+    const countryCodes = countries && countries.COUNTRY_CODES || {};
+    const missing = required.filter((place) => {
+      if (countryPlaces.includes(place)) {
+        const canonicalCountry = Object.keys(countryNames).find((country) =>
+          (countryNames[country] || [country]).some((name) => normalizeText(name) === normalizeText(place))
+        );
+        const codeMatch = canonicalCountry && (countryCodes[canonicalCountry] || [])
+          .some((code) => hasPhrase(text, code));
+        return !hasPhrase(text, place) && !codeMatch;
+      }
+      return !hasPhrase(text, place);
+    });
     if (localityPlaces.length && !countryPlaces.length) missing.push("país");
     return { confirmed: missing.length === 0, missing: [...new Set(missing)] };
   }

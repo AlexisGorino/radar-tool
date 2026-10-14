@@ -176,6 +176,19 @@ test("scores exact locality evidence separately from country-only evidence", () 
   const exactPlaceAndCountry = Discovery.termEvidence("Telecom technician · Islas Canarias · España · FTTH · OTDR", canaryState);
   assert.equal(exactPlaceAndCountry.locationConfirmed, true);
   assert.ok(exactPlaceAndCountry.score > countryOnly.score);
+
+  const argentinaCode = Discovery.geographyEvidence("Backend developer · Buenos Aires, AR", {
+    alcance: ["Argentina", "Buenos Aires"],
+  });
+  assert.equal(argentinaCode.confirmed, true, "common ISO country codes should confirm the requested country");
+  const wrongCountryCode = Discovery.geographyEvidence("Backend developer · Buenos Aires, BR", {
+    alcance: ["Argentina", "Buenos Aires"],
+  });
+  assert.equal(wrongCountryCode.confirmed, false, "a different ISO country code must not pass the locality filter");
+  const countryOnlyCode = Discovery.geographyEvidence("Backend developer · AR", {
+    alcance: ["Argentina", "Buenos Aires"],
+  });
+  assert.equal(countryOnlyCode.confirmed, false, "a country code alone must not satisfy the locality requirement");
 });
 
 test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 20", () => {
@@ -200,6 +213,10 @@ test("requires locality and country evidence, deduplicates profiles and caps the
     { source: "linkedin", url: "https://linkedin.com/in/santiago-compostela", title: "Ana Pérez - Telecom - LinkedIn", snippet: "Santiago de Compostela, España" },
   ] }, { alcance: ["España", "Santiago de Compostela"] });
   assert.deepEqual(spainSantiago.map((row) => row.url), ["https://linkedin.com/in/santiago-compostela"]);
+  const argentinaAbbreviation = Discovery.normalizeResults({ results: [
+    { source: "github", url: "https://github.com/biancarosa", title: "Bianca Rosa - GitHub", snippet: "Buenos Aires, AR · Lenguaje de repositorios: Python" },
+  ] }, { rol: [], imprescindibles: [], atributos: ["Python"], alcance: ["Argentina", "Buenos Aires"] });
+  assert.deepEqual(argentinaAbbreviation.map((row) => row.url), ["https://github.com/biancarosa"], "a public GitHub location with the correct ISO country code should survive normalization");
   assert.equal(Discovery.locationScopeError({ alcance: ["Santiago"] }).includes("país"), true);
   assert.equal(Discovery.locationScopeError({ alcance: ["Chile", "Santiago"] }).includes("Chile"), true);
 });
