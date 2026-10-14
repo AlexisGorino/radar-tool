@@ -686,7 +686,9 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn + .inline-error").should("contain.text", "Sin título");
     cy.get('[data-field="rol"]').type("Recepcionista{enter}");
     cy.get('[data-field="atributos"]').type("atención al cliente{enter}");
-    cy.get("#advancedCriteria > summary").click();
+    cy.get("#advancedCriteria").then(($details) => {
+      if (!$details.prop("open")) cy.wrap($details).find("summary").click();
+    });
     cy.get('[data-field="dominio"]').type("retail{enter}");
     cy.get('[data-field="alcance"]').type("Rosario{enter}");
     cy.get("#generateBtn").click();
@@ -760,7 +762,9 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="rol"]').type("UX Designer{enter}");
     cy.get('[data-field="atributos"]').type("Figma{enter}");
     cy.get('[data-field="atributos"]').type("investigación de usuarios{enter}");
-    cy.get("#advancedCriteria > summary").click();
+    cy.get("#advancedCriteria").then(($details) => {
+      if (!$details.prop("open")) cy.wrap($details).find("summary").click();
+    });
     cy.get('[data-field="dominio"]').type("diseño{enter}");
     cy.get('[data-field="alcance"]').type("España{enter}");
 
