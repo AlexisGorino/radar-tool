@@ -29,6 +29,30 @@ Para correr localmente: `npm install`, iniciar `npm run start:test` y ejecutar
 `npm run test:e2e` en otra terminal. GitHub Actions inicia el servidor y corre
 Cypress en cada push y pull request.
 
+## Shortlist pública (LinkedIn + GitHub)
+
+- LinkedIn consulta Google/SerpApi y consume una búsqueda del plan.
+- GitHub usa su API REST de búsqueda de personas, sin consumir búsquedas de
+  SerpApi. Se activa cuando los criterios incluyen un lenguaje de programación
+  compatible; GitHub filtra por actividad de repositorios y localidad pública.
+- Sin credencial, el límite general de GitHub es de 60 solicitudes por hora
+  por IP. Para uso compartido más frecuente, el Worker admite un secreto
+  opcional `GITHUB_TOKEN`; nunca se envía al navegador. La búsqueda tiene un
+  límite adicional propio.
+- RADAR revisa hasta diez perfiles públicos de GitHub por consulta y conserva
+  solo los que declaran exactamente la localidad y el país en su ubicación.
+  La bio, el lenguaje de repositorios y la ubicación son señales visibles, no
+  evidencia de empleo actual ni garantía de idoneidad.
+- La búsqueda de usuarios y la consulta de perfiles usan límites propios de la
+  API de GitHub. Si GitHub los alcanza, RADAR informa el error de esa fuente y
+  permite conservar resultados parciales de LinkedIn.
+- `npm run test:discovery` valida el armado de la consulta, el filtro de país y
+  localidad, límites de resultados, respuestas parciales y errores del Worker.
+
+La búsqueda de LinkedIn sigue dependiendo de Google/SerpApi y de la
+indexación pública. Una cuenta o perfil no indexado puede no aparecer; las
+rutas directas de LinkedIn siguen disponibles en la búsqueda de hunting.
+
 Los scripts de lógica corren sin dependencias ni framework. `tests/run.js` cubre
 las funciones puras una por una (detección de país, extracción de rol, armado
 de booleanos, URLs). `tests/jd-bank.js` es la red de regresión: JDs reales
@@ -79,6 +103,12 @@ a deseable y una búsqueda sin título que conservó la región.
 
 ## Comprobaciones externas recientes
 
+- 2026-10-13: GitHub REST aceptó la consulta `type:user
+  language:Python location:"Buenos Aires"` y reportó 3.242 coincidencias
+  aproximadas. Al revisar diez perfiles públicos, ocho declaraban Buenos
+  Aires y Argentina (incluido el código `AR`); dos solo indicaban Buenos
+  Aires y RADAR los descartó por no poder confirmar el país. El total cambia
+  con el índice de GitHub y no equivale a candidatos disponibles.
 - LinkedIn redirigió a inicio de sesión; no se pudo medir cantidad ni
   pertinencia de resultados internos sin una sesión del reclutador.
 - GitHub devolvió 39 perfiles para Backend Developer/Python con el filtro

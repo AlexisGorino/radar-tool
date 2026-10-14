@@ -48,6 +48,6 @@ http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": types[path.extname(file).toLowerCase()] || "application/octet-stream" });
     res.end(req.method === "HEAD" ? undefined : data);
   });
-}).listen(8766, "127.0.0.1", () => {
-  process.stdout.write("RADAR Cypress server listening on http://127.0.0.1:8766\n");
+}).listen(Number(process.env.PORT) || 8766, "127.0.0.1", () => {
+  process.stdout.write(`RADAR Cypress server listening on http://127.0.0.1:${Number(process.env.PORT) || 8766}\n`);
 });

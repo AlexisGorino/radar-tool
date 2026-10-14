@@ -11,7 +11,7 @@
 
   const SOURCES = Object.freeze({
     linkedin: { label: "LinkedIn", domain: "linkedin.com", path: /^\/(?:in|pub)\//i, description: "Perfiles profesionales públicos; algunos no aparecen indexados." },
-    github: { label: "GitHub", domain: "github.com", path: /^\/[^/]+\/?$/i, description: "Proyectos públicos; no confirma experiencia laboral." },
+    github: { label: "GitHub", domain: "github.com", path: /^\/[^/]+\/?$/i, description: "Perfiles técnicos con actividad pública en el lenguaje y la localidad indicados." },
     stackoverflow: { label: "Stack Overflow", domain: "stackoverflow.com", path: /^\/users\/\d+\//i, description: "Respuestas técnicas públicas; útil en ingeniería." },
     xing: { label: "Xing", domain: "xing.com", path: /^\/profile\//i, description: "Más perfiles en Alemania, Austria y Suiza." },
     behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i, description: "Portfolios de diseño e ilustración." },
@@ -20,6 +20,7 @@
   const MAX_SOURCES = PUBLIC_SOURCE_IDS.length;
   const MAX_RESULTS = 20;
   const MAX_QUERY_LENGTH = 900;
+  const GITHUB_LANGUAGES = ["TypeScript", "JavaScript", "Python", "C++", "C#", "PowerShell", "Kotlin", "Elixir", "Scala", "Ruby", "Swift", "Dart", "Rust", "Java", "PHP", "HCL", "SQL", "Shell", "Lua", "Go", "R"];
 
   function cleanTerms(values) {
     return (Array.isArray(values) ? values : [])
@@ -61,6 +62,26 @@
     return original;
   }
 
+  function buildGithubUserQuery(state) {
+    const required = cleanTerms(state && state.imprescindibles);
+    const alternatives = cleanTerms(state && state.atributos);
+    const terms = [...cleanTerms(state && state.rol), ...required, ...alternatives, ...cleanTerms(state && state.deseables)];
+    const location = cleanTerms(state && state.alcance);
+    const countryNames = countries && countries.BARE_COUNTRY_NAMES || {};
+    const countryTerms = new Set(Object.values(countryNames).flat().map(normalizeText));
+    const locality = [...location].reverse().find((place) => !countryTerms.has(normalizeText(place))) || location[location.length - 1] || "";
+    if (!locality) return "";
+
+    const normalizedSkills = normalizeText(terms.join(" "));
+    const language = GITHUB_LANGUAGES.find((name) => (` ${normalizedSkills} `).includes(` ${normalizeText(name)} `));
+    if (!language) return "";
+    // GitHub user search supports repository-language and profile-location
+    // qualifiers. It does not search bios, so bios are checked only after
+    // fetching each public profile; do not route this source through X-Ray.
+    const escapedLocality = locality.replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
+    return `type:user language:${language} location:"${escapedLocality}"`.slice(0, 240);
+  }
+
   function buildPlan(state, recommendations, generator, options) {
     const strategy = options && options.strategy || "precise";
     const allowed = new Set(PUBLIC_SOURCE_IDS);
@@ -69,6 +90,7 @@
       .filter((id, index, all) => allowed.has(id) && all.indexOf(id) === index)
       .slice(0, MAX_SOURCES);
     const skippedSources = [];
+    const skippedReasons = {};
     const plan = chosen.map((id) => {
       const source = SOURCES[id];
       // Project management vacancies use several standard title families in
@@ -77,19 +99,29 @@
       const queryState = strategy === "market"
         ? { ...state, rol: [], dominio: [] }
         : { ...state, rol: expandRoleFamily(state.rol, state.seniority) };
-      const tiers = generator.buildXRayTiers(queryState, id === "linkedin" ? "linkedin.com/in" : source.domain, false, id === "stackoverflow" || id === "xing");
+      if (id === "github") {
+        const query = buildGithubUserQuery(queryState);
+        if (!query) {
+          skippedSources.push(id);
+          skippedReasons[id] = "requires_language_signal";
+          return null;
+        }
+        return { source: id, query, label: source.label };
+      }
+      const tiers = generator.buildXRayTiers(queryState, "linkedin.com/in", false, false);
       const preferred = strategy === "equivalent"
         ? tiers.find((tier) => tier.label.includes("sin título")) || tiers[1]
         : tiers[0];
       const usable = preferred && preferred.query && preferred.query.length <= MAX_QUERY_LENGTH ? preferred : null;
       if (!usable) {
         skippedSources.push(id);
+        skippedReasons[id] = "query_too_long";
         return null;
       }
       return { source: id, query: usable.query, label: source.label };
     }).filter(Boolean);
     const location = cleanTerms(state.alcance).join(", ");
-    return { queries: plan, maxResults: MAX_RESULTS, location, skippedSources };
+    return { queries: plan, maxResults: MAX_RESULTS, location, skippedSources, skippedReasons };
   }
 
   function normalizeText(value) {
@@ -313,5 +345,5 @@
     };
   }
 
-  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, expandRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
+  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, buildGithubUserQuery, expandRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
 });

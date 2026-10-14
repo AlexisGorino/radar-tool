@@ -160,6 +160,31 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub");
   });
 
+  it("explains when GitHub is not a useful source for a nontechnical profile", () => {
+    let searchCalls = 0;
+    cy.intercept("POST", "/mock-search", (request) => {
+      searchCalls += 1;
+      request.reply({ statusCode: 200, body: { results: [], sourceErrors: [] } });
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').uncheck();
+    cy.get('#publicSearchSources input[value="github"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get("#publicSearchStatus").should("contain.text", "GitHub sirve para perfiles técnicos");
+    cy.then(() => expect(searchCalls).to.equal(0));
+  });
+
   it("keeps the public-profile search disabled until its server endpoint is configured", () => {
     cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "");
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
@@ -199,6 +224,7 @@ describe("RADAR talent search flow", () => {
       expect(request.body.maxResults).to.equal(20);
       expect(request.body.queries.map((query) => query.source)).to.include("linkedin");
       expect(request.body.queries.map((query) => query.source)).to.include("github");
+      expect(request.body.queries.find((query) => query.source === "github").query).to.equal('type:user language:Python location:"Islas Canarias"');
       request.reply({
         statusCode: 200,
         body: {
@@ -232,6 +258,7 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="rol"]').type("Técnico instalador{enter}");
     cy.get('[data-field="imprescindibles"]').type("FTTH{enter}");
     cy.get('[data-field="imprescindibles"]').type("OTDR{enter}");
+    cy.get('[data-field="atributos"]').type("Python{enter}");
     cy.get('[data-field="alcance"]').type("España{enter}");
     cy.get('[data-field="alcance"]').type("Islas Canarias{enter}");
     cy.get("#generateBtn").click();
@@ -349,7 +376,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Quita cargo y sector");
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
-    cy.get("#publicSearchSources").should("contain.text", "Proyectos públicos");
+    cy.get("#publicSearchSources").should("contain.text", "Perfiles técnicos con actividad pública");
     cy.get("#broadenPublicSearchBtn").click();
     cy.get(".public-search-next-questions").should("be.visible").and("contain.text", "¿Qué querés ajustar?");
     cy.get(".public-search-next-questions").contains("¿El cargo puede tener otro nombre?").click();

@@ -10,8 +10,10 @@ const MAX_SOURCES = PUBLIC_SOURCE_IDS.size;
 const MAX_RESULTS = 20;
 const MAX_QUERY_LENGTH = 900;
 const MAX_BODY_BYTES = 12_000;
+const MAX_GITHUB_PROFILES = 10;
 const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;
 const SEARCH_TIMEOUT_MS = 30_000;
+const GITHUB_TIMEOUT_MS = 8_000;
 const COUNTRY_CODE_CACHE = new Map();
 const PROVIDER_ERROR_CODES = new Set([
   "provider_rate_limited",
@@ -60,16 +62,25 @@ function validProfileUrl(rawUrl, sourceId) {
 function validatePlan(body) {
   if (!body || !Array.isArray(body.queries) || body.queries.length < 1 || body.queries.length > MAX_SOURCES) return false;
   if (body.maxResults !== MAX_RESULTS) return false;
+  if (typeof body.location !== "string" || body.location.length > 180) return false;
   const unique = new Set();
-    return body.queries.every((entry) => {
+  const requested = requestedLocationParts(body.location);
+  if (!requested.countryCode) return false;
+  return body.queries.every((entry) => {
     if (!entry || !PUBLIC_SOURCE_IDS.has(entry.source) || typeof entry.query !== "string") return false;
     const query = entry.query.trim();
-    const expectedSite = entry.source === "linkedin" ? "linkedin.com/in" : SOURCES[entry.source].domain;
-    if (query.length < 5 || query.length > MAX_QUERY_LENGTH || !query.toLowerCase().includes(`site:${expectedSite}`)) return false;
+    if (query.length < 5 || query.length > MAX_QUERY_LENGTH) return false;
+    if (entry.source === "linkedin" && !query.toLowerCase().includes("site:linkedin.com/in")) return false;
+    if (entry.source === "github") {
+      const location = query.match(/\blocation:"([^"\r\n]{1,100})"/i);
+      if (!location || normalizeLocation(location[1]) !== normalizeLocation(requested.locality)
+        || !/\btype:user\b/i.test(query) || !/\blanguage:[\w+#.-]+/i.test(query)
+        || /\b(?:site|in):/i.test(query)) return false;
+    }
     if (unique.has(entry.source)) return false;
     unique.add(entry.source);
     return true;
-  }) && (typeof body.location === "string" && body.location.length <= 180 && Boolean(requestedLocationParts(body.location).countryCode));
+  });
 }
 
 function safeResult(item, source) {
@@ -243,6 +254,76 @@ async function lookup(query, location, source, apiKey) {
   };
 }
 
+function exactGithubLocation(profileLocation, rawLocation) {
+  const requested = requestedLocationParts(rawLocation);
+  const profileParts = String(profileLocation || "").split(/[,;|·]/).map(normalizeLocation).filter(Boolean);
+  if (!profileParts.length || !requested.locality || !requested.countryCode) return false;
+  const localityAliases = {
+    "islas canarias": ["canary islands"], "canarias": ["canary islands"],
+    "islas baleares": ["balearic islands"], "pais vasco": ["basque country"],
+  };
+  const localityTerms = new Set([requested.locality, ...(localityAliases[normalizeLocation(requested.locality)] || [])]
+    .map(normalizeLocation).filter(Boolean));
+  if (!profileParts.some((part) => localityTerms.has(part))) return false;
+  const names = [];
+  names.push(requested.countryCode);
+  const requestedCountry = requested.parts.find((part) => countryCodeForLabel(part) === requested.countryCode);
+  if (requestedCountry) names.push(requestedCountry);
+  if (typeof Intl.DisplayNames === "function") {
+    for (const locale of ["es", "en", "pt", "fr", "de", "it"]) {
+      const name = new Intl.DisplayNames([locale], { type: "region" }).of(requested.countryCode);
+      if (name && name !== requested.countryCode) names.push(name);
+    }
+  }
+  const countryNames = new Set(names.map(normalizeLocation).filter(Boolean));
+  return profileParts.some((part) => countryNames.has(part));
+}
+
+async function githubRequest(url, token) {
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "RADAR-Talent-Discovery",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(url, {
+    headers,
+    signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+  });
+  if (response.status === 403 || response.status === 429) {
+    if (response.headers.get("X-RateLimit-Remaining") === "0" || response.headers.has("Retry-After") || response.status === 429) throw new Error("provider_rate_limited");
+    throw new Error("source_unavailable");
+  }
+  if (response.status === 422) throw new Error("provider_query_rejected");
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("source_unavailable");
+  return response.json();
+}
+
+async function lookupGithubUsers(query, rawLocation, token) {
+  const url = new URL("https://api.github.com/search/users");
+  url.searchParams.set("q", query);
+  url.searchParams.set("per_page", String(MAX_GITHUB_PROFILES));
+  const data = await githubRequest(url.toString(), token);
+  if (!data || !Array.isArray(data.items)) throw new Error("source_unavailable");
+  const language = query.match(/\blanguage:([\w+#.-]+)/i)?.[1] || "";
+  const details = await Promise.all(data.items.slice(0, MAX_GITHUB_PROFILES).map(async (user) => {
+    const login = String(user && user.login || "");
+    if (!/^[a-z\d-]{1,39}$/i.test(login)) return null;
+    const profileUrl = new URL(`/users/${encodeURIComponent(login)}`, "https://api.github.com");
+    const profile = await githubRequest(profileUrl.toString(), token);
+    if (!profile || !exactGithubLocation(profile.location, rawLocation)) return null;
+    const title = `${String(profile.name || profile.login).slice(0, 100)} - ${String(profile.bio || "GitHub").slice(0, 120)}`;
+    const location = String(profile.location || "").slice(0, 180);
+    const bio = String(profile.bio || "").slice(0, 500);
+    const repositories = Math.max(0, Number(profile.public_repos) || 0);
+    const snippet = [bio, location, language ? `Lenguaje de repositorios: ${language}` : "", repositories ? `${repositories} repositorios públicos` : ""].filter(Boolean).join(" · ").slice(0, 800);
+    return safeResult({ link: profile.html_url, title, snippet, position: Number(user.score) || null }, "github");
+  }));
+  const results = details.filter(Boolean);
+  return { results, organicCount: Math.max(0, Number(data.total_count) || data.items.length), profileCount: results.length };
+}
+
 async function freeBudgetAllows(apiKey, searchesNeeded) {
   try {
     const url = new URL("https://serpapi.com/account.json");
@@ -309,7 +390,6 @@ export default {
     const pathname = new URL(request.url).pathname;
     const isHealthCheck = request.method === "GET" && pathname === "/api/health";
     if (!isHealthCheck && (request.method !== "POST" || pathname !== "/api/search")) return json({ error: "not_found" }, 404, allowedOrigin);
-    if (!env.SERPAPI_KEY) return json({ error: "not_configured" }, 503, allowedOrigin);
     if (!env.SEARCH_LIMITER) return json({ error: "rate_limit_not_configured" }, 503, allowedOrigin);
 
     const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
@@ -317,6 +397,7 @@ export default {
     if (!limit.success) return json({ error: "rate_limited" }, 429, allowedOrigin, { "Retry-After": "60" });
 
     if (isHealthCheck) {
+      if (!env.SERPAPI_KEY) return json({ ready: false, error: "not_configured", usesSearchCredit: false }, 503, allowedOrigin);
       const budget = await freeBudgetAllows(env.SERPAPI_KEY, 1);
       return json({ ready: budget.allowed, error: budget.allowed ? null : budget.reason, usesSearchCredit: false }, budget.allowed ? 200 : 503, allowedOrigin);
     }
@@ -331,11 +412,16 @@ export default {
     }
     if (!validatePlan(plan)) return json({ error: "invalid_search_plan" }, 400, allowedOrigin);
 
-    const budget = await freeBudgetAllows(env.SERPAPI_KEY, plan.queries.length);
-    if (!budget.allowed) {
-      const exhausted = budget.reason === "free_quota_exhausted";
-      const hourlyExhausted = budget.reason === "hourly_quota_exhausted";
-      return json({ error: budget.reason }, exhausted || hourlyExhausted ? 429 : 503, allowedOrigin);
+    const linkedinQueries = plan.queries.filter((entry) => entry.source === "linkedin");
+    const githubQueries = plan.queries.filter((entry) => entry.source === "github");
+    const sourceErrorsBeforeSearch = [];
+    const activeLinkedinQueries = [];
+    if (linkedinQueries.length && !env.SERPAPI_KEY) {
+      sourceErrorsBeforeSearch.push({ source: "linkedin", code: "provider_credentials_rejected" });
+    } else if (linkedinQueries.length) {
+      const budget = await freeBudgetAllows(env.SERPAPI_KEY, linkedinQueries.length);
+      if (budget.allowed) activeLinkedinQueries.push(...linkedinQueries);
+      else sourceErrorsBeforeSearch.push({ source: "linkedin", code: budget.reason });
     }
 
     // The free locations catalog validates/canonicalizes search origin once
@@ -344,22 +430,26 @@ export default {
     const location = await resolveSearchLocation(plan.location);
     // Query selected sources concurrently: sequential timeouts could leave a
     // four-source search waiting up to two minutes before reporting failure.
-    const settledSources = await Promise.all(plan.queries.map(async (entry) => {
+    const activeQueries = [...activeLinkedinQueries, ...githubQueries];
+    const settledSources = await Promise.all(activeQueries.map(async (entry) => {
       try {
-        return { source: entry.source, ...await lookup(entry.query, location, entry.source, env.SERPAPI_KEY) };
+        const result = entry.source === "github"
+          ? await lookupGithubUsers(entry.query, plan.location, env.GITHUB_TOKEN)
+          : await lookup(entry.query, location, entry.source, env.SERPAPI_KEY);
+        return { source: entry.source, ...await result };
       } catch (error) {
         return { source: entry.source, error: safeProviderErrorCode(error) };
       }
     }));
     const resultsBySource = settledSources.filter((item) => Array.isArray(item.results)).map((item) => item.results);
-    const sourceErrors = settledSources.filter((item) => item.error).map((item) => ({ source: item.source, code: item.error }));
-    const sourceDiagnostics = settledSources.map((item) => ({
+    const sourceErrors = [...sourceErrorsBeforeSearch, ...settledSources.filter((item) => item.error).map((item) => ({ source: item.source, code: item.error }))];
+    const sourceDiagnostics = [...sourceErrorsBeforeSearch.map((item) => ({ ...item, status: "error", organicCount: 0, profileCount: 0 })), ...settledSources.map((item) => ({
       source: item.source,
       status: item.error ? "error" : item.profileCount ? "profiles_found" : item.organicCount ? "no_public_profiles" : "no_indexed_results",
       organicCount: Number(item.organicCount) || 0,
       profileCount: Number(item.profileCount) || 0,
       code: item.error || null,
-    }));
+    }))];
     const results = takeBalanced(resultsBySource);
     if (!results.length && sourceErrors.length === plan.queries.length) {
       const rateLimited = sourceErrors.some((error) => error.code === "provider_rate_limited");
@@ -369,4 +459,4 @@ export default {
   },
 };
 
-export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation };
+export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation, exactGithubLocation, lookupGithubUsers };

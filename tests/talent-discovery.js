@@ -22,15 +22,39 @@ const canaryState = {
 
 test("builds source-specific queries and preserves the exact Canary Islands scope", () => {
   const plan = Discovery.buildPlan(canaryState, ["linkedin", "stackoverflow", "github", "behance", "resumes"], Generator);
-  assert.equal(plan.queries.length, 2);
-  assert.deepEqual(plan.queries.map((query) => query.source), ["linkedin", "github"]);
+  assert.equal(plan.queries.length, 1);
+  assert.deepEqual(plan.queries.map((query) => query.source), ["linkedin"]);
+  assert.deepEqual(plan.skippedSources, ["github"]);
+  assert.equal(plan.skippedReasons.github, "requires_language_signal");
   assert.equal(plan.maxResults, 20);
   assert.equal(plan.location, "España, Islas Canarias");
-  plan.queries.forEach(({ query }) => {
-    assert.match(query, /Canarias/i);
-    assert.doesNotMatch(query, /\bEspaña\b/);
-    assert.match(query, /-Senior/);
-  });
+  assert.match(plan.queries[0].query, /Canarias/i);
+  assert.doesNotMatch(plan.queries[0].query, /\bEspaña\b/);
+  assert.match(plan.queries[0].query, /-Senior/);
+});
+
+test("uses first-party GitHub user search qualifiers instead of public-web X-Ray", () => {
+  const state = {
+    rol: ["Backend Developer"], imprescindibles: [], atributos: ["Python", "AWS"], deseables: [], dominio: [],
+    alcance: ["Argentina", "Buenos Aires"], refinar: [], seniority: [],
+  };
+  const plan = Discovery.buildPlan(state, ["github"], Generator);
+  assert.deepEqual(plan.queries.map((entry) => entry.source), ["github"]);
+  assert.equal(plan.queries[0].query, 'type:user language:Python location:"Buenos Aires"');
+  assert.equal(plan.location, "Argentina, Buenos Aires");
+  const roleOnly = Discovery.buildPlan({ ...state, rol: ["Python developer"], imprescindibles: [], atributos: [], deseables: [] }, ["github"], Generator);
+  assert.equal(roleOnly.queries[0].query, 'type:user language:Python location:"Buenos Aires"');
+});
+
+test("keeps GitHub out of searches without a verifiable programming language", () => {
+  const state = {
+    rol: ["Técnico de telecomunicaciones"], imprescindibles: ["FTTH", "OTDR"], atributos: ["Excel"], deseables: [],
+    dominio: ["telecomunicaciones"], alcance: ["España", "Islas Canarias"], refinar: [],
+  };
+  const plan = Discovery.buildPlan(state, ["linkedin", "github"], Generator);
+  assert.deepEqual(plan.queries.map((entry) => entry.source), ["linkedin"]);
+  assert.deepEqual(plan.skippedSources, ["github"]);
+  assert.equal(plan.skippedReasons.github, "requires_language_signal");
 });
 
 test("does not silently send oversized plans; exposes sources that need a shorter query", () => {

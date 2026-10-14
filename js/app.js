@@ -1720,7 +1720,9 @@
     const sequence = ++publicSearchSequence;
     const plan = RadarTalentDiscovery.buildPlan(state, selected, RadarGenerator, { strategy });
     if (!plan.queries.length) {
-      publicSearchStatus.textContent = "No se pudo armar la consulta. Acortá o quitá algunas señales.";
+      publicSearchStatus.textContent = plan.skippedReasons.github === "requires_language_signal"
+        ? "GitHub sirve para perfiles técnicos: agregá un lenguaje de programación o elegí LinkedIn."
+        : "La consulta quedó demasiado extensa. Quitá algunas señales e intentá de nuevo.";
       return;
     }
     findProfilesBtn.disabled = true;
@@ -1730,7 +1732,9 @@
     if (strategy === "precise" && !sourceOverride) publicSearchRows = [];
     publicSearchStrategy = strategy;
     const skippedNote = plan.skippedSources.length
-      ? ` Se omitieron por longitud: ${plan.skippedSources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(", ")}.`
+      ? ` ${plan.skippedSources.map((source) => plan.skippedReasons[source] === "requires_language_signal"
+        ? `Se omitió ${RadarTalentDiscovery.SOURCES[source].label}: esta fuente sirve para perfiles técnicos y falta indicar un lenguaje o tecnología que pueda contrastar.`
+        : `Se omitió ${RadarTalentDiscovery.SOURCES[source].label} porque la consulta es demasiado extensa.`).join(" ")}`
       : "";
     publicSearchStatus.textContent = sourceOverride
       ? `Reintentando ${plan.queries.map((query) => query.label).join(", ")}. Consume una consulta por fuente.`
