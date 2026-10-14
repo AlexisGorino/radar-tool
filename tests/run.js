@@ -574,6 +574,30 @@ test("SRE and SAP FICO are accepted as role titles even though they're also list
   assert.strictEqual(r2.rol[0], "sap fico");
 });
 
+test("SAP skills brief does not invent a job title, split FI/CO and report signals over the six-term cap", () => {
+  const text = [
+    "Necesito buscar perfiles de:",
+    "SAP FI/CO Financials",
+    "SAP MM Material Management",
+    "SAP SD Sales",
+    "SAP HCM Recursos Humanos",
+    "Salesforce Service Cloud",
+    "Salesforce Sales Cloud",
+    "ServiceNow",
+    "Certificados que vivan en Brasil",
+  ].join("\n");
+  const result = Extractor.analyzeJD(text);
+  assert.deepStrictEqual(result.rol, [], "a sourcing instruction is not a candidate title");
+  ["SAP FI", "SAP CO", "SAP MM", "SAP SD", "SAP HCM", "Salesforce Service Cloud"].forEach((term) => {
+    assert.ok(result.atributos.includes(term), `${term} should remain a distinct search signal`);
+  });
+  assert.ok(!result.atributos.includes("SAP"), "the umbrella SAP label must not displace a concrete module");
+  assert.ok(!result.atributos.includes("Salesforce"), "the umbrella Salesforce label must not duplicate a specific cloud");
+  assert.deepStrictEqual(result.omittedSignals, ["Salesforce Sales Cloud", "ServiceNow"]);
+  assert.ok(result.quality.warnings.some((warning) => warning.includes("Salesforce Sales Cloud, ServiceNow")), "signals beyond the precise-query cap must be reported, not silently lost");
+  assert.deepStrictEqual(result.alcance, ["Brasil"]);
+});
+
 test("title-shaped phrase at the very start of a JD with no line breaks or verb is still found", () => {
   // Simulates exactly what pdf.js hands us for a modern JD template: every
   // text run on the page joined by a single space, no real "\n" anywhere.

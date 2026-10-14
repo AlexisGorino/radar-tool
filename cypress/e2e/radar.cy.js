@@ -81,6 +81,31 @@ describe("RADAR talent search flow", () => {
     cy.get("#out-universal").should("contain.text", "Amadeus").and("contain.text", "Buenos Aires");
   });
 
+  it("keeps a SAP skills list out of the job-title field and flags signals beyond the query cap", () => {
+    cy.get("#ideaModeBtn").click();
+    cy.get("#jdInput").type([
+      "Necesito buscar perfiles de:",
+      "- SAP FI/CO Financials",
+      "- SAP MM Material Management",
+      "- SAP SD Sales",
+      "- SAP HCM Recursos Humanos",
+      "- Salesforce Service Cloud",
+      "- Salesforce Sales Cloud",
+      "- ServiceNow",
+      "Certificados que vivan en Brasil",
+    ].join("\n"), { delay: 0 });
+    cy.get("#analyzeBtn").click();
+
+    cy.get("#jdReview").should("be.visible");
+    cy.get("#jdReviewGrid .jd-review-role-input").should("have.value", "");
+    ["SAP FI", "SAP CO", "SAP MM", "SAP SD", "SAP HCM", "Salesforce Service Cloud"].forEach((term) => {
+      cy.get("#jdReviewGrid").should("contain.text", term);
+    });
+    cy.get("#jdReviewWarning").should("contain.text", "Salesforce Sales Cloud, ServiceNow");
+    cy.contains("#jdReviewQuestions", "No detectamos el cargo.").should("be.visible");
+    cy.get("#jdReviewGrid").should("contain.text", "Brasil");
+  });
+
   it("boots the search flow on the pinned Angular 21 runtime", () => {
     cy.get("radar-root").should("have.attr", "ng-version", "21.2.25");
     cy.get("#radarBootError").should("not.exist");

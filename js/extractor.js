@@ -74,6 +74,32 @@
     return typeof limit === "number" ? ranked.slice(0, limit) : ranked;
   }
 
+  // Recruiters often write SAP's finance modules as "FI/CO" even though
+  // candidate profiles list FI and CO separately. Split that shorthand into
+  // searchable module names, and remove umbrella labels such as bare "SAP"
+  // whenever a concrete SAP module was detected.
+  function normalizeSpecialistSkillSignals(text, matches) {
+    const fiCo = /\bSAP\s+FI\s*\/\s*CO\b/i.test(text);
+    const serviceNow = /\bService\s+Now\b/i.test(text);
+    const expanded = [];
+    (matches || []).forEach((term) => {
+      if (term === "SAP FI" && fiCo) {
+        expanded.push("SAP FI", "SAP CO");
+      } else if (term === "ServiceNow" && serviceNow) {
+        expanded.push("ServiceNow");
+      } else {
+        expanded.push(term);
+      }
+    });
+    const hasSAPModule = expanded.some((term) => /^SAP\s+.+/i.test(term));
+    const hasSalesforceCloud = expanded.some((term) => /^Salesforce\s+.+Cloud$/i.test(term));
+    return dedupe(expanded.filter((term) => {
+      if (term.toLowerCase() === "sap" && hasSAPModule) return false;
+      if (term.toLowerCase() === "salesforce" && hasSalesforceCloud) return false;
+      return true;
+    }));
+  }
+
   // Real JDs commonly split skills into "Excluyentes/Requisitos" (dealbreakers)
   // and "Deseables/Plus/Nice to have" (bonus) — see the Ardua fixture. A skill
   // that only shows up after that marker is optional, not a filter you want
@@ -301,7 +327,22 @@
   // describes a need, not the candidate's job title. Ask for a title or
   // continue with concrete skills instead of quoting this whole sentence.
   function looksLikeVagueRole(candidate) {
-    return /^(?:alguien|persona|perfil|profesional|candidat[oa]|gente)\b/i.test(candidate.trim());
+    return /^(?:alguien|persona|perfil|perfiles|profesional|candidat[oa]|gente|buscar|encontrar|conseguir|captar|reclutar|certificad[oa]s?|requisitos?|conocimientos?|habilidades|skills|experiencia|funciones|responsabilidades|ubicaci[oó]n)\b/i.test(candidate.trim());
+  }
+
+  // The first short line is only a reliable fallback when it looks like a
+  // title. A skill list often starts with "SAP FI/CO Financials" or
+  // "Salesforce Service Cloud"; treating that as the occupation turns a
+  // sourcing brief into a narrow, false title search.
+  function looksLikeSkillOnlyLine(candidate) {
+    const clean = candidate.trim().replace(/^[-•*▪]\s*/, "");
+    if (!clean) return false;
+    const exactRoleSkills = new Set(["sre", "sap fico"]);
+    if (exactRoleSkills.has(clean.toLowerCase())) return false;
+    const matchedSkills = findMatches(clean, Keywords.SKILLS);
+    if (!matchedSkills.length) return false;
+    const roleNoun = /\b(?:developer|engineer|manager|analyst|consultant|designer|architect|specialist|director|coordinator|lead|officer|executive|assistant|technician|recruiter|scientist|programmer|desarrollador|ingenier[oa]|gerente|analista|consultor[oa]?|diseñador[oa]?|arquitect[oa]|especialista|coordinador[oa]?|ejecutiv[oa]?|asistente|técnic[oa]|instalador[oa]?|responsable|jef[ea]|programador[oa]?|auditor[oa]?|comercial|vendedor[oa]?|sales manager|project manager)\b/i;
+    return !roleNoun.test(clean);
   }
 
   function looksLikeAdministrativeText(candidate) {
@@ -375,7 +416,7 @@
     const firstLine = text
       .split("\n")
       .map((l) => l.trim())
-      .find((l) => l.length > 3 && l.length < 60 && !looksLikeAdministrativeText(l) && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)) && !looksLikeVagueRole(trimRolPhrase(l)));
+      .find((l) => l.length > 3 && l.length < 60 && !looksLikeAdministrativeText(l) && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)) && !looksLikeVagueRole(trimRolPhrase(l)) && !looksLikeSkillOnlyLine(trimRolPhrase(l)));
     if (firstLine) return [trimRolPhrase(firstLine)];
 
     // PDF-extracted JDs rarely have real line breaks at all — pdf.js joins
@@ -462,7 +503,10 @@
   function evidenceFor(text, term) {
     if (!term) return "";
     const fold = (value) => String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const foldedIndex = fold(text).indexOf(fold(term));
+    let foldedIndex = fold(text).indexOf(fold(term));
+    if (foldedIndex < 0 && /^SAP CO$/i.test(term) && /\bSAP\s+FI\s*\/\s*CO\b/i.test(text)) {
+      foldedIndex = fold(text).search(/sap\s+fi\s*\/\s*co/i);
+    }
     const index = foldedIndex < 0 ? -1 : originalIndexForFolded(text, foldedIndex);
     if (index < 0) return "";
     const lineStart = text.lastIndexOf("\n", index) + 1;
@@ -516,6 +560,9 @@
     if (!analyzed.rol.length) warnings.push("No pudimos identificar el título del puesto con suficiente confianza.");
     if (!analyzed.atributos.length) warnings.push("No detectamos requisitos concretos para filtrar. Confirmá si falta una skill, herramienta o certificación clave.");
     if (!analyzed.alcance.length) warnings.push("No detectamos una ubicación; confirmá si la búsqueda es remota o si falta indicar el país.");
+    if (analyzed.omittedSignals && analyzed.omittedSignals.length) {
+      warnings.push(`La descripción incluye más señales que las que entran en una ruta precisa. No se agregaron automáticamente: ${analyzed.omittedSignals.join(", ")}. Revisalas y sumá solo las que correspondan.`);
+    }
     const damaged = /\uFFFD/.test(text);
     const separatedLetters = /(?:\b[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\s+){4,}[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\b/.test(text);
     if (damaged) warnings.push("El archivo contiene caracteres dañados; puede haberse extraído mal.");
@@ -558,15 +605,19 @@
     const rol = dedupe(guessRol(text));
     const actionSignals = extractActionSignals(text);
     const skillBank = dedupe([...Keywords.SKILLS, ...actionSignals]);
-    const knownSkillMatches = findMatchesRanked(text, Keywords.SKILLS, undefined, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS);
-    const allSkillMatches = dedupe([...knownSkillMatches, ...actionSignals]);
+    const knownSkillMatches = normalizeSpecialistSkillSignals(text,
+      findMatchesRanked(text, Keywords.SKILLS, undefined, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS));
+    const allSkillMatches = normalizeSpecialistSkillSignals(text, [...knownSkillMatches, ...actionSignals]);
     const optionalSet = new Set(optionalOnlySkills(text, skillBank).map((term) => term.toLowerCase()));
     const genericSet = new Set(Keywords.GENERIC_SKILLS.map((term) => term.toLowerCase()));
     const knownSkillSet = new Set(knownSkillMatches.map((term) => term.toLowerCase()));
     const unverifiedSignals = dedupe(actionSignals.filter((term) => !knownSkillSet.has(term.toLowerCase()) && !optionalSet.has(term.toLowerCase())));
     const unverifiedSet = new Set(unverifiedSignals.map((term) => term.toLowerCase()));
-    const atributos = dedupe(allSkillMatches.filter((term) => !optionalSet.has(term.toLowerCase()) && !genericSet.has(term.toLowerCase()) && !unverifiedSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
-    const atributosDeseables = dedupe(allSkillMatches.filter((term) => optionalSet.has(term.toLowerCase()) || genericSet.has(term.toLowerCase()) || unverifiedSet.has(term.toLowerCase())).slice(0, MAX_ATTRIBUTES));
+    const attributeCandidates = dedupe(allSkillMatches.filter((term) => !optionalSet.has(term.toLowerCase()) && !genericSet.has(term.toLowerCase()) && !unverifiedSet.has(term.toLowerCase())));
+    const desirableCandidates = dedupe(allSkillMatches.filter((term) => optionalSet.has(term.toLowerCase()) || genericSet.has(term.toLowerCase()) || unverifiedSet.has(term.toLowerCase())));
+    const atributos = attributeCandidates.slice(0, MAX_ATTRIBUTES);
+    const atributosDeseables = desirableCandidates.slice(0, MAX_ATTRIBUTES);
+    const omittedSignals = [...attributeCandidates.slice(MAX_ATTRIBUTES), ...desirableCandidates.slice(MAX_ATTRIBUTES)];
     const dominio = dedupe(findMatchesRanked(text, Keywords.INDUSTRIES, MAX_DOMINIO));
     const sectorNeedsClarification = /\btravel\b/i.test(text) && !/\btravel\s*(?:tech|technology)\b|\bturismo\b/i.test(text);
 
@@ -600,7 +651,7 @@
     // is context rather than a reliable term on public candidate profiles.
     const refinarSuggestion = [];
 
-    const analyzed = { rol, atributos, atributosDeseables, imprescindibles: [], unverifiedSignals, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
+    const analyzed = { rol, atributos, atributosDeseables, imprescindibles: [], unverifiedSignals, omittedSignals, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
     const namedCountry = options && options.fileName ? Countries.detectCountry(options.fileName) : null;
     analyzed.fileCountrySuggestion = !country && namedCountry ? namedCountry : null;
     analyzed.isResume = looksLikeResume(text);

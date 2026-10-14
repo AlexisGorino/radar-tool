@@ -12,7 +12,7 @@
     "SAP BTP", "SAP FICO", "SAP FI", "SAP CO", "SAP MM", "SAP SD", "SAP HCM", "SAP PP",
     "SAP QM", "SAP WM", "SAP EWM", "SAP Fiori", "SAP Basis", "SAP PM", "SAP ABAP",
     "SuccessFactors", "S/4HANA", "Business One", "ABAP", "SAP", "Fiori", "HANA",
-    "Salesforce", "HubSpot", "Dynamics 365", "CRM", "ERP",
+    "Salesforce Sales Cloud", "Salesforce Service Cloud", "Salesforce", "ServiceNow", "HubSpot", "Dynamics 365", "CRM", "ERP",
     "Java", "Python", "JavaScript", "TypeScript", "React", "Angular", "Vue",
     "Node.js", ".NET", "C#", "C++", "Go", "Kotlin", "Swift", "PHP", "Ruby",
     "Spring", "Spring Boot", "Django", "Flask", "FastAPI", "Laravel", "Rails",
