@@ -221,8 +221,9 @@ describe("RADAR talent search flow", () => {
     cy.get("#expertModeBtn").click();
     cy.get("#appShell").should("have.attr", "data-experience-mode", "expert");
     cy.get("#expertModeBtn").should("have.attr", "aria-pressed", "true");
-    cy.get("#advancedCriteria").should("have.attr", "open");
-    cy.get('[data-field="deseables"]').should("be.visible");
+    cy.get("#advancedCriteria").should("not.have.attr", "open");
+    cy.get('[data-field="rol"]').should("be.visible");
+    cy.get('[data-field="deseables"]').should("not.be.visible");
     cy.get("#ideaModeBtn").click();
     cy.get("#jdInput").type("QA con Playwright en Barcelona{enter}");
     cy.get("#guidedModeBtn").click();

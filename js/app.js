@@ -147,11 +147,9 @@
       button.setAttribute("aria-pressed", String(selected));
     });
     experienceModeHint.textContent = expertMode
-      ? "Modo directo: ajustá los campos y abrí los filtros extra cuando los necesites."
+      ? "Modo directo: editá los campos principales; abrí ‘Más filtros’ solo si necesitás ampliar el perfil."
       : "1. Describí el perfil · 2. Confirmá ubicación y requisitos · 3. Elegí dónde buscar";
 
-    const advancedCriteria = document.getElementById("advancedCriteria");
-    advancedCriteria.open = expertMode;
     if (persist) {
       try {
         localStorage.setItem("radar-experience-mode-v1", appShell.dataset.experienceMode);
