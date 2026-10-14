@@ -158,7 +158,7 @@ describe("RADAR talent search flow", () => {
     cy.contains("#jdReviewQuestions button", "Sí, limitar a esta ubicación").click();
     cy.get("#applyJdBtn").click();
     cy.get("#chips-rol").should("contain.text", "QA Analyst");
-    cy.get("#chips-imprescindibles").should("contain.text", "Cypress");
+    cy.get("#chips-atributos").should("contain.text", "Cypress");
     cy.get("#chips-alcance").should("contain.text", "Argentina").and("contain.text", "Córdoba");
   });
 
