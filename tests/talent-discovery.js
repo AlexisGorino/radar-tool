@@ -101,6 +101,23 @@ test("normalizes inclusive Spanish job titles before expanding the public search
   assert.doesNotMatch(query, /un\/a Jefe\/a/);
 });
 
+test("expands QA titles to common automation variants without weakening the requested skill or city", () => {
+  const state = {
+    rol: ["QA Engineer"], imprescindibles: [], atributos: ["Playwright"], deseables: [], dominio: [],
+    alcance: ["España", "Barcelona"], refinar: [], seniority: [],
+  };
+  const titles = Discovery.expandRoleFamily(state.rol, state.seniority);
+  ["QA Automation Engineer", "Automation QA Engineer", "Test Automation Engineer", "Software Test Engineer", "Quality Assurance Engineer"]
+    .forEach((title) => assert.ok(titles.includes(title), `missing title variant: ${title}`));
+  const query = Discovery.buildPlan(state, ["linkedin"], Generator).queries[0].query;
+  assert.match(query, /QA Automation Engineer/i);
+  assert.match(query, /Software Test Engineer/i);
+  assert.match(query, /Playwright/i);
+  assert.match(query, /Barcelona/i);
+  assert.ok(query.length <= 900);
+  assert.equal(Discovery.geographyEvidence("QA Automation Engineer · Playwright · Barcelona, Spain", state).confirmed, true);
+});
+
 test("offers controlled no-title and no-sector recovery routes that retain hard criteria", () => {
   const state = {
     rol: ["Jefe de Proyecto"], imprescindibles: ["MS Project"], atributos: ["Jira", "PMBOK"],

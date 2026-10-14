@@ -46,6 +46,25 @@
       .trim());
     const normalized = normalizeText(original.join(" "));
     const projectManagement = /\b(?:jefe de proyectos?|gerente de proyectos?|project manager|project coordinator|coordinador de proyectos?)\b/.test(normalized);
+    const qualityAssurance = /\b(?:qa|quality assurance|software test(?:ing)?|test automation)\b/.test(normalized);
+    if (qualityAssurance) {
+      const aliases = [
+        "QA Engineer",
+        "QA Automation Engineer",
+        "Automation QA Engineer",
+        "Test Automation Engineer",
+        "Software Test Engineer",
+        "Quality Assurance Engineer",
+      ];
+      const seen = new Set(original.map(normalizeText));
+      aliases.forEach((term) => {
+        if (!seen.has(normalizeText(term)) && original.length < 6) {
+          original.push(term);
+          seen.add(normalizeText(term));
+        }
+      });
+      return original;
+    }
     if (!projectManagement) return original;
     const juniorContext = normalizeText([...(Array.isArray(seniority) ? seniority : []), ...original].join(" "));
     const junior = /\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(juniorContext);
@@ -152,9 +171,11 @@
         const canonicalCountry = Object.keys(countryNames).find((country) =>
           (countryNames[country] || [country]).some((name) => normalizeText(name) === normalizeText(place))
         );
+        const countryAliases = canonicalCountry ? countryNames[canonicalCountry] || [canonicalCountry] : [place];
+        const nameMatch = countryAliases.some((name) => hasPhrase(text, name));
         const codeMatch = canonicalCountry && (countryCodes[canonicalCountry] || [])
           .some((code) => hasPhrase(text, code));
-        return !hasPhrase(text, place) && !codeMatch;
+        return !nameMatch && !codeMatch;
       }
       return !hasPhrase(text, place);
     });
