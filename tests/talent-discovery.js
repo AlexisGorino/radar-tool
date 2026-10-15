@@ -272,16 +272,28 @@ test("rejects public profiles that do not show all mandatory signals", () => {
   assert.deepEqual(rows.map((row) => row.url), ["https://linkedin.com/in/complete-evidence"]);
 });
 
-test("requires at least one visible skill from an alternatives group", () => {
+test("keeps exact-city role matches when snippets omit non-mandatory alternative skills", () => {
   const state = {
-    rol: ["QA Engineer"], imprescindibles: [], atributos: ["TypeScript", "Cypress"],
-    deseables: [], dominio: [], alcance: ["España", "Barcelona"], refinar: [], seniority: [],
+    rol: ["Senior QA Engineer"], imprescindibles: [], atributos: ["Postman", "SoapUI", "SQL"],
+    deseables: ["Playwright", "TypeScript"], dominio: ["fintech", "banca"],
+    alcance: ["España", "Barcelona"], refinar: [], seniority: ["senior"],
   };
+  const plan = Discovery.buildPlan(state, ["linkedin"], Generator);
+  assert.equal(plan.location, "España, Barcelona");
+  assert.match(plan.queries[0].query, /Barcelona/);
+  assert.doesNotMatch(plan.queries[0].query, /Madrid/);
   const rows = Discovery.normalizeResults({ results: [
-    { source: "linkedin", url: "https://linkedin.com/in/only-role", title: "Ana Garcia - QA Engineer", snippet: "Barcelona, España" },
-    { source: "linkedin", url: "https://linkedin.com/in/matching-alternative", title: "Eva Perez - QA Automation Engineer", snippet: "TypeScript · Barcelona, España" },
+    { source: "linkedin", url: "https://linkedin.com/in/only-role", title: "Ana Garcia - Senior QA Engineer", snippet: "Barcelona, Cataluña, España · Fintech" },
+    { source: "linkedin", url: "https://linkedin.com/in/matching-alternative", title: "Eva Perez - Senior QA Engineer", snippet: "Postman · Barcelona, España · Fintech" },
+    { source: "linkedin", url: "https://linkedin.com/in/wrong-city", title: "Luis Perez - Senior QA Engineer", snippet: "Postman · Madrid, España · Fintech" },
   ] }, state);
-  assert.deepEqual(rows.map((row) => row.url), ["https://linkedin.com/in/matching-alternative"]);
+  assert.deepEqual(rows.map((row) => row.url), [
+    "https://linkedin.com/in/matching-alternative",
+    "https://linkedin.com/in/only-role",
+  ]);
+  assert.equal(rows[1].locationConfirmed, true);
+  assert.equal(rows[1].score, 55, "unseen support skills lower the evidence score without being treated as absent");
+  assert.ok(rows[1].scoreBreakdown.includes("Señales de apoyo visibles 0/3"));
 });
 
 test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 20", () => {

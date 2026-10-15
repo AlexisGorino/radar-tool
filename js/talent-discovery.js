@@ -381,8 +381,8 @@
     const locationStatus = !location.length ? "Sin filtro geográfico" : geography.confirmed ? "Localidad y país visibles" : geography.localityVisible ? "Localidad mencionada; país y residencia por confirmar" : "Ubicación sin confirmar";
     const confidence = score >= 70 && (!location.length || geography.confirmed) ? "Coincidencia textual alta" : score >= 40 ? "Coincidencia textual parcial" : "Pocas señales públicas";
     const scoreBreakdown = [
-      required.length ? `Imprescindibles ${requiredHits.length}/${required.length}` : "Sin imprescindibles",
-      alternatives.length ? `Alternativas ${alternativeHits.length}/${alternatives.length}` : "Sin alternativas",
+      required.length ? `Obligatorios visibles ${requiredHits.length}/${required.length}` : "Sin obligatorios confirmados",
+      alternatives.length ? `Señales de apoyo visibles ${alternativeHits.length}/${alternatives.length}` : "Sin señales de apoyo",
       role.length ? `Cargo ${roleHits.length}/${role.length}` : "Sin título obligatorio",
       location.length ? locationStatus : "Sin filtro geográfico",
     ];
@@ -412,7 +412,10 @@
       // when there are no mandatory items.
       if (!hasProfileRelevance) return;
       if (required.length && evidence.requiredHits.length !== required.length) return;
-      if (!required.length && alternatives.length && !evidence.alternativeHits.length) return;
+      // A search result can match a skill that Google does not repeat in its
+      // title or snippet. Do not treat an omitted snippet signal as proof that
+      // the person lacks it; keep role/location matches visible for review.
+      // Explicitly confirmed mandatory signals remain a hard filter above.
       // Keep exact city mentions for recruiter review when the snippet omits
       // the country. They remain visibly unverified and are never shareable
       // as confirmed matches. Exclude generic intent such as "open to Barcelona".
