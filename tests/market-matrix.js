@@ -4,6 +4,7 @@ const assert = require("assert");
 const path = require("path");
 const Extractor = require(path.join(__dirname, "..", "js", "extractor.js"));
 const Generator = require(path.join(__dirname, "..", "js", "generator.js"));
+const Discovery = require(path.join(__dirname, "..", "js", "talent-discovery.js"));
 
 const cases = [
   { name: "backend cloud · Argentina", jd: "Buscamos Backend Developer con Java, Spring Boot y AWS para fintech en CABA, Argentina.", role: "Backend Developer", skill: "Java", country: "Argentina", place: "Caba" },
@@ -22,6 +23,14 @@ const cases = [
   { name: "telecom field engineer · España", jd: "Técnico de campo de telecomunicaciones para instalación de antenas, radioenlace y redes HFC en Tenerife, España.", role: "Técnico de campo de telecomunicaciones", skill: "Radioenlace", country: "España", place: "Tenerife" },
   { name: "legal / compliance · España", jd: "Buscamos Abogado Laboral con experiencia en Compliance para Madrid, España.", role: "Abogado Laboral", skill: "Compliance", country: "España", place: "Madrid" },
   { name: "customer support · Irlanda", jd: "Hiring Customer Support Specialist with English and Zendesk, based in Dublin, Ireland.", role: "Customer Support Specialist", skill: "Zendesk", country: "Irlanda", place: "Dublín" },
+  { name: "consultoría SAP FI/CO · Argentina", jd: "Buscamos Consultor Funcional SAP FI/CO con experiencia en SAP FI, SAP CO y S/4HANA para Buenos Aires, Argentina.", role: "Consultor Funcional SAP FI/CO", skill: "SAP FI", country: "Argentina", place: "Buenos Aires" },
+  { name: "consultoría ERP · España", jd: "Se busca Consultor ERP con experiencia en implementación de Oracle Fusion y NetSuite para Valencia, España.", role: "Consultor ERP", skill: "Oracle Fusion", country: "España", place: "Valencia" },
+  { name: "Salesforce CRM · México", jd: "Buscamos Administrador Salesforce Service Cloud con gestión de casos y experiencia en CRM para Guadalajara, México.", role: "Administrador Salesforce Service Cloud", skill: "Salesforce Service Cloud", country: "México", place: "Guadalajara" },
+  { name: "Dynamics 365 CRM · Colombia", jd: "Hiring a Dynamics 365 CRM Consultant with Power BI experience in Bogotá, Colombia.", role: "Dynamics 365 CRM Consultant", skill: "Dynamics 365", country: "Colombia", place: "Bogotá" },
+  { name: "telecomunicaciones · Perú", jd: "Buscamos Ingeniero de Redes de Telecomunicaciones con Cisco, MPLS y SD-WAN para Lima, Perú.", role: "Ingeniero de Redes de Telecomunicaciones", skill: "Cisco", country: "Perú", place: "Lima" },
+  { name: "talento no IT · España", jd: "Buscamos Talent Acquisition Specialist con experiencia en ATS, selección end-to-end y employer branding para Madrid, España.", role: "Talent Acquisition Specialist", skill: "ATS", country: "España", place: "Madrid" },
+  { name: "supply chain no IT · Perú", jd: "Se busca Analista de Supply Chain con experiencia en inventarios, WMS y Excel avanzado para Lima, Perú.", role: "Analista de Supply Chain", skill: "WMS", country: "Perú", place: "Lima" },
+  { name: "auditoría · España", jd: "Buscamos Auditor Interno con experiencia en ISO 9001, control interno y gestión de calidad en Sevilla, España.", role: "Auditor Interno", skill: "ISO 9001", country: "España", place: "Sevilla" },
   { name: "infraestructura sin cargo explícito · Argentina", jd: "Requisitos excluyentes: Kubernetes, Terraform y AWS. Guardia de producción para una plataforma fintech en Neuquén, Argentina.", role: "", skill: "Kubernetes", country: "Argentina", place: "Neuquén" },
 ];
 
@@ -51,6 +60,12 @@ for (const c of cases) {
     }
     const query = Generator.buildUniversalBoolean(r);
     assert.ok(query, "debe ofrecer al menos una consulta útil");
+    assert.ok(query.length <= 900, `booleano demasiado largo (${query.length} caracteres)`);
+    assert.ok(query.toLowerCase().includes(c.place.toLowerCase()), "el booleano debe preservar la localidad solicitada");
+    assert.ok(r.alcance.some((place) => place.toLowerCase() === c.country.toLowerCase()), "el análisis debe conservar el país para validar resultados");
+    const linkedinTiers = Generator.buildLinkedinBooleanTiers(r);
+    assert.ok(linkedinTiers.length, "debe ofrecer una ruta de búsqueda en LinkedIn");
+    assert.ok(linkedinTiers.every((tier) => tier.query.length <= 900), "todos los booleanos LinkedIn deben ser compactos");
     if (!c.role) {
       const tiers = Generator.buildLinkedinBooleanTiers(r);
       assert.ok(tiers.length && tiers.some((tier) => !tier.query.includes("Developer")), "debe permitir búsqueda por skills sin título");
@@ -60,6 +75,14 @@ for (const c of cases) {
     failures.push(`${c.name}: ${error.message}`);
   }
 }
+
+// Non-technical roles still have a useful public route: LinkedIn. GitHub is
+// intentionally omitted when a profile has no searchable programming language.
+const recruiter = Extractor.analyzeJD("Buscamos Talent Acquisition Specialist con ATS y LinkedIn Recruiter para Madrid, España.");
+const recruiterPlan = Discovery.buildPlan(recruiter, ["linkedin", "github"], Generator);
+assert.ok(recruiterPlan.queries.some((query) => query.source === "linkedin"), "non-IT profiles deben conservar LinkedIn");
+assert.ok(!recruiterPlan.queries.some((query) => query.source === "github"), "no enviar perfiles no técnicos a GitHub");
+assert.ok(recruiterPlan.skippedSources.includes("github"), "explicar por qué GitHub no aplica");
 
 console.log(`\n${passed} passed, ${failures.length} failed (${cases.length} market cases)\n`);
 failures.forEach((failure) => console.log(`FAIL: ${failure}`));

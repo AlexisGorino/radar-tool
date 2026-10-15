@@ -398,7 +398,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-details summary").first().click();
     cy.get(".public-profile-details[open]").should("contain.text", "Coincidencias");
     cy.contains("Ana Pérez").should("be.visible");
-    cy.contains("Ubicación solicitada visible").should("be.visible");
+    cy.contains("Localidad y país visibles").should("be.visible");
     cy.get(".public-profile-card").should("not.contain.text", "Juan Gómez");
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
