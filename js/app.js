@@ -1764,6 +1764,7 @@
 
   function renderPublicSearchError(error) {
     publicSearchResults.replaceChildren();
+    const monthlyQuotaExhausted = error instanceof Error && /cupo gratuito del mes/i.test(error.message);
     const retrySources = [...new Set((error && error.sourceDiagnostics || [])
       .filter((item) => item && item.status === "error" && RadarTalentDiscovery.SOURCES[item.source])
       .map((item) => item.source))];
@@ -1771,15 +1772,17 @@
     panel.className = "public-search-error";
     panel.setAttribute("role", "alert");
     const heading = document.createElement("strong");
-    heading.textContent = "No pudimos consultar las fuentes";
+    heading.textContent = monthlyQuotaExhausted ? "Se agotó el cupo gratuito de LinkedIn" : "No pudimos consultar las fuentes";
     const message = document.createElement("p");
     message.textContent = error instanceof Error ? error.message : "La consulta no pudo completarse.";
     const note = document.createElement("span");
-    note.textContent = "No se reintenta automáticamente para cuidar el cupo. Un reintento manual puede usar otra búsqueda gratuita.";
+    note.textContent = monthlyQuotaExhausted
+      ? "El cupo de SerpApi se renueva cada mes. RADAR no hizo la búsqueda; podés seguir en los portales sin consumir consultas."
+      : "No se reintenta automáticamente para cuidar el cupo. Un reintento manual puede usar otra búsqueda gratuita.";
     panel.append(heading, message, note);
     const diagnostics = renderSourceDiagnostics(error && error.sourceDiagnostics);
     if (diagnostics) panel.appendChild(diagnostics);
-    const fallback = createManualSearchFallback();
+    const fallback = createManualSearchFallback(monthlyQuotaExhausted);
     if (fallback) panel.appendChild(fallback);
     if (retrySources.length) {
       const retryButton = document.createElement("button");
@@ -1792,7 +1795,7 @@
     publicSearchResults.appendChild(panel);
   }
 
-  function createManualSearchFallback() {
+  function createManualSearchFallback(monthlyQuotaExhausted = false) {
     const routes = [
       { selector: "#openGoogle", label: "Abrir Google X-Ray" },
       { selector: "#openBing", label: "Abrir Bing X-Ray" },
@@ -1804,7 +1807,9 @@
     const section = document.createElement("div");
     section.className = "public-search-fallback";
     const explanation = document.createElement("p");
-    explanation.textContent = "La búsqueda manual sigue disponible y no consume consultas de SerpApi.";
+    explanation.textContent = monthlyQuotaExhausted
+      ? "Seguí con estos buscadores mientras vuelve el cupo. La búsqueda manual no consume consultas de SerpApi."
+      : "La búsqueda manual sigue disponible y no consume consultas de SerpApi.";
     section.appendChild(explanation);
     available.forEach(({ label, source }) => {
       const link = document.createElement("a");

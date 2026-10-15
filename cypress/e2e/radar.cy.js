@@ -814,6 +814,32 @@ describe("RADAR talent search flow", () => {
     cy.get("#findProfilesBtn").should("be.enabled");
   });
 
+  it("explains how to continue when the free monthly search quota is exhausted", () => {
+    cy.intercept("POST", "/mock-search", {
+      statusCode: 429,
+      body: { error: "free_quota_exhausted" },
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get("#findProfilesBtn").click();
+    cy.get(".public-search-error").should("contain.text", "Se agotó el cupo gratuito de LinkedIn");
+    cy.get(".public-search-error").should("contain.text", "se renueva cada mes");
+    cy.get(".public-search-fallback").should("contain.text", "no consume consultas de SerpApi");
+    cy.get(".public-search-fallback a").should("contain.text", "Abrir Google X-Ray");
+    cy.get("#findProfilesBtn").should("be.enabled");
+  });
+
   it("distinguishes a source failure from a completed search with no matches", () => {
     cy.intercept("POST", "/mock-search", {
       statusCode: 502,
