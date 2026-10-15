@@ -336,6 +336,37 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchTitle").should("contain.text", "Lista de perfiles para revisar");
   });
 
+  it("explains when recognizable profile links lack enough public evidence to qualify", () => {
+    cy.intercept("POST", "/mock-search", {
+      statusCode: 200,
+      body: {
+        count: 1,
+        sourceErrors: [],
+        sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 10, profileCount: 1, code: null }],
+        results: [{ source: "linkedin", url: "https://linkedin.com/in/camila-qa", title: "Camila QA - QA Automation Engineer - LinkedIn", snippet: "Playwright · test automation", position: 1 }],
+      },
+    }).as("incompleteEvidenceSearch");
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("QA Automation Engineer{enter}");
+    cy.get('[data-field="imprescindibles"]').type("Playwright{enter}");
+    cy.get('[data-field="alcance"]').type("Barcelona{enter}");
+    cy.get("#countrySelect").select("España");
+    cy.get("#generateBtn").click();
+    cy.get("#findProfilesBtn").click();
+    cy.wait("@incompleteEvidenceSearch");
+    cy.get(".public-profile-card").should("not.exist");
+    cy.get(".public-search-no-match-context").should("contain.text", "encontró 1 enlaces").and("contain.text", "no alcanza para confirmar los requisitos y la ubicación");
+    cy.get(".public-search-diagnostics").should("contain.text", "1 enlaces de perfil reconocibles");
+  });
+
   it("updates the readiness checklist as the recruiter clarifies the profile", () => {
     cy.get("#readinessProfile").should("contain.text", "Incompleto");
     cy.get("#readinessLocation").should("contain.text", "Falta ubicación");

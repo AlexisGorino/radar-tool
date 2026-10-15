@@ -1437,7 +1437,7 @@
       empty.className = "public-search-empty";
       empty.textContent = sourceErrors && sourceErrors.length
         ? "Las fuentes respondieron sin perfiles verificables. Las que fallaron quedan pendientes."
-        : "Sin perfiles con localidad y país visibles. Revisá los criterios o la ubicación.";
+        : "No hubo señales públicas suficientes para confirmar el perfil, sus requisitos y la ubicación. Revisá los criterios o probá otra ruta.";
       publicSearchResults.appendChild(empty);
     } else {
       const summary = document.createElement("div");
@@ -1635,6 +1635,19 @@
     });
     section.append(heading, list);
     return section;
+  }
+
+  function renderNoMatchContext(diagnostics) {
+    if (!Array.isArray(diagnostics)) return null;
+    const recognizableProfiles = diagnostics.reduce((total, item) => (
+      item && item.status === "profiles_found" ? total + (Number(item.profileCount) || 0) : total
+    ), 0);
+    if (!recognizableProfiles) return null;
+
+    const note = document.createElement("p");
+    note.className = "public-search-no-match-context";
+    note.textContent = `El buscador encontró ${recognizableProfiles} enlaces que parecen perfiles, pero la información pública no alcanza para confirmar los requisitos y la ubicación. Por eso no se incluyen en la lista. Probá perfiles equivalentes o abrí las otras rutas de hunting.`;
+    return note;
   }
 
   function renderFinalNoResultQuestions() {
@@ -1844,6 +1857,8 @@
       const diagnostics = renderSourceDiagnostics(response.sourceDiagnostics);
       if (diagnostics) publicSearchResults.appendChild(diagnostics);
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
+      const noMatchContext = count ? null : renderNoMatchContext(response.sourceDiagnostics);
+      if (noMatchContext) publicSearchResults.appendChild(noMatchContext);
       const partial = response.sourceErrors.length > 0;
       const confirmedCount = publicSearchRows.filter((row) => row.locationConfirmed).length;
       const locationReviewCount = count - confirmedCount;
