@@ -277,7 +277,29 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchStatus").should("contain.text", "1 perfil").and("contain.text", "ubicación confirmada");
   });
 
-  it("lets an expert build a strict SAP Boolean directly and preserves module specialization", () => {
+  it("lets an expert build a strict SAP Boolean and sends module equivalents to the shortlist", () => {
+    cy.intercept("POST", "/mock-search", (request) => {
+      expect(request.body.location).to.equal("Argentina, Buenos Aires");
+      expect(request.body.queries.map((query) => query.source)).to.deep.equal(["linkedin"]);
+      expect(request.body.queries[0].query).to.include("Consultor SAP FI/CO").and.to.include("SAP FI/CO Consultant").and.to.include("Buenos Aires");
+      request.reply({
+        statusCode: 200,
+        body: {
+          count: 1,
+          sourceErrors: [],
+          results: [{ source: "linkedin", url: "https://linkedin.com/in/gustavo-martinez", title: "Gustavo Martínez - SAP FI/CO Consultant - LinkedIn", snippet: "SAP FI · SAP CO · Buenos Aires, Argentina", position: 1 }],
+        },
+      });
+    }).as("expertSapSearch");
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "Expert" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
     cy.get("#expertModeBtn").click();
     cy.get('[data-field="rol"]').type("Consultor SAP FI/CO{enter}");
     cy.get('[data-field="imprescindibles"]').type("SAP FI{enter}");
@@ -292,7 +314,10 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get("#out-universal").should("contain.text", "Consultor SAP FI/CO").and("contain.text", "SAP FI").and("contain.text", "Buenos Aires");
     cy.get("#linkedinTiers a").should("have.length.at.most", 3);
-    cy.get("#linkedinTiers").should("contain.text", "SAP FI/CO Consultant");
+    cy.get('#publicSearchSources input[value="linkedin"]').should("be.checked");
+    cy.get("#findProfilesBtn").should("be.enabled").click();
+    cy.wait("@expertSapSearch");
+    cy.get(".public-profile-card").should("have.length", 1).and("contain.text", "Gustavo Martínez").and("contain.text", "SAP FI");
   });
 
   it("puts the shortlist before the manual search routes", () => {
