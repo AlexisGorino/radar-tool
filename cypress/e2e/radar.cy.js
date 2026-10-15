@@ -605,7 +605,7 @@ describe("RADAR talent search flow", () => {
         statusCode: 200,
         body: {
           count: 1,
-          results: [{ source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Recruiter", snippet: "Recruiting Argentina", position: 1 }],
+          results: [{ source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Recruiter", snippet: "Recruiting · reclutamiento · Argentina", position: 1 }],
           sourceErrors: [],
           sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 10, profileCount: 1, code: null }],
         },
@@ -681,7 +681,9 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get("#findProfilesBtn").should("be.enabled").click();
     cy.get(".public-search-error").should("contain.text", "límite temporal");
-    cy.get(".public-search-error").should("contain.text", "No se inició un reintento automático");
+    cy.get(".public-search-error").should("contain.text", "No se reintenta automáticamente para cuidar el cupo");
+    cy.get(".public-search-fallback").should("contain.text", "no consume consultas de SerpApi");
+    cy.get(".public-search-fallback a").should("have.length.at.least", 2);
     cy.get("#findProfilesBtn").should("be.enabled");
   });
 
@@ -706,7 +708,8 @@ describe("RADAR talent search flow", () => {
     cy.get("#findProfilesBtn").click();
     cy.wait("@failedPublicSearch");
     cy.get(".public-search-error").should("contain.text", "tardó demasiado en responder");
-    cy.get(".public-search-error").should("contain.text", "No se inició un reintento automático");
+    cy.get(".public-search-error").should("contain.text", "No se reintenta automáticamente para cuidar el cupo");
+    cy.get(".public-search-fallback a").should("contain.text", "Abrir Google X-Ray");
     cy.get(".public-search-empty").should("not.exist");
   });
 

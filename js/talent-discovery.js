@@ -326,17 +326,45 @@
     return candidate;
   }
 
+  function profileIdentityEvidence(name, rawUrl, sourceId) {
+    if (!name) return { identityStatus: "Nombre no visible", identityAlignment: "unknown" };
+    if (sourceId === "github") return { identityStatus: "Nombre informado por GitHub", identityAlignment: "source" };
+    let slug = "";
+    try {
+      const segments = new URL(rawUrl).pathname.split("/").filter(Boolean);
+      const profileIndex = segments.findIndex((segment) => /^(?:in|pub)$/i.test(segment));
+      slug = profileIndex >= 0 ? segments[profileIndex + 1] || "" : "";
+    } catch {
+      return { identityStatus: "Nombre sugerido por el índice; validá el enlace", identityAlignment: "unknown" };
+    }
+    const normalizedSlug = normalizeText(slug).replace(/[^a-z0-9]+/g, " ").trim();
+    const compactSlug = normalizedSlug.replace(/\s+/g, "");
+    const particles = new Set(["da", "das", "de", "del", "der", "di", "dos", "du", "la", "las", "los", "van", "von", "y"]);
+    const nameTokens = normalizeText(name).replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter((token) => token.length > 1 && !particles.has(token));
+    const matchingTokens = nameTokens.filter((token) => compactSlug.includes(token));
+    if (nameTokens.length && matchingTokens.length >= Math.min(2, nameTokens.length)) {
+      return { identityStatus: "Nombre compatible con el enlace", identityAlignment: "compatible" };
+    }
+    const slugTokens = normalizedSlug.split(/\s+/).filter((token) => token.length >= 3 && !/^\d+$/.test(token));
+    if (slugTokens.length >= 2 && matchingTokens.length === 0) {
+      return { identityStatus: "Nombre y enlace por revisar", identityAlignment: "mismatch" };
+    }
+    return { identityStatus: "Nombre sugerido por el índice; validá el enlace", identityAlignment: "unknown" };
+  }
+
   function termEvidence(text, state) {
     const searchable = normalizeText(text);
     const required = cleanTerms(state.imprescindibles);
     const alternatives = cleanTerms(state.atributos);
     const role = expandRoleFamily(state.rol, state.seniority);
     const location = cleanTerms(state.alcance);
+    const domain = cleanTerms(state.dominio);
     const hits = (terms) => terms.filter((term) => searchable.includes(normalizeText(term)));
     const roleHits = hits(role);
     const requiredHits = hits(required);
     const alternativeHits = hits(alternatives);
     const locationHits = hits(location);
+    const domainHits = hits(domain);
     const specificLocation = location.length ? location[location.length - 1] : "";
     const specificLocationHit = Boolean(specificLocation && hasPhrase(searchable, specificLocation));
     const geography = geographyEvidence(text, state);
@@ -351,14 +379,14 @@
     const score = activeWeight ? Math.round((evidencePoints / activeWeight) * 100) : 0;
     const visibleSignals = [...new Set([...requiredHits, ...alternativeHits, ...roleHits, ...locationHits])];
     const locationStatus = !location.length ? "Sin filtro geográfico" : geography.confirmed ? "Localidad y país visibles" : geography.localityVisible ? "Localidad mencionada; país y residencia por confirmar" : "Ubicación sin confirmar";
-    const confidence = score >= 70 && (!location.length || geography.confirmed) ? "Señales fuertes" : score >= 40 ? "Revisar evidencia" : "Evidencia limitada";
+    const confidence = score >= 70 && (!location.length || geography.confirmed) ? "Coincidencia textual alta" : score >= 40 ? "Coincidencia textual parcial" : "Pocas señales públicas";
     const scoreBreakdown = [
       required.length ? `Imprescindibles ${requiredHits.length}/${required.length}` : "Sin imprescindibles",
       alternatives.length ? `Alternativas ${alternativeHits.length}/${alternatives.length}` : "Sin alternativas",
       role.length ? `Cargo ${roleHits.length}/${role.length}` : "Sin título obligatorio",
       location.length ? locationStatus : "Sin filtro geográfico",
     ];
-    return { score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, alternativeHits, locationHits, specificLocationHit: Boolean(specificLocationHit), localityVisible: geography.localityVisible, locationConfirmed: geography.confirmed };
+    return { score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, alternativeHits, locationHits, domainHits, specificLocationHit: Boolean(specificLocationHit), localityVisible: geography.localityVisible, locationConfirmed: geography.confirmed };
   }
 
   function normalizeResults(payload, state) {
@@ -374,16 +402,30 @@
       const title = String(item.title || "").slice(0, 240);
       const snippet = String(item.snippet || "").slice(0, 800);
       const evidence = termEvidence(`${title} ${snippet}`, state);
+      const required = cleanTerms(state.imprescindibles);
+      const alternatives = cleanTerms(state.atributos);
+      const hasProfileRelevance = evidence.roleHits.length > 0 || evidence.requiredHits.length > 0
+        || evidence.alternativeHits.length > 0 || evidence.domainHits.length > 0;
+      // The provider returns search results, not confirmed candidates. Keep
+      // the user's Boolean semantics when checking visible evidence: every
+      // mandatory item must appear, and at least one alternative must appear
+      // when there are no mandatory items.
+      if (!hasProfileRelevance) return;
+      if (required.length && evidence.requiredHits.length !== required.length) return;
+      if (!required.length && alternatives.length && !evidence.alternativeHits.length) return;
       // Keep exact city mentions for recruiter review when the snippet omits
       // the country. They remain visibly unverified and are never shareable
       // as confirmed matches. Exclude generic intent such as "open to Barcelona".
       if (!evidence.locationConfirmed && !evidence.localityVisible) return;
+      const name = parseDisplayName(title, sourceId);
+      const identity = profileIdentityEvidence(name, url, sourceId);
       normalized.push({
         source: sourceId,
         sourceLabel: SOURCES[sourceId].label,
         url,
         title: title || "Perfil público",
-        name: parseDisplayName(title, sourceId),
+        name,
+        ...identity,
         snippet,
         providerPosition: Number.isFinite(Number(item.position)) ? Number(item.position) : null,
         ...evidence,
@@ -458,5 +500,5 @@
     };
   }
 
-  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, buildGithubUserQuery, expandRoleFamily, compactRoleFamily, validateProfileUrl, parseDisplayName, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
+  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, buildGithubUserQuery, expandRoleFamily, compactRoleFamily, validateProfileUrl, parseDisplayName, profileIdentityEvidence, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
 });

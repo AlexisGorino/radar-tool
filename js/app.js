@@ -1514,7 +1514,9 @@
         const scoreValue = document.createElement("strong");
         scoreValue.textContent = `${row.score}/100`;
         const scoreLabel = document.createElement("small");
-        scoreLabel.textContent = row.confidence;
+        scoreLabel.textContent = row.identityAlignment === "mismatch"
+          ? "Identidad por revisar"
+          : !row.locationConfirmed ? "Ubicación por revisar" : row.confidence;
         score.append(scoreValue, scoreLabel);
         const identity = document.createElement("div");
         identity.className = "public-profile-identity";
@@ -1529,7 +1531,10 @@
         const location = document.createElement("span");
         location.className = row.locationConfirmed ? "public-profile-location is-confirmed" : "public-profile-location is-unverified";
         location.textContent = row.locationStatus;
-        meta.append(source, location);
+        const identityCheck = document.createElement("span");
+        identityCheck.className = row.identityAlignment === "mismatch" ? "public-profile-identity-warning" : "public-profile-identity-check";
+        identityCheck.textContent = row.identityStatus;
+        meta.append(source, location, identityCheck);
         if (row.locationConfirmed) {
           const includeLabel = document.createElement("label");
           includeLabel.className = "public-profile-share-select";
@@ -1552,7 +1557,7 @@
         const evidence = document.createElement("p");
         evidence.className = "public-profile-evidence";
         const signalText = row.visibleSignals.length ? `Coincidencias: ${row.visibleSignals.join(" · ")}. ` : "Sin coincidencias claras. ";
-        evidence.textContent = `${signalText}Evidencia: ${row.scoreBreakdown.join(" · ")}.`;
+        evidence.textContent = `${signalText}Identidad: ${row.identityStatus}. Evidencia: ${row.scoreBreakdown.join(" · ")}.`;
         details.append(detailsSummary, evidence);
         const link = document.createElement("a");
         link.className = "public-profile-link";
@@ -1622,7 +1627,7 @@
       const label = RadarTalentDiscovery.SOURCES[item.source]?.label || item.source;
       let detail = "No hubo diagnóstico disponible.";
       if (item.status === "error") detail = errorMessages[item.code] || "No se pudo completar la consulta.";
-      else if (item.status === "profiles_found") detail = `${item.profileCount} perfiles válidos de ${item.organicCount} resultados.`;
+      else if (item.status === "profiles_found") detail = `${item.profileCount} enlaces de perfil reconocibles de ${item.organicCount} resultados; la pertinencia se revisa aparte.`;
       else if (item.status === "no_public_profiles") detail = `Hubo ${item.organicCount} resultados, pero ninguno era un perfil reconocible.`;
       else if (item.status === "no_indexed_results") detail = "Sin resultados indexados para estos términos.";
       entry.textContent = `${label}: ${detail}`;
@@ -1732,6 +1737,9 @@
 
   function renderPublicSearchError(error) {
     publicSearchResults.replaceChildren();
+    const retrySources = [...new Set((error && error.sourceDiagnostics || [])
+      .filter((item) => item && item.status === "error" && RadarTalentDiscovery.SOURCES[item.source])
+      .map((item) => item.source))];
     const panel = document.createElement("section");
     panel.className = "public-search-error";
     panel.setAttribute("role", "alert");
@@ -1740,22 +1748,48 @@
     const message = document.createElement("p");
     message.textContent = error instanceof Error ? error.message : "La consulta no pudo completarse.";
     const note = document.createElement("span");
-    note.textContent = "No se inició un reintento automático. Podés volver a probar.";
+    note.textContent = retrySources.length
+      ? "No se reintenta automáticamente para cuidar el cupo. Un reintento manual puede usar otra búsqueda gratuita."
+      : "No se inició un reintento automático. Podés volver a probar.";
     panel.append(heading, message, note);
     const diagnostics = renderSourceDiagnostics(error && error.sourceDiagnostics);
     if (diagnostics) panel.appendChild(diagnostics);
-    const retrySources = [...new Set((error && error.sourceDiagnostics || [])
-      .filter((item) => item && item.status === "error" && RadarTalentDiscovery.SOURCES[item.source])
-      .map((item) => item.source))];
+    const fallback = createManualSearchFallback();
+    if (fallback) panel.appendChild(fallback);
     if (retrySources.length) {
       const retryButton = document.createElement("button");
       retryButton.className = "btn btn-ghost btn-small public-search-retry";
       retryButton.type = "button";
-      retryButton.textContent = `Reintentar ${retrySources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(" + ")}`;
+      retryButton.textContent = `Reintentar ${retrySources.map((source) => RadarTalentDiscovery.SOURCES[source].label).join(" + ")} · puede usar cupo`;
       retryButton.addEventListener("click", () => runPublicProfileSearch(publicSearchStrategy, retrySources));
       panel.appendChild(retryButton);
     }
     publicSearchResults.appendChild(panel);
+  }
+
+  function createManualSearchFallback() {
+    const routes = [
+      { selector: "#openGoogle", label: "Abrir Google X-Ray" },
+      { selector: "#openBing", label: "Abrir Bing X-Ray" },
+      { selector: "#linkedinTiers a", label: "Buscar en LinkedIn" },
+    ];
+    const available = routes.map((route) => ({ ...route, source: document.querySelector(route.selector) }))
+      .filter((route) => route.source && /^https:\/\//i.test(route.source.getAttribute("href") || ""));
+    if (!available.length) return null;
+    const section = document.createElement("div");
+    section.className = "public-search-fallback";
+    const explanation = document.createElement("p");
+    explanation.textContent = "La búsqueda manual sigue disponible y no consume consultas de SerpApi.";
+    section.appendChild(explanation);
+    available.forEach(({ label, source }) => {
+      const link = document.createElement("a");
+      link.href = source.href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = label;
+      section.appendChild(link);
+    });
+    return section;
   }
 
   async function runPublicProfileSearch(strategy, sourceOverride) {

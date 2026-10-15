@@ -199,6 +199,16 @@ test("extracts a name only when the result title separates a plausible name from
   assert.equal(Discovery.parseDisplayName("Ana García - Portfolio", "linkedin"), "");
 });
 
+test("flags a LinkedIn title whose readable profile slug does not support the suggested name", () => {
+  const mismatched = Discovery.profileIdentityEvidence("Lucia Sanchez", "https://linkedin.com/in/ramon-garcia", "linkedin");
+  assert.equal(mismatched.identityAlignment, "mismatch");
+  assert.match(mismatched.identityStatus, /revisar/);
+  const compatible = Discovery.profileIdentityEvidence("Maria Villar Romero", "https://linkedin.com/in/mariavillar-qa", "linkedin");
+  assert.equal(compatible.identityAlignment, "compatible");
+  const opaque = Discovery.profileIdentityEvidence("Maria Villar Romero", "https://linkedin.com/in/ACoAAIdx987", "linkedin");
+  assert.equal(opaque.identityAlignment, "unknown", "opaque LinkedIn slugs remain reviewable instead of being discarded");
+});
+
 test("scores exact locality evidence separately from country-only evidence", () => {
   const countryOnly = Discovery.termEvidence("Telecom technician · España · FTTH · OTDR", canaryState);
   const exactLocality = Discovery.termEvidence("Telecom technician · Islas Canarias · FTTH · OTDR", canaryState);
@@ -247,6 +257,31 @@ test("keeps exact-city LinkedIn leads visible for review without treating them a
   assert.equal(rows[0].locationConfirmed, true);
   assert.equal(rows[1].locationConfirmed, false);
   assert.equal(rows[1].locationStatus, "Localidad mencionada; país y residencia por confirmar");
+  assert.equal(rows[1].identityAlignment, "unknown", "a custom slug without readable name evidence remains explicitly unverified");
+});
+
+test("rejects public profiles that do not show all mandatory signals", () => {
+  const state = {
+    rol: ["QA Engineer"], imprescindibles: ["Playwright"], atributos: [],
+    deseables: [], dominio: [], alcance: ["España", "Barcelona"], refinar: [], seniority: [],
+  };
+  const rows = Discovery.normalizeResults({ results: [
+    { source: "linkedin", url: "https://linkedin.com/in/only-role", title: "Ana Garcia - QA Engineer", snippet: "Barcelona, España · Cypress" },
+    { source: "linkedin", url: "https://linkedin.com/in/complete-evidence", title: "Sofia Torres - QA Automation Engineer", snippet: "Playwright · Barcelona, España" },
+  ] }, state);
+  assert.deepEqual(rows.map((row) => row.url), ["https://linkedin.com/in/complete-evidence"]);
+});
+
+test("requires at least one visible skill from an alternatives group", () => {
+  const state = {
+    rol: ["QA Engineer"], imprescindibles: [], atributos: ["TypeScript", "Cypress"],
+    deseables: [], dominio: [], alcance: ["España", "Barcelona"], refinar: [], seniority: [],
+  };
+  const rows = Discovery.normalizeResults({ results: [
+    { source: "linkedin", url: "https://linkedin.com/in/only-role", title: "Ana Garcia - QA Engineer", snippet: "Barcelona, España" },
+    { source: "linkedin", url: "https://linkedin.com/in/matching-alternative", title: "Eva Perez - QA Automation Engineer", snippet: "TypeScript · Barcelona, España" },
+  ] }, state);
+  assert.deepEqual(rows.map((row) => row.url), ["https://linkedin.com/in/matching-alternative"]);
 });
 
 test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 20", () => {
@@ -268,8 +303,8 @@ test("requires locality and country evidence, deduplicates profiles and caps the
   assert.ok(normalized.every((row) => ["linkedin", "github"].includes(row.source)));
 
   const spainSantiago = Discovery.normalizeResults({ results: [
-    { source: "linkedin", url: "https://linkedin.com/in/santiago-compostela", title: "Ana Pérez - Telecom - LinkedIn", snippet: "Santiago de Compostela, España" },
-  ] }, { alcance: ["España", "Santiago de Compostela"] });
+    { source: "linkedin", url: "https://linkedin.com/in/santiago-compostela", title: "Ana Pérez - Telecom Technician - LinkedIn", snippet: "FTTH · Santiago de Compostela, España" },
+  ] }, { rol: ["Telecom Technician"], imprescindibles: ["FTTH"], atributos: [], dominio: [], alcance: ["España", "Santiago de Compostela"] });
   assert.deepEqual(spainSantiago.map((row) => row.url), ["https://linkedin.com/in/santiago-compostela"]);
   const argentinaAbbreviation = Discovery.normalizeResults({ results: [
     { source: "github", url: "https://github.com/biancarosa", title: "Bianca Rosa - GitHub", snippet: "Buenos Aires, AR · Lenguaje de repositorios: Python" },
