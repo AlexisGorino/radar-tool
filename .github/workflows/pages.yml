@@ -43,3 +43,7 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify deployed page and assets
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: node tests/pages-smoke.mjs "$PAGES_URL"

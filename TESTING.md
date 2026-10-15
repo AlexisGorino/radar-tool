@@ -1,7 +1,8 @@
 # Testing
 
-Dos capas: automatizada (lógica pura, corre en cada cambio) y manual
-(flujo completo en navegador, antes de cada deploy).
+La suite automática corre en cada cambio. Las pruebas de proveedor real son
+manuales y controladas: no se lanzan en CI para evitar gastar cuota o depender
+de respuestas variables de terceros.
 
 ## Automatizada
 
@@ -31,6 +32,8 @@ Cypress en cada push y pull request.
 
 ## Shortlist pública (LinkedIn + GitHub)
 
+- El Worker acepta LinkedIn, GitHub o ambas fuentes y devuelve hasta 20 enlaces
+  públicos en total; no garantiza completar ese máximo.
 - LinkedIn consulta Google/SerpApi y consume una búsqueda del plan.
 - GitHub usa su API REST de búsqueda de personas, sin consumir búsquedas de
   SerpApi. Se activa cuando los criterios incluyen un lenguaje de programación
@@ -48,6 +51,31 @@ Cypress en cada push y pull request.
   permite conservar resultados parciales de LinkedIn.
 - `npm run test:discovery` valida el armado de la consulta, el filtro de país y
   localidad, límites de resultados, respuestas parciales y errores del Worker.
+
+## Evaluación controlada de resultados reales
+
+Las pruebas automatizadas simulan las respuestas de proveedores; no miden si
+los perfiles que devuelve un buscador en vivo son realmente buenos. Para una
+revisión real, ejecutar manualmente una búsqueda por caso y registrar solo
+conteos y señales, nunca nombres, URLs ni datos personales de candidatos:
+
+| Caso | Perfil de prueba | Ubicación que debe conservarse |
+| --- | --- | --- |
+| QA Automation | QA con Playwright | Barcelona, España |
+| Gestión de proyectos junior | Jefe/a de Proyecto Junior | Santiago de Compostela, España |
+| ERP | Analista funcional SAP FI/CO | Madrid, España |
+| Telecomunicaciones | Técnico/a instalador/a FTTH | Islas Canarias, España |
+| No IT | Analista contable con Excel | Buenos Aires, Argentina |
+| CRM | Consultor/a Salesforce | Ciudad de México, México |
+
+Para cada lote, clasificar hasta los primeros 10 resultados: perfil reconocible,
+señal del rol, requisito imprescindible visible, localidad exacta y país
+confirmado. Calcular `perfiles relevantes / perfiles revisados` y
+`perfiles con ubicación exacta / perfiles revisados`; anotar errores por fuente
+y la consulta usada. Si el perfil o la ubicación no se pueden confirmar con la
+información pública, marcarlo como no verificado, no como coincidencia. Repetir
+por fuente y conservar solo las métricas agregadas. Cada búsqueda de LinkedIn
+puede consumir una consulta de SerpApi; GitHub usa su límite de API.
 
 La búsqueda de LinkedIn sigue dependiendo de Google/SerpApi y de la
 indexación pública. Una cuenta o perfil no indexado puede no aparecer; las

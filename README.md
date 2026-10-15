@@ -42,22 +42,19 @@ operativa antes de habilitarse en GitHub Pages.
   directamente no aparece.
 - **LinkedIn con tres rutas claras**: propone como máximo tres búsquedas y
   explica cuándo usar el cargo o buscar solo por habilidades.
-- **Redes soportadas**: LinkedIn (búsqueda nativa + X-Ray), GitHub (búsqueda
-  nativa de personas o repos), Stack Overflow, Xing, Behance, búsqueda de
-  CVs sueltos (PDF/Word en toda la web) y cualquier sitio custom. Todas
-  probadas en vivo contra Google, con perfiles reales de desarrollo, SAP,
-  ciberseguridad, telecomunicaciones, RRHH y diseño en distintos países (ver
-  `TESTING.md`) — Indeed CVs, X/Twitter y Wellfound se sacaron del listado
-  porque, probados de verdad, no traían candidatos reales.
+- **Consultas para distintas fuentes**: genera búsquedas para LinkedIn, GitHub,
+  Stack Overflow, Xing, Behance, CVs públicos y dominios personalizados. Son
+  consultas que se abren en cada portal; no significan que RADAR consulte esos
+  sitios ni que siempre encuentre perfiles.
 - **Rutas sugeridas**: prioriza LinkedIn para búsquedas generales, GitHub para
   perfiles técnicos, Behance para diseño y Xing para mercados DACH. Son puntos
   de partida; cada red conserva sus filtros y límites propios. Los portales que
   publican ofertas, pero no perfiles, no sirven como fuente de candidatos por X-Ray.
-- **Shortlist de perfiles públicos**: al configurar el Worker, consulta hasta
-  cuatro fuentes públicas indexadas y presenta hasta 50 perfiles con enlace,
-  fragmento visible, señales coincidentes y ubicación confirmada/parcial/no
-  confirmada. El resultado no prueba disponibilidad ni garantiza encaje; RADAR
-  no conserva la lista. Ver configuración, cuotas y límites en `backend/README.md`.
+- **Listado público**: con el Worker configurado, consulta LinkedIn mediante
+  resultados indexados y GitHub mediante su API pública. Devuelve hasta 20
+  perfiles para revisar; puede devolver menos o ninguno. La ubicación y las
+  señales se validan con información pública visible, no prueban disponibilidad
+  ni garantizan encaje. Ver cuotas y límites en `backend/README.md`.
 - **Ampliación segura**: quita el sector cuando se necesitan más resultados y
   conserva la ubicación elegida para no abrir accidentalmente una búsqueda
   regional a todo un país.

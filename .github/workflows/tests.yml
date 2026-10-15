@@ -31,6 +31,7 @@ jobs:
       - run: node tests/docx.js
       - run: node tests/outcome.js
       - run: npm run test:discovery
+      - run: node tests/docs-contract.js
 
   browser-e2e:
     runs-on: ubuntu-24.04
