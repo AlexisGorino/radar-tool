@@ -155,6 +155,41 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("recovers the Gemini JD analysis with a fallback model after two 503 responses", () => {
+    const jd = "Buscamos analista contable con experiencia en conciliaciones bancarias en Buenos Aires, Argentina.";
+    const analysis = {
+      isJobPosting: true,
+      jobEvidence: "Buscamos analista contable",
+      role: { term: "analista contable", evidence: "Buscamos analista contable" },
+      roleAlternatives: ["accounting analyst"],
+      requiredSkills: [{ term: "conciliaciones bancarias", evidence: "conciliaciones bancarias" }],
+      preferredSkills: [],
+      industries: [],
+      locations: [{ country: "Argentina", locality: "Buenos Aires", evidence: "Buenos Aires, Argentina" }],
+      seniority: { term: "", evidence: "" },
+      modality: { term: "", evidence: "" },
+    };
+
+    cy.window().then((win) => win.localStorage.setItem("radar-gemini-key-v1", "AIza-e2e-test"));
+    cy.intercept("POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", {
+      statusCode: 503,
+      body: { error: { message: "Service unavailable" } },
+    }).as("primaryGemini");
+    cy.intercept("POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent", {
+      statusCode: 200,
+      body: { candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }] },
+    }).as("fallbackGemini");
+
+    cy.get("#jdInput").type(jd, { delay: 0 });
+    cy.get("#analyzeBtn").click();
+    cy.get("#aiAnalyzeJdBtn").should("be.visible").click();
+    cy.wait("@primaryGemini");
+    cy.wait("@primaryGemini");
+    cy.wait("@fallbackGemini");
+    cy.get("#jdReviewAiStatus").should("contain.text", "modelo alternativo gemini-3.6-flash");
+    cy.get("#jdReviewGrid").should("contain.text", "analista contable").and("contain.text", "conciliaciones bancarias").and("contain.text", "Buenos Aires");
+  });
+
   it("boots the search flow on the pinned Angular 21 runtime", () => {
     cy.get("radar-root").should("have.attr", "ng-version", "21.2.25");
     cy.get("#radarBootError").should("not.exist");
