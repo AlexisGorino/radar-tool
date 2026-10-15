@@ -23,7 +23,7 @@
   const GITHUB_LANGUAGES = ["TypeScript", "JavaScript", "Python", "C++", "C#", "PowerShell", "Kotlin", "Elixir", "Scala", "Ruby", "Swift", "Dart", "Rust", "Java", "PHP", "HCL", "SQL", "Shell", "Lua", "Go", "R"];
   const SEARCH_ROLE_EQUIVALENTS = [
     { match: /\b(?:talent acquisition|recruiter|recruiter it|reclutador|reclutadora|seleccionador|seleccionadora)\b/, aliases: ["Talent Acquisition Specialist", "Recruiter"] },
-    { match: /\b(?:consultor funcional sap fi\s*\/\s*co|sap fi\s*\/\s*co consultant|sap functional consultant)\b/, aliases: ["SAP FI/CO Consultant", "SAP Functional Consultant"] },
+    { match: /\b(?:(?:consultor(?:a)?|consultant)\s+(?:funcional\s+)?(?:de\s+)?sap\s+(?:fi\s*\/\s*co|fico)|sap\s+(?:fi\s*\/\s*co|fico)\s+(?:consultor(?:a)?|consultant)|sap functional consultant)\b/, aliases: ["SAP FI/CO Consultant", "SAP Functional Consultant"] },
     { match: /\b(?:consultor|consultora|consultant)\b.*\berp\b|\berp\b.*\b(?:consultor|consultora|consultant)\b/, aliases: ["ERP Consultant", "Consultor Funcional ERP"] },
     { match: /\b(?:administrador|administradora|administrator|admin)\b.*\bsalesforce\b|\bsalesforce\b.*\b(?:administrador|administradora|administrator|admin)\b/, aliases: ["Salesforce Administrator", "Salesforce Admin"] },
     { match: /\b(?:consultor|consultora|consultant)\b.*\bdynamics 365\b|\bdynamics 365\b.*\b(?:consultor|consultora|consultant)\b/, aliases: ["Dynamics 365 Consultant", "Microsoft Dynamics Consultant"] },

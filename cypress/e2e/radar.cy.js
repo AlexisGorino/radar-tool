@@ -233,6 +233,68 @@ describe("RADAR talent search flow", () => {
     cy.window().its("localStorage.radar-experience-mode-v1").should("equal", "guided");
   });
 
+  it("takes a junior recruiter from a plain-language QA brief to a relevant, location-matched shortlist", () => {
+    cy.intercept("POST", "/mock-search", (request) => {
+      expect(request.body.location).to.equal("España, Barcelona");
+      expect(request.body.queries.map((query) => query.source)).to.deep.equal(["linkedin"]);
+      expect(request.body.queries[0].query).to.include("Playwright");
+      request.reply({
+        statusCode: 200,
+        body: {
+          count: 2,
+          sourceErrors: [],
+          results: [
+            { source: "linkedin", url: "https://linkedin.com/in/lucia-perez", title: "Lucía Pérez - QA Automation Engineer - LinkedIn", snippet: "Playwright · Barcelona, España", position: 1 },
+            { source: "linkedin", url: "https://linkedin.com/in/marta-ruiz", title: "Marta Ruiz - QA Engineer - LinkedIn", snippet: "Cypress · Barcelona, España", position: 2 },
+          ],
+        },
+      });
+    }).as("juniorRecruiterSearch");
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "Junior" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get("#ideaModeBtn").click();
+    cy.get("#jdInput").type("Busco QA con Playwright en Barcelona, España.", { delay: 0 });
+    cy.get("#analyzeBtn").click();
+    cy.contains("#jdReviewQuestions", "¿Buscás QA?").should("be.visible");
+    cy.contains("#jdReviewQuestions button", "Sí, es este perfil").click();
+    cy.contains("#jdReviewQuestions button", "Sí, usar estas señales").click();
+    cy.contains("#jdReviewQuestions button", "Sí, limitar a esta ubicación").click();
+    cy.get("#applyJdBtn").should("be.enabled").click();
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="github"]').should("not.be.checked");
+    cy.get('#publicSearchSources input[value="linkedin"]').should("be.checked");
+    cy.get("#findProfilesBtn").should("be.enabled").click();
+    cy.wait("@juniorRecruiterSearch");
+    cy.get(".public-profile-card").should("have.length", 1).and("contain.text", "Lucía Pérez").and("contain.text", "Playwright");
+    cy.get(".public-profile-card").should("not.contain.text", "Marta Ruiz");
+    cy.get("#publicSearchStatus").should("contain.text", "1 perfil").and("contain.text", "ubicación confirmada");
+  });
+
+  it("lets an expert build a strict SAP Boolean directly and preserves module specialization", () => {
+    cy.get("#expertModeBtn").click();
+    cy.get('[data-field="rol"]').type("Consultor SAP FI/CO{enter}");
+    cy.get('[data-field="imprescindibles"]').type("SAP FI{enter}");
+    cy.get('[data-field="atributos"]').type("SAP CO{enter}");
+    cy.get('[data-field="atributos"]').type("S/4HANA{enter}");
+    cy.get("#advancedCriteria > summary").click();
+    cy.get('[data-field="dominio"]').type("banca{enter}");
+    cy.get("#countrySelect").select("Argentina");
+    cy.get('[data-field="alcance"]').type("Buenos Aires{enter}");
+    cy.get("#readinessProfile").should("contain.text", "Configurado");
+    cy.get("#readinessLocation").should("contain.text", "Configurada");
+    cy.get("#generateBtn").click();
+    cy.get("#out-universal").should("contain.text", "Consultor SAP FI/CO").and("contain.text", "SAP FI").and("contain.text", "Buenos Aires");
+    cy.get("#linkedinTiers a").should("have.length.at.most", 3);
+    cy.get("#linkedinTiers").should("contain.text", "SAP FI/CO Consultant");
+  });
+
   it("puts the shortlist before the manual search routes", () => {
     cy.get('[data-field="rol"]').type("QA{enter}");
     cy.get('[data-field="atributos"]').type("Playwright{enter}");

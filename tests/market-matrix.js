@@ -24,6 +24,7 @@ const cases = [
   { name: "legal / compliance · España", jd: "Buscamos Abogado Laboral con experiencia en Compliance para Madrid, España.", role: "Abogado Laboral", skill: "Compliance", country: "España", place: "Madrid" },
   { name: "customer support · Irlanda", jd: "Hiring Customer Support Specialist with English and Zendesk, based in Dublin, Ireland.", role: "Customer Support Specialist", skill: "Zendesk", country: "Irlanda", place: "Dublín" },
   { name: "consultoría SAP FI/CO · Argentina", jd: "Buscamos Consultor Funcional SAP FI/CO con experiencia en SAP FI, SAP CO y S/4HANA para Buenos Aires, Argentina.", role: "Consultor Funcional SAP FI/CO", skill: "SAP FI", country: "Argentina", place: "Buenos Aires" },
+  { name: "consultor SAP FI/CO sin etiqueta formal · Argentina", jd: "Consultor SAP FI/CO con S/4HANA para cierre contable en Buenos Aires, Argentina.", role: "Consultor SAP FI/CO", skill: "SAP FI", country: "Argentina", place: "Buenos Aires" },
   { name: "consultoría ERP · España", jd: "Se busca Consultor ERP con experiencia en implementación de Oracle Fusion y NetSuite para Valencia, España.", role: "Consultor ERP", skill: "Oracle Fusion", country: "España", place: "Valencia" },
   { name: "Salesforce CRM · México", jd: "Buscamos Administrador Salesforce Service Cloud con gestión de casos y experiencia en CRM para Guadalajara, México.", role: "Administrador Salesforce Service Cloud", skill: "Salesforce Service Cloud", country: "México", place: "Guadalajara" },
   { name: "Dynamics 365 CRM · Colombia", jd: "Hiring a Dynamics 365 CRM Consultant with Power BI experience in Bogotá, Colombia.", role: "Dynamics 365 CRM Consultant", skill: "Dynamics 365", country: "Colombia", place: "Bogotá" },
@@ -86,6 +87,7 @@ assert.ok(recruiterPlan.skippedSources.includes("github"), "explicar por qué Gi
 
 const equivalenceCases = [
   { jd: "Buscamos Consultor Funcional SAP FI/CO para Buenos Aires, Argentina.", expected: "SAP FI/CO Consultant", locality: "Buenos Aires" },
+  { jd: "Consultor SAP FI/CO con S/4HANA para cierre contable en Buenos Aires, Argentina.", expected: "SAP FI/CO Consultant", locality: "Buenos Aires" },
   { jd: "Buscamos Administrador Salesforce Service Cloud para Madrid, España.", expected: "Salesforce Administrator", locality: "Madrid" },
   { jd: "Se busca Consultor Dynamics 365 CRM para Bogotá, Colombia.", expected: "Dynamics 365 Consultant", locality: "Bogotá" },
   { jd: "Buscamos Talent Acquisition Specialist con ATS para Lima, Perú.", expected: "Recruiter", locality: "Lima" },

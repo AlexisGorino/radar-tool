@@ -437,6 +437,18 @@
       const candidate = trimRolPhrase(specializedTelecomTitle[1]);
       if (candidate && !isBareNonRole(candidate)) return [candidate];
     }
+    // SAP recruiters often omit “funcional” and write the module beside a
+    // generic noun (“Consultor SAP FI/CO…”). The title-shaped fallback used
+    // to keep only “Consultor”, losing the specialization from role queries.
+    const sapModule = "(?:FI\\s*[/]\\s*CO|FICO|FI|CO|MM|SD|HCM|HR|PP|QM|WM|EWM|PM|PS|BTP|BASIS|ABAP|SUCCESSFACTORS|ARIBA|CONCUR|IBP|TM)";
+    const sapSpecialistTitle = prefix.match(new RegExp(
+      "^((?:(?:consultor(?:a)?|consultant|especialista|analista)\\s+(?:(?:funcional)\\s+)?(?:de\\s+)?SAP\\s+" + sapModule +
+      "|SAP\\s+" + sapModule + "\\s+(?:consultor(?:a)?|consultant|specialist)))", "i"
+    ));
+    if (sapSpecialistTitle) {
+      const candidate = trimRolPhrase(sapSpecialistTitle[1]);
+      if (candidate && !isBareNonRole(candidate)) return [candidate];
+    }
     const headMatch = prefix.match(titleHeadRe);
     if (headMatch) {
       const candidate = trimRolPhrase(headMatch[1]);
