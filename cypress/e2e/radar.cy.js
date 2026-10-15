@@ -61,7 +61,7 @@ describe("RADAR talent search flow", () => {
   it("turns an informal search idea into editable criteria and clarifies an ambiguous sector", () => {
     cy.get("#ideaModeBtn").click();
     cy.get("#jdInput").should("have.attr", "aria-label", "Idea de búsqueda escrita con tus palabras");
-    cy.get("#intakeModeHint").should("contain.text", "Pegala o adjuntá un archivo.");
+    cy.get("#intakeModeHint").should("contain.text", "Describilo con tus palabras.");
     cy.get("#jdInput").type("Un desarrollador con experiencia en sector travel manejando Amadeus para Buenos Aires, Argentina.", { delay: 0 });
     cy.get("#analyzeBtn").click();
 
@@ -201,7 +201,7 @@ describe("RADAR talent search flow", () => {
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
     cy.get('label[for="roleInput"]').should("contain.text", "Cargo o familia");
     cy.get('label[for="signalsInput"]').should("contain.text", "Conocimientos o tareas");
-    cy.get('label[for="requiredInput"]').should("contain.text", "requisitos son obligatorios");
+    cy.get('label[for="requiredInput"]').should("contain.text", "Obligatorios · deben coincidir todos");
     cy.contains(".field-desc", "Alternativas: alcanza con que coincida una").should("be.visible");
     cy.get(".required-help").should("contain.text", "todos deben cumplirse");
     cy.get("#generateBtn").should("contain.text", "Ver búsquedas");
