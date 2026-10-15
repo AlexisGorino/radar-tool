@@ -468,6 +468,46 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("shows city-only LinkedIn leads for review without presenting interest as residence", () => {
+    cy.intercept("POST", "/mock-search", {
+      statusCode: 200,
+      body: {
+        count: 3,
+        sourceErrors: [],
+        results: [
+          { source: "linkedin", url: "https://linkedin.com/in/barcelona-qa", title: "Lucia Sanchez - QA Automation Engineer", snippet: "Playwright · TypeScript · Barcelona", position: 1 },
+          { source: "linkedin", url: "https://linkedin.com/in/open-to-barcelona", title: "Kseniya Cherasheva - Senior QA Engineer", snippet: "Playwright · Open to Barcelona", position: 2 },
+          { source: "linkedin", url: "https://linkedin.com/in/verified-barcelona", title: "Maria Villar Romero - QA Engineer", snippet: "Playwright · Barcelona, Cataluña, España", position: 3 },
+        ],
+      },
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("QA Engineer{enter}");
+    cy.get('[data-field="atributos"]').type("Playwright{enter}");
+    cy.get('[data-field="alcance"]').type("España{enter}");
+    cy.get('[data-field="alcance"]').type("Barcelona{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get(".public-profile-card").should("have.length", 2);
+    cy.get(".public-search-location-review").should("contain.text", "no confirma el país");
+    cy.get(".public-profile-card").should("contain.text", "Localidad mencionada; país y residencia por confirmar");
+    cy.get(".public-profile-card").should("not.contain.text", "Kseniya Cherasheva");
+    cy.get(".public-profile-share-checkbox").should("have.length", 1);
+    cy.get(".public-profile-card").contains("Lucia Sanchez").parents(".public-profile-card")
+      .should("contain.text", "Localidad mencionada; país y residencia por confirmar");
+    cy.get(".public-profile-card").contains("Maria Villar Romero").parents(".public-profile-card")
+      .should("contain.text", "Localidad y país visibles");
+  });
+
   it("suggests a deliberate broader search after no results and keeps hard requirements and locality", () => {
     const sentQueries = [];
     cy.intercept("POST", "/mock-search", (request) => {

@@ -489,6 +489,7 @@ select:focus-visible {
 .public-search-results-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 14px; margin: 18px 0 10px; }
 .public-search-results-heading strong { color: #292927; font-size: 16px; }
 .public-search-results-heading span { color: #686862; font-size: 12px; }
+.public-search-location-review { margin: 10px 0; padding: 10px 12px; border-left: 3px solid #c99b35; border-radius: 4px; background: #fbf8ef; color: #5c512f; font-size: 12px; line-height: 1.5; }
 .public-profile-share-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 12px; border: 1px solid #e0e5ed; border-radius: 8px; background: #f8f9fb; }
 .public-profile-select-all, .public-profile-share-select { display: inline-flex; align-items: center; gap: 6px; color: #49566a; font-size: 11px; font-weight: 700; }
 .public-profile-select-all input, .public-profile-share-select input { accent-color: var(--red); }

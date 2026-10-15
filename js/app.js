@@ -1421,7 +1421,9 @@
 
   function renderPublicProfileResults(rows, sourceErrors, locationContext) {
     publicSearchResults.replaceChildren();
-    publicShareRows = new Map(rows.map((row) => [row.url, row]));
+    const confirmedRows = rows.filter((row) => row.locationConfirmed);
+    const reviewLocationRows = rows.filter((row) => !row.locationConfirmed);
+    publicShareRows = new Map(confirmedRows.map((row) => [row.url, row]));
     if (locationContext) {
       const geography = document.createElement("p");
       geography.className = "public-search-geography";
@@ -1445,9 +1447,15 @@
         ? "1 perfil público para revisar"
         : `${rows.length} perfiles públicos para revisar`;
       const summaryNote = document.createElement("span");
-      summaryNote.textContent = "Orden por coincidencias visibles. Confirmá ubicación y experiencia en la fuente.";
+      summaryNote.textContent = `${confirmedRows.length} con ciudad y país visibles · ${reviewLocationRows.length} con ciudad visible y país por confirmar.`;
       summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
+      if (reviewLocationRows.length) {
+        const reviewNote = document.createElement("p");
+        reviewNote.className = "public-search-location-review";
+        reviewNote.textContent = "Estos perfiles mencionan la localidad, pero el resultado público no confirma el país o la residencia actual. Revisalos en LinkedIn antes de contarlos como coincidencias.";
+        publicSearchResults.appendChild(reviewNote);
+      }
       const shareTools = document.createElement("div");
       shareTools.className = "public-profile-share-tools";
       shareTools.setAttribute("aria-label", "Compartir perfiles seleccionados");
@@ -1456,7 +1464,10 @@
       const selectAll = document.createElement("input");
       selectAll.id = "publicShareSelectAll";
       selectAll.type = "checkbox";
-      selectAllLabel.append(selectAll, document.createTextNode(`Seleccionar los ${rows.length} perfiles`));
+      selectAll.disabled = confirmedRows.length === 0;
+      selectAllLabel.append(selectAll, document.createTextNode(confirmedRows.length
+        ? `Seleccionar los ${confirmedRows.length} con ubicación confirmada`
+        : "Sin ubicación confirmada para compartir"));
       const selectedCount = document.createElement("span");
       selectedCount.id = "publicShareSelectionCount";
       selectedCount.setAttribute("aria-live", "polite");
@@ -1476,7 +1487,9 @@
       const shareHint = document.createElement("span");
       shareHint.id = "publicShareHint";
       shareHint.className = "public-profile-share-hint";
-      shareHint.textContent = "Elegí perfiles. Revisá el borrador antes de enviarlo; WhatsApp admite hasta 8.";
+      shareHint.textContent = confirmedRows.length
+        ? "Solo se pueden compartir perfiles con localidad y país visibles. Revisá el borrador antes de enviarlo."
+        : "Confirmá localidad y país en la fuente antes de preparar un mensaje.";
       shareTools.append(selectAllLabel, selectedCount, emailButton, whatsappButton, shareHint);
       publicSearchResults.appendChild(shareTools);
       const list = document.createElement("ol");
@@ -1516,15 +1529,18 @@
         const location = document.createElement("span");
         location.className = row.locationConfirmed ? "public-profile-location is-confirmed" : "public-profile-location is-unverified";
         location.textContent = row.locationStatus;
-        const includeLabel = document.createElement("label");
-        includeLabel.className = "public-profile-share-select";
-        const includeInput = document.createElement("input");
-        includeInput.type = "checkbox";
-        includeInput.className = "public-profile-share-checkbox";
-        includeInput.value = row.url;
-        includeInput.setAttribute("aria-label", `Incluir ${row.name || row.title} al mensaje`);
-        includeLabel.append(includeInput, document.createTextNode("Compartir"));
-        meta.append(source, location, includeLabel);
+        meta.append(source, location);
+        if (row.locationConfirmed) {
+          const includeLabel = document.createElement("label");
+          includeLabel.className = "public-profile-share-select";
+          const includeInput = document.createElement("input");
+          includeInput.type = "checkbox";
+          includeInput.className = "public-profile-share-checkbox";
+          includeInput.value = row.url;
+          includeInput.setAttribute("aria-label", `Incluir ${row.name || row.title} al mensaje`);
+          includeLabel.append(includeInput, document.createTextNode("Compartir"));
+          meta.appendChild(includeLabel);
+        }
 
         const snippet = document.createElement("p");
         snippet.className = "public-profile-snippet";
@@ -1679,7 +1695,7 @@
     const whatsapp = toolbar.querySelector("#shareProfilesWhatsappBtn");
     const hint = toolbar.querySelector("#publicShareHint");
     count.textContent = `${selected.length} seleccionados`;
-    all.checked = selected.length === publicShareRows.size;
+    all.checked = publicShareRows.size > 0 && selected.length === publicShareRows.size;
     all.indeterminate = selected.length > 0 && selected.length < publicShareRows.size;
     email.disabled = selected.length === 0 || emailUrl.length > MAX_SHARE_URL_LENGTH;
     whatsapp.disabled = selected.length === 0 || selected.length > MAX_WHATSAPP_SHARE_PROFILES || whatsappUrl.length > MAX_SHARE_URL_LENGTH;
@@ -1687,6 +1703,10 @@
       hint.textContent = "WhatsApp admite hasta 8 perfiles por mensaje.";
     } else if (emailUrl.length > MAX_SHARE_URL_LENGTH) {
       hint.textContent = "El correo es demasiado largo. Reducí la selección; WhatsApp admite hasta 8.";
+    } else if (publicShareRows.size === 0) {
+      hint.textContent = "Confirmá localidad y país en la fuente antes de preparar un mensaje.";
+    } else if (publicSearchRows.some((row) => !row.locationConfirmed)) {
+      hint.textContent = "Solo se comparten perfiles con localidad y país visibles. Revisá el borrador antes de enviarlo.";
     } else {
       hint.textContent = "Elegí perfiles y revisá el borrador antes de enviarlo.";
     }
@@ -1793,8 +1813,10 @@
       if (diagnostics) publicSearchResults.appendChild(diagnostics);
       const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
       const partial = response.sourceErrors.length > 0;
+      const confirmedCount = publicSearchRows.filter((row) => row.locationConfirmed).length;
+      const locationReviewCount = count - confirmedCount;
       publicSearchStatus.textContent = count
-        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} ${count === 1 ? "perfil" : "perfiles"}. Revisá los datos en la fuente.`
+        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} ${count === 1 ? "perfil" : "perfiles"}; ${confirmedCount} con ubicación confirmada y ${locationReviewCount} para revisar.`
         : partial
           ? "Respuesta parcial: no hubo perfiles verificables y algunas fuentes fallaron."
           : "Búsqueda completada: sin perfiles verificables.";

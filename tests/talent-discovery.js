@@ -204,10 +204,11 @@ test("scores exact locality evidence separately from country-only evidence", () 
   const exactLocality = Discovery.termEvidence("Telecom technician · Islas Canarias · FTTH · OTDR", canaryState);
   assert.match(countryOnly.locationStatus, /Ubicación sin confirmar/);
   assert.equal(countryOnly.specificLocationHit, false);
-  assert.match(exactLocality.locationStatus, /Ubicación sin confirmar/);
+  assert.match(exactLocality.locationStatus, /país.*residencia por confirmar/);
   assert.equal(exactLocality.specificLocationHit, true);
   assert.equal(countryOnly.locationConfirmed, false);
   assert.equal(exactLocality.locationConfirmed, false, "a locality without its country does not pass");
+  assert.equal(exactLocality.localityVisible, true, "an exact locality can be shown separately for recruiter review");
   const exactPlaceAndCountry = Discovery.termEvidence("Telecom technician · Islas Canarias · España · FTTH · OTDR", canaryState);
   assert.equal(exactPlaceAndCountry.locationConfirmed, true);
   assert.ok(exactPlaceAndCountry.score > countryOnly.score);
@@ -224,6 +225,28 @@ test("scores exact locality evidence separately from country-only evidence", () 
     alcance: ["Argentina", "Buenos Aires"],
   });
   assert.equal(countryOnlyCode.confirmed, false, "a country code alone must not satisfy the locality requirement");
+  assert.equal(Discovery.geographyEvidence("QA Engineer · Open to Barcelona", { alcance: ["España", "Barcelona"] }).localityVisible, false,
+    "interest in a location must not be presented as residence evidence");
+});
+
+test("keeps exact-city LinkedIn leads visible for review without treating them as country-verified", () => {
+  const state = {
+    rol: ["QA Engineer"], imprescindibles: [], atributos: ["Playwright", "TypeScript"],
+    deseables: [], dominio: [], alcance: ["España", "Barcelona"], refinar: [], seniority: [],
+  };
+  const rows = Discovery.normalizeResults({ results: [
+    { source: "linkedin", url: "https://linkedin.com/in/barcelona-qa", title: "Lucia Sanchez - QA Automation Engineer", snippet: "Playwright · TypeScript · Barcelona" },
+    { source: "linkedin", url: "https://linkedin.com/in/open-to-barcelona", title: "Kseniya Cherasheva - Senior QA Engineer", snippet: "Playwright · Open to Barcelona" },
+    { source: "linkedin", url: "https://linkedin.com/in/spain-only", title: "Aida Alvarez - QA Engineer", snippet: "Playwright · España" },
+    { source: "linkedin", url: "https://linkedin.com/in/verified-barcelona", title: "Maria Villar Romero - QA Engineer", snippet: "Playwright · Barcelona, Cataluña, España" },
+  ] }, state);
+  assert.deepEqual(rows.map((row) => row.url), [
+    "https://linkedin.com/in/verified-barcelona",
+    "https://linkedin.com/in/barcelona-qa",
+  ]);
+  assert.equal(rows[0].locationConfirmed, true);
+  assert.equal(rows[1].locationConfirmed, false);
+  assert.equal(rows[1].locationStatus, "Localidad mencionada; país y residencia por confirmar");
 });
 
 test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 20", () => {

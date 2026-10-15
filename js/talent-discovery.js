@@ -197,6 +197,20 @@
     return Boolean(wanted.trim()) && normalized.includes(wanted);
   }
 
+  function hasResidenceEvidence(text, locality) {
+    const normalized = normalizeText(text);
+    const wanted = normalizeText(locality);
+    if (!wanted) return false;
+    let index = normalized.indexOf(wanted);
+    while (index >= 0) {
+      const preceding = normalized.slice(Math.max(0, index - 64), index);
+      // A stated interest in a city is not evidence of residence there.
+      if (!/(?:open to|willing to relocate to|relocating to|abierto a|dispuesto a trasladarme a|busco oportunidades en|interesado en)\s*$/.test(preceding)) return true;
+      index = normalized.indexOf(wanted, index + wanted.length);
+    }
+    return false;
+  }
+
   function geographyEvidence(text, state) {
     const places = cleanTerms(state.alcance);
     if (!places.length) return { confirmed: true, missing: [] };
@@ -206,6 +220,9 @@
     const localityPlaces = places.filter((place) => !countryTerms.has(normalizeText(place)));
     const required = localityPlaces.length ? [...localityPlaces, ...countryPlaces] : countryPlaces.length ? countryPlaces : [places[places.length - 1]];
     const countryCodes = countries && countries.COUNTRY_CODES || {};
+    const localityVisible = localityPlaces.length
+      ? localityPlaces.some((place) => hasResidenceEvidence(text, place))
+      : true;
     const missing = required.filter((place) => {
       if (countryPlaces.includes(place)) {
         const canonicalCountry = Object.keys(countryNames).find((country) =>
@@ -217,10 +234,10 @@
           .some((code) => hasPhrase(text, code));
         return !nameMatch && !codeMatch;
       }
-      return !hasPhrase(text, place);
+      return !hasResidenceEvidence(text, place);
     });
     if (localityPlaces.length && !countryPlaces.length) missing.push("país");
-    return { confirmed: missing.length === 0, missing: [...new Set(missing)] };
+    return { confirmed: missing.length === 0, localityVisible, missing: [...new Set(missing)] };
   }
 
   function locationScopeError(state) {
@@ -312,7 +329,7 @@
     const evidencePoints = 45 * mandatoryCoverage + 25 * Math.min(1, attributeCoverage) + 15 * roleCoverage + 15 * locationCoverage;
     const score = activeWeight ? Math.round((evidencePoints / activeWeight) * 100) : 0;
     const visibleSignals = [...new Set([...requiredHits, ...alternativeHits, ...roleHits, ...locationHits])];
-    const locationStatus = !location.length ? "Sin filtro geográfico" : geography.confirmed ? "Ubicación solicitada visible" : "Ubicación sin confirmar: " + geography.missing.join(", ");
+    const locationStatus = !location.length ? "Sin filtro geográfico" : geography.confirmed ? "Localidad y país visibles" : geography.localityVisible ? "Localidad mencionada; país y residencia por confirmar" : "Ubicación sin confirmar";
     const confidence = score >= 70 && (!location.length || geography.confirmed) ? "Señales fuertes" : score >= 40 ? "Revisar evidencia" : "Evidencia limitada";
     const scoreBreakdown = [
       required.length ? `Imprescindibles ${requiredHits.length}/${required.length}` : "Sin imprescindibles",
@@ -320,7 +337,7 @@
       role.length ? `Cargo ${roleHits.length}/${role.length}` : "Sin título obligatorio",
       location.length ? locationStatus : "Sin filtro geográfico",
     ];
-    return { score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, alternativeHits, locationHits, specificLocationHit: Boolean(specificLocationHit), locationConfirmed: geography.confirmed };
+    return { score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, alternativeHits, locationHits, specificLocationHit: Boolean(specificLocationHit), localityVisible: geography.localityVisible, locationConfirmed: geography.confirmed };
   }
 
   function normalizeResults(payload, state) {
@@ -336,7 +353,10 @@
       const title = String(item.title || "").slice(0, 240);
       const snippet = String(item.snippet || "").slice(0, 800);
       const evidence = termEvidence(`${title} ${snippet}`, state);
-      if (!evidence.locationConfirmed) return;
+      // Keep exact city mentions for recruiter review when the snippet omits
+      // the country. They remain visibly unverified and are never shareable
+      // as confirmed matches. Exclude generic intent such as "open to Barcelona".
+      if (!evidence.locationConfirmed && !evidence.localityVisible) return;
       normalized.push({
         source: sourceId,
         sourceLabel: SOURCES[sourceId].label,
