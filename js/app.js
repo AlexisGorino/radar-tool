@@ -1039,7 +1039,9 @@
       aiResult.fileCountrySuggestion = !aiResult.country && currentFileName ? RadarCountries.detectCountry(currentFileName) : null;
       pendingAnalysis = aiResult;
       renderJdReview(aiResult);
-      jdReviewAiStatus.textContent = "Análisis actualizado. Verificá cada dato antes de aplicarlo.";
+        jdReviewAiStatus.textContent = aiResult.modelUsed && aiResult.modelUsed !== "gemini-3.8-flash"
+          ? "Gemini respondió con el modelo alternativo " + aiResult.modelUsed + ". Verificá cada dato antes de aplicarlo."
+          : "Análisis actualizado con Gemini. Verificá cada dato antes de aplicarlo.";
     } catch (err) {
       jdReviewAiStatus.classList.add("hint-error");
       jdReviewAiStatus.textContent = err.message || "No se pudo analizar el texto con Gemini.";

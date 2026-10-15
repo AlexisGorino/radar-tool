@@ -48,6 +48,14 @@ test("buildPrompt no rompe sin JD", () => {
   assert.ok(!prompt.includes("JD:"));
 });
 
+test("buildPrompt admite perfiles tech y no tech y pide no inventar competencias", () => {
+  const prompt = AI.buildPrompt("Analista contable", "Conciliaciones bancarias y cierre mensual.");
+  assert.match(prompt, /cualquier familia profesional/i);
+  assert.match(prompt, /finanzas/i);
+  assert.match(prompt, /No inventes requisitos/i);
+  assert.doesNotMatch(prompt, /exclusivamente.*IT/i);
+});
+
 test("parseSuggestions lee roles y atributos de una respuesta válida", () => {
   const data = {
     candidates: [
@@ -188,7 +196,7 @@ test("Gemini reintenta una sola vez tras un 503 y devuelve el análisis", async 
   };
   try {
     const result = await AI.analyzeJD(jd);
-    assert.strictEqual(calls, 2);
+    assert.strictEqual(calls, 2, "retry primary once after the first 503");
     assert.strictEqual(result.isJobPosting, true);
     assert.deepStrictEqual(result.rol, ["QA Analyst"]);
   } finally {
@@ -207,7 +215,74 @@ test("Gemini comunica claramente cuando el segundo intento también devuelve 503
   };
   try {
     await assert.rejects(AI.testConnection(), /temporalmente saturado \(503\).*hizo un reintento/);
-    assert.strictEqual(calls, 2);
+    assert.strictEqual(calls, 4, "retry primary once, then try both fallback models");
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
+test("Gemini cambia al modelo alternativo si el principal sigue en 503", async () => {
+  const jd = "Buscamos analista contable con experiencia en conciliaciones bancarias en Buenos Aires, Argentina.";
+  const analysis = {
+    isJobPosting: true,
+    jobEvidence: "Buscamos analista contable",
+    role: { term: "analista contable", evidence: "Buscamos analista contable" },
+    roleAlternatives: ["accounting analyst"],
+    requiredSkills: [{ term: "conciliaciones bancarias", evidence: "conciliaciones bancarias" }],
+    preferredSkills: [], industries: [],
+    locations: [{ country: "Argentina", locality: "Buenos Aires", evidence: "Buenos Aires, Argentina" }],
+    seniority: { term: "", evidence: "" }, modality: { term: "", evidence: "" },
+  };
+  global.localStorage = { getItem: () => "AIza-test-secret" };
+  const previousFetch = global.fetch;
+  const urls = [];
+  global.fetch = async (url) => {
+    urls.push(String(url));
+    if (String(url).includes("gemini-3.8-flash")) {
+      return { ok: false, status: 503, json: async () => ({ error: { message: "Service unavailable" } }) };
+    }
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }] }) };
+  };
+  try {
+    const result = await AI.analyzeJD(jd);
+    assert.strictEqual(urls.length, 3, "primary gets one retry before fallback");
+    assert.ok(urls[2].includes("gemini-3.6-flash"), `expected first fallback, got ${urls[2]}`);
+    assert.strictEqual(result.modelUsed, "gemini-3.6-flash");
+    assert.deepStrictEqual(result.rol, ["analista contable"]);
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
+test("Gemini pasa al siguiente modelo alternativo tras un 429 por modelo", async () => {
+  global.localStorage = { getItem: () => "AIza-test-secret" };
+  const previousFetch = global.fetch;
+  const urls = [];
+  global.fetch = async (url) => {
+    urls.push(String(url));
+    if (String(url).includes("gemini-3.8-flash") || String(url).includes("gemini-3.6-flash")) {
+      return { ok: false, status: 429, json: async () => ({ error: { message: "Quota exceeded" } }) };
+    }
+    return { ok: true, json: async () => ({ name: "models/gemini-3.5-flash-lite" }) };
+  };
+  try {
+    assert.strictEqual(await AI.testConnection(), true);
+    assert.strictEqual(urls.length, 3);
+    assert.ok(urls[2].includes("gemini-3.5-flash-lite"));
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
+test("Gemini indica cuando agotó los modelos de respaldo", async () => {
+  global.localStorage = { getItem: () => "AIza-test-secret" };
+  const previousFetch = global.fetch;
+  global.fetch = async () => ({ ok: false, status: 503, json: async () => ({ error: { message: "Service unavailable" } }) });
+  try {
+    await assert.rejects(AI.testConnection(), /modelos alternativos configurados/);
   } finally {
     global.fetch = previousFetch;
     delete global.localStorage;
