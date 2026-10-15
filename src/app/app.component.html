@@ -27,33 +27,33 @@
 <main class="wrap">
 
   <section class="welcome" aria-labelledby="welcomeTitle">
-    <p class="welcome-kicker">RADAR · BÚSQUEDA DE TALENTO</p>
-    <h2 id="welcomeTitle">Encontrá perfiles con una búsqueda clara.</h2>
-    <p class="welcome-copy guided-only">Empezá con una JD o contalo con tus palabras. Revisamos juntos el perfil antes de buscar.</p>
-    <p class="welcome-copy expert-only">Definí los criterios y prepará rutas para encontrar perfiles en distintas fuentes.</p>
+    <p class="welcome-kicker">BÚSQUEDA DE TALENTO</p>
+    <h2 id="welcomeTitle">Encontrá el perfil que necesitás.</h2>
+    <p class="welcome-copy guided-only">Pegá una JD o describí el perfil. Revisá los criterios antes de buscar.</p>
+    <p class="welcome-copy expert-only">Ajustá los criterios y elegí dónde buscar.</p>
     <div class="experience-switch" role="group" aria-label="Elegí cómo querés trabajar">
       <button class="experience-option is-active" id="guidedModeBtn" type="button" data-experience-mode="guided" aria-pressed="true">
-        <span class="experience-option-title">Guiame paso a paso</span>
-        <span class="experience-option-copy">Para empezar o validar una búsqueda</span>
+        <span class="experience-option-title">Guiado</span>
+        <span class="experience-option-copy">Revisamos cada paso</span>
       </button>
       <button class="experience-option" id="expertModeBtn" type="button" data-experience-mode="expert" aria-pressed="false">
-        <span class="experience-option-title">Ir directo a los filtros</span>
-        <span class="experience-option-copy">Para ajustar criterios y Boolean</span>
+        <span class="experience-option-title">Modo experto</span>
+        <span class="experience-option-copy">Editá los filtros directo</span>
       </button>
     </div>
-    <p class="experience-status" id="experienceModeHint" role="status" aria-live="polite">1. Describí el perfil · 2. Confirmá ubicación y requisitos · 3. Elegí dónde buscar</p>
+    <p class="experience-status" id="experienceModeHint" role="status" aria-live="polite">1. Describí · 2. Revisá · 3. Buscá</p>
   </section>
 
   <section class="card">
-    <h2>1 · Contanos a quién buscás</h2>
-    <p class="hint guided-only">No necesitás saber de Boolean. Pegá una JD o describí el perfil en una frase.</p>
-    <p class="hint expert-only">Pegá la JD para extraer señales o completá los filtros directamente.</p>
+    <h2>1 · ¿A quién buscás?</h2>
+    <p class="hint guided-only">Pegá una JD o contanos el perfil con tus palabras.</p>
+    <p class="hint expert-only">Analizá una JD o completá los filtros directamente.</p>
 
     <div class="intake-modes" role="group" aria-label="Qué vas a cargar">
-      <button class="intake-mode is-active" id="descriptionModeBtn" type="button" aria-pressed="true">Tengo una descripción</button>
-      <button class="intake-mode" id="ideaModeBtn" type="button" aria-pressed="false">Quiero explicar a quién busco</button>
+      <button class="intake-mode is-active" id="descriptionModeBtn" type="button" aria-pressed="true">Pegar una JD</button>
+      <button class="intake-mode" id="ideaModeBtn" type="button" aria-pressed="false">Describir un perfil</button>
     </div>
-    <p class="intake-mode-hint" id="intakeModeHint">Pegala o adjuntala. RADAR separará los datos para que los revises.</p>
+    <p class="intake-mode-hint" id="intakeModeHint">Pegala o adjuntá un archivo.</p>
 
     <div id="dropzone" class="dropzone">
       <label class="input-caption" id="intakeCaption" for="jdInput">Descripción del puesto <span>Opcional</span></label>
@@ -61,7 +61,7 @@
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <div class="row-actions">
-      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar y revisar</button>
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Revisar perfil</button>
       <label class="file-label">
         <span class="file-label-title">Adjuntar archivo</span>
         <span class="file-label-hint">PDF, DOCX o TXT</span>
@@ -89,15 +89,14 @@
   </section>
 
   <section class="card">
-    <h2>2 · Confirmá a quién y dónde buscar</h2>
-    <p class="hint guided-only">RADAR propone los datos; vos confirmás cargo, habilidades y ubicación. Podés editar todo.</p>
-    <p class="hint expert-only">Ajustá cargo, señales y ubicación. Los requisitos obligatorios se aplican con más fuerza.</p>
-    <p class="field-entry-help"><kbd>Enter</kbd> agrega cada término. Después podés editarlo o quitarlo.</p>
+    <h2>2 · Revisá el perfil y la ubicación</h2>
+    <p class="hint guided-only">Corregí lo que haga falta. Enter agrega cada criterio.</p>
+    <p class="hint expert-only">Enter agrega cada criterio. Marcá como obligatorio solo lo excluyente.</p>
 
     <div class="radar-grid">
       <div class="field">
-        <label class="field-label" for="roleInput">Cargo o familia de puestos</label>
-        <div class="field-desc">Opcional si buscás por requisitos</div>
+        <label class="field-label" for="roleInput">Cargo o familia</label>
+        <div class="field-desc">Podés buscar solo por conocimientos</div>
         <div class="chips" id="chips-rol"></div>
         <input id="roleInput" type="text" class="field-input" data-field="rol" placeholder="Ej.: Técnico/a de redes" maxlength="80">
         <div class="synonyms-row hidden" id="synonymsRow">
@@ -111,13 +110,13 @@
       </div>
       <div class="field field-alt">
         <label class="field-label" for="signalsInput">Conocimientos o tareas</label>
-        <div class="field-desc">Alternativas: alcanza con que coincida una.</div>
+        <div class="field-desc">Sumá tareas o tecnologías relacionadas</div>
         <div class="chips" id="chips-atributos"></div>
         <input id="signalsInput" type="text" class="field-input" data-field="atributos" placeholder="Ej.: instalación FTTH" maxlength="80">
-        <label class="priority-subhead" for="requiredInput">¿Qué requisitos son obligatorios?</label>
+        <label class="priority-subhead" for="requiredInput">Obligatorios · deben coincidir todos</label>
         <div class="chips" id="chips-imprescindibles"></div>
         <input id="requiredInput" type="text" class="field-input" data-field="imprescindibles" placeholder="Solo lo que debe cumplir sí o sí" maxlength="80">
-        <div class="field-desc required-help">Imprescindibles: todos deben cumplirse. Dejá acá solo los excluyentes.</div>
+        <div class="field-desc required-help">Dejá acá solo lo excluyente</div>
         <div class="synonyms-row hidden" id="aiAtributosRow">
           <span class="synonyms-label">+ sugeridos por IA:</span>
           <div class="synonyms-list" id="aiAtributosList"></div>
@@ -125,7 +124,7 @@
       </div>
       <div class="field field-alt">
         <div class="field-label">Ubicación</div>
-        <div class="field-desc">Elegí país y localidad para evitar confusiones entre ciudades con el mismo nombre.</div>
+        <div class="field-desc">Elegí país y localidad exactos</div>
         <div class="alcance-country-row">
           <select id="countrySelect" aria-label="País">
             <option value="">País...</option>
@@ -136,7 +135,7 @@
         <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Buscar sin restricción geográfica</label>
       </div>
       <details class="advanced-options" id="advancedCriteria">
-        <summary>Más filtros <span>Puntos extra, sector y exclusiones (opcionales)</span></summary>
+        <summary>Más filtros <span>Sector, puntos extra y exclusiones</span></summary>
         <div class="radar-grid advanced-grid">
           <div class="field">
             <label class="field-label" for="desirableInput">Puntos extra</label>
@@ -166,10 +165,7 @@
   </section>
 
   <section class="readiness-panel" id="searchReadiness" aria-labelledby="searchReadinessTitle" aria-live="polite">
-    <div class="readiness-heading">
-      <h2 id="searchReadinessTitle">Antes de buscar</h2>
-      <p>Confirmá que el perfil y el lugar sean correctos.</p>
-    </div>
+    <div class="readiness-heading"><h2 id="searchReadinessTitle">Estado</h2></div>
     <ul class="readiness-list">
       <li class="readiness-item" id="readinessProfile" data-state="pending">
         <span class="readiness-marker" aria-hidden="true"></span>
@@ -191,10 +187,10 @@
 
   <div class="generate-row">
     <div class="generate-copy">
-      <span>3 · Elegí cómo encontrar perfiles</span>
-      <p>Prepará una lista pública y consultas para abrir en otros portales.</p>
+      <span>3 · Encontrá perfiles</span>
+      <p>Lista pública o búsquedas en otros portales.</p>
     </div>
-    <button class="btn btn-primary" id="generateBtn" type="button">Ver opciones de búsqueda</button>
+    <button class="btn btn-primary" id="generateBtn" type="button">Ver búsquedas</button>
   </div>
 
   <section class="results" id="results">
@@ -204,13 +200,12 @@
         <div><span class="public-search-kicker">PRIMERA OPCIÓN</span><h2 id="publicSearchTitle">Lista de perfiles para revisar</h2></div>
         <span class="public-search-cap">Hasta 20 · LinkedIn + GitHub</span>
       </div>
-      <p class="hint">Revisá perfiles públicos de LinkedIn y GitHub que coincidan con el puesto y la localidad.</p>
-      <p class="hint">Usamos el cargo y hasta dos señales. Dejá como imprescindible solo lo excluyente.</p>
+      <p class="hint">Hasta 20 perfiles públicos que coincidan con el cargo y la localidad.</p>
       <details class="public-search-explainer">
-        <summary>Cómo se arma la lista</summary>
-        <p>LinkedIn se busca primero en Google. Si aparecen menos de tres perfiles con ciudad y país visibles, RADAR prueba Brave cuando está configurado. GitHub se consulta por su API pública.</p>
-        <p>La lista muestra hasta 20 enlaces; puede traer menos. Revisá cada perfil antes de contactarlo. Las consultas usan cargo, señales y ubicación, no la JD completa.</p>
-        <p>SerpApi tiene un cupo mensual limitado. Brave también aplica límites y puede tener costo al agotarse el crédito; mantené el tope de gasto en USD 0. GitHub limita las consultas por hora.</p>
+        <summary>Fuentes y límites</summary>
+        <p>LinkedIn usa resultados públicos indexados; GitHub consulta perfiles técnicos públicos.</p>
+        <p>Puede haber menos de 20. Confirmá ubicación y experiencia en cada perfil antes de contactar.</p>
+        <p>LinkedIn consume el cupo mensual de SerpApi. Brave solo se usa si está configurado; mantené el límite de gasto en USD 0. GitHub tiene un límite por hora.</p>
         <p><a href="https://serpapi.com/pricing" target="_blank" rel="noopener noreferrer">Límites de SerpApi</a> · <a href="https://api-dashboard.search.brave.com/documentation/pricing" target="_blank" rel="noopener noreferrer">Límites de Brave</a></p>
       </details>
       <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
@@ -225,23 +220,23 @@
         <div><strong id="publicSearchRefineTitle"></strong><p id="publicSearchRefineText"></p></div>
         <button class="btn btn-dark" id="broadenPublicSearchBtn" type="button">Probar perfiles equivalentes</button>
       </div>
-      <p class="platform-note">El puntaje compara texto público; no mide idoneidad. Lo que no aparece queda sin verificar.</p>
+      <p class="platform-note">La lista ordena señales públicas; lo que no aparece queda sin verificar.</p>
     </section>
 
     <div class="result-hero" id="resultHero">
-      <div class="result-hero-label">OTRA RUTA · BÚSQUEDA MANUAL</div>
-      <h2 class="result-hero-title">Abrí una búsqueda en el portal que uses</h2>
-      <p class="result-hero-intro">Usá la lista de arriba como punto de partida. Si querés explorar más, copiá la consulta o abrila en Google, Bing o LinkedIn.</p>
+      <div class="result-hero-label">OTRA OPCIÓN</div>
+      <h2 class="result-hero-title">Buscá en otros portales</h2>
+      <p class="result-hero-intro">Copiá la consulta o abrila en Google, Bing, LinkedIn y otras fuentes.</p>
       <div class="boolean-box boolean-box-lg" id="out-universal">—</div>
       <p class="platform-note platform-note-warn hidden" id="generatorWarning"></p>
       <p class="platform-note strategy-note" id="strategyNote" aria-live="polite"></p>
-      <p class="platform-note">AND pide todos los términos; OR acepta cualquiera; NOT excluye. Las comillas buscan una frase exacta.</p>
+      <p class="platform-note">AND exige · OR acepta cualquiera · NOT excluye.</p>
       <button class="btn btn-copy" data-copy="out-universal" type="button">Copiar</button>
       <label class="relaxed-toggle">
         <input type="checkbox" id="relaxedModeCheckbox">
         Ampliar búsqueda
       </label>
-      <p class="platform-note">Amplía sin quitar cargo ni ubicación. Usalo si aparecen pocos perfiles.</p>
+      <p class="platform-note">Amplía sin quitar cargo ni ubicación.</p>
     </div>
 
     <section class="card network-options-card hidden" id="networkOptionsCard">

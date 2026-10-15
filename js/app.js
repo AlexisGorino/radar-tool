@@ -133,8 +133,8 @@
       ? "Ej.: Busco un perfil de desarrollo con experiencia en travel y manejo de Amadeus. No sé si es obligatorio."
       : "Ej.: Técnico/a de redes con experiencia en FTTH, para trabajar en Valencia, España...";
     intakeModeHint.textContent = ideaMode
-      ? "Escribí como te salga. RADAR separa cargo, sector y conocimientos, y te pregunta lo importante."
-      : "Pegala o adjuntala. RADAR separará los datos para que los revises.";
+      ? "Describilo con tus palabras."
+      : "Pegala o adjuntá un archivo.";
   }
 
   function setExperienceMode(mode, persist = true) {
@@ -147,8 +147,8 @@
       button.setAttribute("aria-pressed", String(selected));
     });
     experienceModeHint.textContent = expertMode
-      ? "Modo directo: editá los campos principales; abrí ‘Más filtros’ solo si necesitás ampliar el perfil."
-      : "1. Describí el perfil · 2. Confirmá ubicación y requisitos · 3. Elegí dónde buscar";
+      ? "Filtros directos · más opciones abajo."
+      : "1. Describí · 2. Revisá · 3. Buscá";
 
     if (persist) {
       try {

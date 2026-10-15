@@ -199,12 +199,12 @@ describe("RADAR talent search flow", () => {
   it("keeps optional filters and extra portals out of the first view", () => {
     cy.get("#welcomeTitle").should("contain.text", "búsqueda clara");
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
-    cy.get('label[for="roleInput"]').should("contain.text", "Cargo o familia de puestos");
+    cy.get('label[for="roleInput"]').should("contain.text", "Cargo o familia");
     cy.get('label[for="signalsInput"]').should("contain.text", "Conocimientos o tareas");
     cy.get('label[for="requiredInput"]').should("contain.text", "requisitos son obligatorios");
     cy.contains(".field-desc", "Alternativas: alcanza con que coincida una").should("be.visible");
     cy.get(".required-help").should("contain.text", "todos deben cumplirse");
-    cy.get("#generateBtn").should("contain.text", "Ver opciones de búsqueda");
+    cy.get("#generateBtn").should("contain.text", "Ver búsquedas");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get('[data-field="deseables"]').should("not.be.visible");
     cy.get('[data-field="refinar"]').should("not.be.visible");
