@@ -120,7 +120,7 @@ describe("RADAR talent search flow", () => {
     ].join("\n"), { delay: 0 });
     cy.get("#analyzeBtn").click();
     cy.get("#jdReview").should("be.visible");
-    cy.get("#jdReviewGrid .jd-review-role-input").should("have.value", "especialista en activos digitales");
+    cy.get("#jdReviewGrid .jd-review-role-input").should("have.value", "Especialista en activos digitales");
     ["Criptoactivos", "Stablecoins", "CBDCs", "RWA", "MiCA", "Tokenización", "Madrid", "España"].forEach((term) => {
       cy.get("#jdReviewGrid").should("contain.text", term);
     });
