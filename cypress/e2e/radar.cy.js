@@ -202,7 +202,7 @@ describe("RADAR talent search flow", () => {
     cy.get('label[for="roleInput"]').should("contain.text", "Cargo o familia");
     cy.get('label[for="signalsInput"]').should("contain.text", "Conocimientos o tareas");
     cy.get('label[for="requiredInput"]').should("contain.text", "Obligatorios · deben coincidir todos");
-    cy.contains(".field-desc", "Alternativas: alcanza con que coincida una").should("be.visible");
+    cy.contains(".field-desc", "Sumá tareas o tecnologías relacionadas").should("be.visible");
     cy.get(".required-help").should("contain.text", "todos deben cumplirse");
     cy.get("#generateBtn").should("contain.text", "Ver búsquedas");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
