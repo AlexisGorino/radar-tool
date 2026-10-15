@@ -187,9 +187,7 @@
       const response = await fetch(endpoint, { method: "GET", headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" });
       const payload = await response.json();
       if (payload.ready) {
-        publicSearchStatus.textContent = payload.braveConfigured
-          ? "Conexión lista; hay una clave de respaldo configurada. La prueba no consumió búsquedas."
-          : "Conexión lista; la prueba no consumió búsquedas.";
+        publicSearchStatus.textContent = `Conexión lista; una búsqueda exhaustiva usa hasta ${Number(payload.searchesPerLinkedin) || 3} consultas de Google. La prueba no consumió búsquedas.`;
         return;
       }
       const messages = {
@@ -1652,10 +1650,11 @@
       else if (item.status === "no_public_profiles") detail = `Hubo ${item.organicCount} resultados, pero ninguno era un perfil reconocible.`;
       else if (item.status === "no_indexed_results") detail = "Sin resultados indexados para estos términos.";
       const engines = Array.isArray(item.engines) && item.engines.length ? ` · ${item.engines.join(" + ")}` : "";
+      const queriesRun = Number(item.queriesRun) > 1 ? ` · ${item.queriesRun} consultas` : "";
       const providerErrors = Array.isArray(item.providerErrors) ? item.providerErrors
         .map((error) => `${error.provider} ${providerErrorMessages[error.code] || "tuvo un problema"}`) : [];
       const providerNote = providerErrors.length ? ` (${providerErrors.join("; ")})` : "";
-      entry.textContent = `${label}${engines}: ${detail}${providerNote}`;
+      entry.textContent = `${label}${engines}${queriesRun}: ${detail}${providerNote}`;
       list.appendChild(entry);
     });
     section.append(heading, list);
@@ -1868,7 +1867,7 @@
       : "";
     const sourceNames = plan.queries.map((query) => query.label).join(" + ");
     const linkedinQuotaNote = plan.queries.some((query) => query.source === "linkedin")
-      ? " LinkedIn puede usar 1 búsqueda SerpApi; una repetición idéntica puede salir de caché."
+      ? ` LinkedIn puede usar hasta ${plan.queries.find((query) => query.source === "linkedin").variants?.length || 1} consultas del cupo gratuito.`
       : " GitHub usa su límite gratuito por hora, sin consumir SerpApi.";
     publicSearchStatus.textContent = sourceOverride
       ? `Reintentando ${plan.searchSummary || "perfil y ubicación"} en ${sourceNames}.${linkedinQuotaNote}`

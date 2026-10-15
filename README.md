@@ -51,8 +51,10 @@ operativa antes de habilitarse en GitHub Pages.
   de partida; cada red conserva sus filtros y límites propios. Los portales que
   publican ofertas, pero no perfiles, no sirven como fuente de candidatos por X-Ray.
 - **Listado público**: con el Worker configurado, consulta LinkedIn mediante
-  resultados indexados y GitHub mediante su API pública. Devuelve hasta 20
-  perfiles para revisar; puede devolver menos o ninguno. La ubicación y las
+  hasta tres consultas de Google con enfoques distintos y GitHub mediante su
+  API pública. Devuelve hasta 20 perfiles para revisar; puede devolver menos o
+  ninguno. Comprueba que haya cupo gratuito para las tres consultas antes de
+  iniciar. La ubicación y las
   señales se validan con información pública visible, no prueban disponibilidad
   ni garantizan encaje. Ver cuotas y límites en `backend/README.md`.
 - **Ampliación segura**: quita el sector cuando se necesitan más resultados y

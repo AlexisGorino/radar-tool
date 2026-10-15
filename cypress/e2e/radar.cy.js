@@ -329,6 +329,10 @@ describe("RADAR talent search flow", () => {
       expect(request.body.location).to.equal("España, Barcelona");
       expect(request.body.queries.map((query) => query.source)).to.deep.equal(["linkedin"]);
       expect(request.body.queries[0].query).to.include("Playwright");
+      expect(request.body.queries[0].variants.length).to.be.within(2, 3);
+      request.body.queries[0].variants.forEach((query) => {
+        expect(query).to.include("site:linkedin.com/in").and.to.include("Playwright").and.to.include("Barcelona");
+      });
       request.reply({
         statusCode: 200,
         body: {

@@ -178,6 +178,20 @@
         return { source: id, query, label: source.label, profileEvidence };
       }
       const query = generator.buildPublicLinkedinQuery(queryState, strategy);
+      if (id === "linkedin" && query && query.length <= MAX_QUERY_LENGTH) {
+        // Search the same strict brief from three angles: role-led, skills-led,
+        // and skills-led without sector. All variants retain the precise scope
+        // and every mandatory criterion; broadening never means dropping them.
+        const variants = [query];
+        for (const variantStrategy of ["equivalent", "market"]) {
+          const variantState = variantStrategy === "market"
+            ? { ...state, rol: [], dominio: [] }
+            : { ...state, rol: compactRoleFamily(state.rol, state.seniority) };
+          const candidate = generator.buildPublicLinkedinQuery(variantState, variantStrategy);
+          if (candidate && candidate.length <= MAX_QUERY_LENGTH && !variants.includes(candidate)) variants.push(candidate);
+        }
+        return { source: id, query, variants, label: source.label };
+      }
       const usable = query && query.length <= MAX_QUERY_LENGTH ? { query } : null;
       if (!usable) {
         skippedSources.push(id);
@@ -523,6 +537,7 @@
           status: ["error", "profiles_found", "no_public_profiles", "no_indexed_results"].includes(item.status) ? item.status : "unknown",
           organicCount: Math.max(0, Number(item.organicCount) || 0),
           profileCount: Math.max(0, Number(item.profileCount) || 0),
+          queriesRun: Math.max(0, Number(item.queriesRun) || 0),
           code: typeof item.code === "string" ? item.code : null,
           engines: Array.isArray(item.engines) ? item.engines.filter((engine) => ["Google", "Brave"].includes(engine)) : [],
           providerErrors: Array.isArray(item.providerErrors) ? item.providerErrors

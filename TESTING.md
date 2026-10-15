@@ -34,7 +34,9 @@ Cypress en cada push y pull request.
 
 - El Worker acepta LinkedIn, GitHub o ambas fuentes y devuelve hasta 20 enlaces
   públicos en total; no garantiza completar ese máximo.
-- LinkedIn consulta Google/SerpApi y consume una búsqueda del plan.
+- LinkedIn consulta hasta tres variantes de Google/SerpApi y consume hasta tres
+  búsquedas por lista. El Worker comprueba antes que el plan gratuito tenga
+  cupo para las tres; si no, no inicia ninguna.
 - GitHub usa su API REST de búsqueda de personas, sin consumir búsquedas de
   SerpApi. Se activa cuando los criterios incluyen un lenguaje de programación
   compatible; GitHub filtra por actividad de repositorios y localidad pública.
@@ -74,8 +76,8 @@ confirmado. Calcular `perfiles relevantes / perfiles revisados` y
 `perfiles con ubicación exacta / perfiles revisados`; anotar errores por fuente
 y la consulta usada. Si el perfil o la ubicación no se pueden confirmar con la
 información pública, marcarlo como no verificado, no como coincidencia. Repetir
-por fuente y conservar solo las métricas agregadas. Cada búsqueda de LinkedIn
-puede consumir una consulta de SerpApi; GitHub usa su límite de API.
+por fuente y conservar solo las métricas agregadas. Una búsqueda de LinkedIn
+puede consumir hasta tres consultas de SerpApi; GitHub usa su límite de API.
 
 La búsqueda de LinkedIn sigue dependiendo de Google/SerpApi y de la
 indexación pública. Una cuenta o perfil no indexado puede no aparecer; las

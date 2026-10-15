@@ -28,6 +28,12 @@ async function main() {
     assert.equal(validatePlan({ ...validPlan, queries: [{ source: "linkedin", query: "site:example.com test" }] }), false);
     assert.equal(validatePlan({ ...validPlan, queries: [...validPlan.queries, ...validPlan.queries] }), false);
     assert.equal(validatePlan({ ...validPlan, location: "x".repeat(181) }), false);
+    const linkedinEntry = validPlan.queries[0];
+    const exhaustiveEntry = { ...linkedinEntry, variants: [linkedinEntry.query, 'site:linkedin.com/in "Telecom specialist" FTTH Canarias', 'site:linkedin.com/in fiber optic technician Canarias'] };
+    assert.equal(validatePlan({ ...validPlan, queries: [exhaustiveEntry] }), true);
+    assert.equal(validatePlan({ ...validPlan, queries: [{ ...exhaustiveEntry, variants: [...exhaustiveEntry.variants, "site:linkedin.com/in extra Canarias"] }] }), false, "variant count is bounded to control free search credits");
+    assert.equal(validatePlan({ ...validPlan, queries: [{ ...exhaustiveEntry, variants: [linkedinEntry.query, linkedinEntry.query] }] }), false, "duplicate variants must not waste quota");
+    assert.equal(validatePlan({ ...validPlan, queries: [{ ...exhaustiveEntry, variants: [null] }] }), false, "malformed input must be rejected without throwing");
   });
 
   await test("accepts public profile URLs only on their expected hosts and paths", () => {
@@ -252,6 +258,54 @@ async function main() {
     }
   });
 
+  await test("runs three distinct Google angles for LinkedIn only when all three fit the free quota", async () => {
+    const previousFetch = globalThis.fetch;
+    const seenQueries = [];
+    let searchesLeft = 250;
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) {
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: searchesLeft, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      if (url.hostname === "api.search.brave.com") throw new Error("Brave must not be queried");
+      seenQueries.push(url.searchParams.get("q"));
+      return new Response(JSON.stringify({ organic_results: [{
+        title: `QA Engineer ${seenQueries.length} · Barcelona, Spain`,
+        link: `https://linkedin.com/in/qa-barcelona-${seenQueries.length}`,
+        snippet: "Playwright automation",
+      }] }), { status: 200 });
+    };
+    const baseEntry = validPlan.queries[0];
+    const linkedinPlan = {
+      ...validPlan, location: "España, Barcelona",
+      queries: [{ ...baseEntry, variants: [baseEntry.query, 'site:linkedin.com/in "QA Automation" Playwright Barcelona', 'site:linkedin.com/in Playwright Barcelona'] }],
+    };
+    try {
+      const send = (plan) => Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(plan),
+      }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret", BRAVE_SEARCH_API_KEY: "brave-secret", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+      const response = await send(linkedinPlan);
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(seenQueries.length, 3);
+      assert.equal(new Set(seenQueries).size, 3);
+      assert.equal(payload.results.length, 3);
+      assert.equal(payload.sourceDiagnostics[0].queriesRun, 3);
+      assert.equal(payload.sourceDiagnostics[0].profileCount, 3);
+      assert.doesNotMatch(JSON.stringify(payload), /server-secret|brave-secret/);
+
+      searchesLeft = 2;
+      seenQueries.length = 0;
+      const exhausted = await send(linkedinPlan);
+      assert.equal(exhausted.status, 502);
+      assert.equal(seenQueries.length, 0, "do not start a partial or billable search when free quota cannot cover all variants");
+      assert.equal((await exhausted.json()).error, "sources_unavailable");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   await test("fails closed without a rate-limit binding or provider secret", async () => {
     const linkedinOnlyPlan = { ...validPlan, queries: validPlan.queries.filter((entry) => entry.source === "linkedin") };
     const base = new Request("https://radar-search.example/api/search", {
@@ -380,7 +434,7 @@ async function main() {
         SEARCH_LIMITER: { limit: async () => ({ success: true }) },
       });
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false, braveConfigured: false });
+      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false, searchesPerLinkedin: 3 });
       assert.deepEqual(requestedPaths, ["/account.json"]);
       assert.equal(response.headers.get("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
     } finally {
@@ -388,7 +442,7 @@ async function main() {
     }
   });
 
-  await test("accepts a configured Brave-only fallback without checking or spending SerpApi searches", async () => {
+  await test("does not enable Brave when only its key is configured", async () => {
     const previousFetch = globalThis.fetch;
     let called = false;
     try {
@@ -399,15 +453,15 @@ async function main() {
         ALLOWED_ORIGIN: "https://alexisgorino.github.io", BRAVE_SEARCH_API_KEY: "brave-secret",
         SEARCH_LIMITER: { limit: async () => ({ success: true }) },
       });
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false, braveConfigured: true });
+      assert.equal(response.status, 503);
+      assert.deepEqual(await response.json(), { ready: false, error: "not_configured", usesSearchCredit: false, searchesPerLinkedin: 3 });
       assert.equal(called, false);
     } finally {
       globalThis.fetch = previousFetch;
     }
   });
 
-  await test("uses Brave as a bounded LinkedIn fallback when Google lacks exact-location profiles", async () => {
+  await test("keeps LinkedIn discovery on the free Google quota even if an unused Brave key exists", async () => {
     const previousFetch = globalThis.fetch;
     const braveHeaders = [];
     const braveUrls = [];
@@ -443,14 +497,9 @@ async function main() {
       });
       const payload = await response.json();
       assert.equal(response.status, 200);
-      assert.deepEqual(payload.results.map((item) => item.url), ["https://linkedin.com/in/qa-spain", "https://linkedin.com/in/qa-barcelona"]);
-      assert.deepEqual(payload.sourceDiagnostics[0].engines, ["Google", "Brave"]);
-      assert.equal(payload.sourceDiagnostics[0].profileCount, 2, "diagnostic keeps valid links from both engines; returned list uses the exact location signal");
-      assert.equal(braveHeaders.length, 1);
-      assert.equal(braveHeaders[0].get("X-Subscription-Token"), "brave-secret");
-      assert.equal(braveUrls[0].searchParams.get("country"), "ES");
-      assert.equal(braveUrls[0].searchParams.get("extra_snippets"), "true");
-      assert.equal(braveUrls[0].searchParams.get("count"), "20");
+      assert.deepEqual(payload.results.map((item) => item.url), ["https://linkedin.com/in/qa-spain"]);
+      assert.equal(payload.sourceDiagnostics[0].profileCount, 1);
+      assert.equal(braveHeaders.length, 0, "the configured Brave key must never trigger a possibly billable request");
       assert.doesNotMatch(JSON.stringify(payload), /brave-secret|server-secret/);
     } finally {
       globalThis.fetch = previousFetch;

@@ -9,11 +9,11 @@ const PUBLIC_SOURCE_IDS = new Set(["linkedin", "github"]);
 const MAX_SOURCES = PUBLIC_SOURCE_IDS.size;
 const MAX_RESULTS = 20;
 const MAX_QUERY_LENGTH = 900;
+const MAX_LINKEDIN_VARIANTS = 3;
 const MAX_BODY_BYTES = 12_000;
 const MAX_GITHUB_PROFILES = 10;
 const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;
 const SEARCH_TIMEOUT_MS = 30_000;
-const BRAVE_TIMEOUT_MS = 15_000;
 const GITHUB_TIMEOUT_MS = 8_000;
 const COUNTRY_CODE_CACHE = new Map();
 const PROVIDER_ERROR_CODES = new Set([
@@ -73,7 +73,17 @@ function validatePlan(body) {
     if (!entry || !PUBLIC_SOURCE_IDS.has(entry.source) || typeof entry.query !== "string") return false;
     const query = entry.query.trim();
     if (query.length < 5 || query.length > MAX_QUERY_LENGTH) return false;
-    if (entry.source === "linkedin" && !query.toLowerCase().includes("site:linkedin.com/in")) return false;
+    if (entry.source === "linkedin") {
+      const variants = entry.variants === undefined ? [query] : entry.variants;
+      if (!Array.isArray(variants) || variants.length < 1 || variants.length > MAX_LINKEDIN_VARIANTS
+        || typeof variants[0] !== "string" || variants[0].trim() !== query) return false;
+      const seenVariants = new Set();
+      for (const variant of variants) {
+        if (typeof variant !== "string" || variant.trim().length < 5 || variant.trim().length > MAX_QUERY_LENGTH
+          || !variant.toLowerCase().includes("site:linkedin.com/in") || seenVariants.has(variant.trim())) return false;
+        seenVariants.add(variant.trim());
+      }
+    }
     if (entry.source === "github") {
       const location = query.match(/\blocation:"([^"\r\n]{1,100})"/i);
       if (!location || normalizeLocation(location[1]) !== normalizeLocation(requested.locality)
@@ -290,80 +300,35 @@ function profileHasExactLocation(result, rawLocation) {
   return hasAnyPhrase(localityNames) && hasAnyPhrase(countryNames);
 }
 
-async function lookupBrave(query, source, rawLocation, apiKey) {
-  const requested = requestedLocationParts(rawLocation);
-  const url = new URL("https://api.search.brave.com/res/v1/web/search");
-  url.searchParams.set("q", query);
-  url.searchParams.set("count", "20");
-  url.searchParams.set("extra_snippets", "true");
-  if (requested.countryCode) url.searchParams.set("country", requested.countryCode);
-  const response = await fetch(url.toString(), {
-    headers: { Accept: "application/json", "Accept-Encoding": "gzip", "X-Subscription-Token": apiKey },
-    signal: AbortSignal.timeout(BRAVE_TIMEOUT_MS),
-  });
-  if (response.status === 401 || response.status === 403) throw new Error("provider_credentials_rejected");
-  if (response.status === 429 || response.status === 402) throw new Error("provider_rate_limited");
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("provider_unavailable");
-  }
-  if (!response.ok) throw new Error("provider_unavailable");
-  const webResults = data && data.web && Array.isArray(data.web.results) ? data.web.results : [];
-  const results = webResults.map((item, index) => safeResult({
-    link: item.url,
-    title: item.title,
-    snippet: [item.description, ...(Array.isArray(item.extra_snippets) ? item.extra_snippets : [])].filter(Boolean).join(" · ").slice(0, 800),
-    position: index + 1,
-  }, source)).filter(Boolean);
-  return { results: results.slice(0, MAX_RESULTS), organicCount: webResults.length, profileCount: results.length };
-}
-
-async function lookupLinkedIn(query, location, rawLocation, googleKey, braveKey, googleAllowed) {
-  let googleResult = null;
-  let googleError = null;
+async function lookupLinkedIn(queries, location, googleKey, googleAllowed) {
+  const variants = Array.isArray(queries) ? queries : [queries];
+  const outcomes = googleAllowed && googleKey
+    ? await Promise.all(variants.map(async (query) => {
+      try { return { result: await lookup(query, location, "linkedin", googleKey) }; }
+      catch (error) { return { error }; }
+    }))
+    : [];
   const providerErrors = [];
-  if (googleAllowed && googleKey) {
-    try {
-      googleResult = await lookup(query, location, "linkedin", googleKey);
-    } catch (error) {
-      googleError = error;
-      providerErrors.push({ provider: "Google", code: safeProviderErrorCode(error) });
-    }
-  }
-
-  const confirmedLocationCount = googleResult
-    ? googleResult.results.filter((item) => profileHasExactLocation(item, rawLocation)).length
-    : 0;
-  const shouldExpand = Boolean(braveKey) && (!googleResult || confirmedLocationCount < 3);
-  let braveResult = null;
-  if (shouldExpand) {
-    try {
-      braveResult = await lookupBrave(query, "linkedin", rawLocation, braveKey);
-    } catch (error) {
-      providerErrors.push({ provider: "Brave", code: safeProviderErrorCode(error) });
-    }
-  }
+  outcomes.filter((outcome) => outcome.error).forEach(({ error }) => {
+    providerErrors.push({ provider: "Google", code: safeProviderErrorCode(error) });
+  });
+  const googleResults = outcomes.map((outcome) => outcome.result).filter(Boolean);
 
   const resultsByUrl = new Map();
-  for (const item of [...(googleResult?.results || []), ...(braveResult?.results || [])]) {
+  for (const item of googleResults.flatMap((result) => result.results || [])) {
     const current = resultsByUrl.get(item.url);
     if (!current || String(item.snippet || "").length > String(current.snippet || "").length) resultsByUrl.set(item.url, item);
   }
   const results = [...resultsByUrl.values()].slice(0, MAX_RESULTS);
-  if (!googleResult && !braveResult) {
+  if (!googleResults.length) {
     const failure = providerErrors.at(-1);
-    throw new Error(failure?.code || (googleError ? safeProviderErrorCode(googleError) : "provider_unavailable"));
+    throw new Error(failure?.code || "provider_unavailable");
   }
-  const engines = [];
-  if (googleResult) engines.push("Google");
-  if (braveResult) engines.push("Brave");
   return {
     results,
-    organicCount: (googleResult?.organicCount || 0) + (braveResult?.organicCount || 0),
+    organicCount: googleResults.reduce((total, result) => total + (result.organicCount || 0), 0),
     profileCount: results.length,
-    ...(engines.length > 1 || engines[0] === "Brave" ? { engines } : {}),
+    queriesRun: googleResults.length,
     ...(providerErrors.length ? { providerErrors } : {}),
   };
 }
@@ -526,16 +491,15 @@ export default {
     if (!limit.success) return json({ error: "rate_limited" }, 429, responseOrigin, { "Retry-After": "60" });
 
     if (isHealthCheck) {
-      const braveConfigured = Boolean(env.BRAVE_SEARCH_API_KEY);
       const budget = env.SERPAPI_KEY
-        ? await freeBudgetAllows(env.SERPAPI_KEY, 1)
+        ? await freeBudgetAllows(env.SERPAPI_KEY, MAX_LINKEDIN_VARIANTS)
         : { allowed: false, reason: "not_configured" };
-      const ready = budget.allowed || braveConfigured;
+      const ready = budget.allowed;
       return json({
         ready,
         error: ready ? null : budget.reason,
         usesSearchCredit: false,
-        braveConfigured,
+        searchesPerLinkedin: MAX_LINKEDIN_VARIANTS,
       }, ready ? 200 : 503, responseOrigin);
     }
 
@@ -555,14 +519,14 @@ export default {
     let googleLinkedinAllowed = false;
     let googleBudgetError = null;
     if (linkedinQueries.length && env.SERPAPI_KEY) {
-      const budget = await freeBudgetAllows(env.SERPAPI_KEY, linkedinQueries.length);
+      const searchesNeeded = linkedinQueries.reduce((total, entry) => total + (Array.isArray(entry.variants) ? entry.variants.length : 1), 0);
+      const budget = await freeBudgetAllows(env.SERPAPI_KEY, searchesNeeded);
       googleLinkedinAllowed = budget.allowed;
       if (!budget.allowed) googleBudgetError = budget.reason;
     } else if (linkedinQueries.length) {
       googleBudgetError = "provider_credentials_rejected";
     }
-    const braveConfigured = Boolean(env.BRAVE_SEARCH_API_KEY);
-    if (linkedinQueries.length && !googleLinkedinAllowed && !braveConfigured) {
+    if (linkedinQueries.length && !googleLinkedinAllowed) {
       sourceErrorsBeforeSearch.push({ source: "linkedin", code: googleBudgetError || "provider_credentials_rejected" });
     }
 
@@ -573,7 +537,7 @@ export default {
     // Query selected sources concurrently: sequential timeouts could leave a
     // four-source search waiting up to two minutes before reporting failure.
     const activeQueries = [
-      ...(googleLinkedinAllowed || braveConfigured
+      ...(googleLinkedinAllowed
         ? linkedinQueries.map((entry) => ({ ...entry, googleAllowed: googleLinkedinAllowed }))
         : []),
       ...githubQueries,
@@ -582,7 +546,7 @@ export default {
       try {
         const result = entry.source === "github"
           ? await lookupGithubUsers(entry.query, plan.location, env.GITHUB_TOKEN, entry.profileEvidence)
-          : await lookupLinkedIn(entry.query, location, plan.location, env.SERPAPI_KEY, env.BRAVE_SEARCH_API_KEY, entry.googleAllowed);
+          : await lookupLinkedIn(entry.variants || [entry.query], location, env.SERPAPI_KEY, entry.googleAllowed);
         return { source: entry.source, ...await result };
       } catch (error) {
         return { source: entry.source, error: safeProviderErrorCode(error) };
@@ -604,7 +568,7 @@ export default {
         organicCount: Number(item.organicCount) || 0,
         profileCount: Number(item.profileCount) || 0,
         code: item.error || item.providerErrors?.[0]?.code || null,
-        ...(item.engines ? { engines: item.engines } : {}),
+        ...(item.queriesRun > 1 ? { queriesRun: item.queriesRun } : {}),
         ...(item.providerErrors ? { providerErrors: item.providerErrors } : {}),
       })),
     ];
@@ -617,4 +581,4 @@ export default {
   },
 };
 
-export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation, exactGithubLocation, lookupGithubUsers, lookupBrave, profileHasExactLocation };
+export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation, exactGithubLocation, lookupGithubUsers, profileHasExactLocation };

@@ -136,6 +136,25 @@ test("builds a short LinkedIn X-Ray query around the strongest skill instead of 
   assert.doesNotMatch(noTitle, /QA Engineer/);
 });
 
+test("creates three deduplicated LinkedIn search angles without dropping the city or mandatory criteria", () => {
+  const state = {
+    rol: ["QA Engineer"], imprescindibles: ["Playwright"], atributos: ["TypeScript", "Cypress"],
+    deseables: ["ISTQB"], dominio: ["travel"], alcance: ["España", "Barcelona"], refinar: [], seniority: [],
+  };
+  const entry = Discovery.buildPlan(state, ["linkedin"], Generator).queries[0];
+  assert.equal(entry.variants.length, 3);
+  assert.equal(new Set(entry.variants).size, 3);
+  assert.match(entry.variants[0], /QA Engineer/i);
+  assert.doesNotMatch(entry.variants[1], /QA Engineer/i);
+  assert.doesNotMatch(entry.variants[2], /travel/i);
+  entry.variants.forEach((query) => {
+    assert.match(query, /site:linkedin.com\/in/i);
+    assert.match(query, /Barcelona/i);
+    assert.match(query, /Playwright/i);
+    assert.ok(query.length <= 900);
+  });
+});
+
 test("offers controlled no-title and no-sector recovery routes that retain hard criteria", () => {
   const state = {
     rol: ["Jefe de Proyecto"], imprescindibles: ["MS Project"], atributos: ["Jira", "PMBOK"],
