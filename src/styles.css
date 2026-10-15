@@ -895,3 +895,46 @@ summary:focus-visible { outline: 3px solid rgb(167 25 36 / 35%); outline-offset:
   .public-search-heading { gap: 8px; }
   .public-search-cap { white-space: normal; }
 }
+
+/* Keep the guided path readable and comfortable on touch screens. */
+.welcome-copy { font-size: 14px; line-height: 1.6; }
+.experience-option-title { font-size: 12px; }
+.experience-option-copy { font-size: 11px; }
+.field-desc { font-size: 12px; line-height: 1.5; }
+.field-label { font-size: 14px; }
+.hint,
+.public-search-setup > p,
+.public-search-explainer p { font-size: 13px; line-height: 1.55; }
+.jd-review-list li { font-size: 13px; }
+.jd-review-list li small { font-size: 11px; }
+.readiness-detail { font-size: 11px; }
+.readiness-status { font-size: 10px; }
+.public-profile-title span,
+.public-profile-snippet { font-size: 12px; }
+.public-profile-meta span { font-size: 11px; }
+.field-input,
+.alcance-country-row select { min-height: 42px; font-size: 14px; }
+.generate-row .btn-primary,
+#findProfilesBtn,
+#checkProfilesConnectionBtn,
+.public-profile-link,
+.public-search-retry { min-height: 44px; }
+.public-profile-link { justify-content: center; }
+
+@media (max-width: 680px) {
+  .wrap { padding-top: 18px; }
+  .welcome { padding: 18px; }
+  .experience-switch { gap: 8px; }
+  .experience-option { min-height: 58px; padding: 11px; }
+  .card { padding: 18px; }
+  .public-profile-list { gap: 8px; }
+  .public-profile-card { padding: 13px; }
+}
+
+@media (max-width: 430px) {
+  .brand-right .btn { min-height: 40px; padding-inline: 9px; }
+  .welcome h2 { font-size: 21px; }
+  .jd-review-grid { grid-template-columns: 1fr; }
+  .public-profile-head { flex-wrap: wrap; }
+  .public-profile-score { margin-left: auto; }
+}

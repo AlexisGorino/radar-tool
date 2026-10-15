@@ -20,6 +20,7 @@
   const MAX_SOURCES = PUBLIC_SOURCE_IDS.length;
   const MAX_RESULTS = 20;
   const MAX_QUERY_LENGTH = 900;
+  const SEARCH_TIMEOUT_MS = 35_000;
   const GITHUB_LANGUAGES = ["TypeScript", "JavaScript", "Python", "C++", "C#", "PowerShell", "Kotlin", "Elixir", "Scala", "Ruby", "Swift", "Dart", "Rust", "Java", "PHP", "HCL", "SQL", "Shell", "Lua", "Go", "R"];
   const SEARCH_ROLE_EQUIVALENTS = [
     { match: /\b(?:talent acquisition|recruiter|recruiter it|reclutador|reclutadora|seleccionador|seleccionadora)\b/, aliases: ["Talent Acquisition Specialist", "Recruiter"] },
@@ -438,22 +439,54 @@
     return normalized.slice(0, MAX_RESULTS);
   }
 
-  async function search(endpoint, plan, state, fetchImpl) {
+  async function search(endpoint, plan, state, fetchImpl, timeoutMs = SEARCH_TIMEOUT_MS) {
     const fetcher = fetchImpl || fetch;
     if (!endpoint) throw new Error("La búsqueda de perfiles públicos todavía no está configurada en este entorno.");
     let response;
+    let deadline;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    let timeoutId;
     try {
-      response = await fetcher(endpoint, {
+      const request = fetcher(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         credentials: "omit",
         cache: "no-store",
+        ...(controller ? { signal: controller.signal } : {}),
         body: JSON.stringify(plan),
       });
-    } catch {
+      deadline = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller?.abort();
+          const error = new Error("search_timeout");
+          error.name = "TimeoutError";
+          reject(error);
+        }, Math.max(1, Number(timeoutMs) || SEARCH_TIMEOUT_MS));
+      });
+      response = await Promise.race([request, deadline]);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error && error.name === "TimeoutError") {
+        throw new Error("La búsqueda tardó demasiado en responder. Revisá la conexión y probá de nuevo.");
+      }
       throw new Error("No se pudo conectar con el servicio de búsqueda. Revisá la conexión e intentá de nuevo manualmente.");
     }
-    const payload = await response.json();
+    let payload;
+    try {
+      payload = await Promise.race([response.json(), deadline]);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error && error.name === "TimeoutError") {
+        throw new Error("La búsqueda tardó demasiado en responder. Revisá la conexión y probá de nuevo.");
+      }
+      if (!response.ok) throw new Error(`El servicio de búsqueda respondió con un error (${response.status}).`);
+      throw new Error("El servicio devolvió una respuesta inválida. No se pudo mostrar la lista; probá de nuevo más tarde.");
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      throw new Error("El servicio devolvió una respuesta inválida. No se pudo mostrar la lista; probá de nuevo más tarde.");
+    }
     const sourceDiagnostics = Array.isArray(payload.sourceDiagnostics) ? payload.sourceDiagnostics : [];
     const failWithSourceDetails = (message) => {
       const error = new Error(message);
@@ -507,5 +540,5 @@
     };
   }
 
-  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, buildPlan, buildGithubUserQuery, expandRoleFamily, compactRoleFamily, validateProfileUrl, parseDisplayName, profileIdentityEvidence, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
+  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, SEARCH_TIMEOUT_MS, buildPlan, buildGithubUserQuery, expandRoleFamily, compactRoleFamily, validateProfileUrl, parseDisplayName, profileIdentityEvidence, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
 });

@@ -397,6 +397,32 @@ test("search omits credentials, does not send the JD, and reports provider error
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => { throw new TypeError("Failed to fetch"); }),
     /No se pudo conectar con el servicio/
   );
+  let requestAborted = false;
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, (_url, options) => new Promise(() => {
+      options.signal.addEventListener("abort", () => { requestAborted = true; });
+    }), 5),
+    /La búsqueda tardó demasiado en responder/
+  );
+  assert.equal(requestAborted, true, "the timed-out browser request should be cancelled");
+  let responseBodyAborted = false;
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async (_url, options) => ({
+      ok: true,
+      status: 200,
+      json: () => new Promise(() => { options.signal.addEventListener("abort", () => { responseBodyAborted = true; }); }),
+    }), 5),
+    /La búsqueda tardó demasiado en responder/
+  );
+  assert.equal(responseBodyAborted, true, "the timeout should cover a stalled response body too");
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError("Unexpected token <"); } })),
+    /respuesta inválida/
+  );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 503, json: async () => { throw new SyntaxError("upstream html"); } })),
+    /error \(503\)/
+  );
 });
 
 console.log(`\n${passed} talent-discovery tests passed.`);
