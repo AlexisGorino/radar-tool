@@ -188,8 +188,8 @@
       const payload = await response.json();
       if (payload.ready) {
         publicSearchStatus.textContent = payload.braveConfigured
-          ? "Conexión lista. Hay una clave de respaldo configurada; esta prueba no consumió búsquedas."
-          : "Conexión lista. Esta prueba no consumió búsquedas.";
+          ? "Conexión lista; hay una clave de respaldo configurada. La prueba no consumió búsquedas."
+          : "Conexión lista; la prueba no consumió búsquedas.";
         return;
       }
       const messages = {

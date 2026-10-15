@@ -407,7 +407,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get("#publicSearchSetup").should("be.visible");
     cy.get("#publicSearchSetup").should("contain.text", "Hasta 20 · LinkedIn + GitHub");
-    cy.get("#publicSearchSetup").should("contain.text", "la localidad y el país");
+    cy.get("#publicSearchSetup").should("contain.text", "el puesto y la localidad");
     cy.get('#publicSearchSources input').should("have.length", 2);
     cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub");
   });
@@ -466,7 +466,7 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
     cy.get("#checkProfilesConnectionBtn").should("be.enabled").click();
-    cy.get("#publicSearchStatus").should("contain.text", "la prueba no consumió búsquedas");
+    cy.get("#publicSearchStatus").should("contain.text", "prueba no consumió búsquedas");
     cy.then(() => expect(paidSearchCalls).to.equal(0));
   });
 
