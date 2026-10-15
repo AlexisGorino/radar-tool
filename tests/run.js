@@ -649,9 +649,28 @@ test("generic methodology terms (Scrum, Kanban, Agile) rank behind specific tech
 // 6. Role synonyms
 // ---------------------------------------------------------------
 
-test("getSynonyms returns suggestions for a known role word inside a phrase", () => {
+test("getSynonyms returns the most specific role suggestions inside a phrase", () => {
   const syns = Keywords.getSynonyms("Desarrollador Backend Senior");
-  assert.ok(syns.includes("developer"), `expected "developer" in synonyms, got [${syns.join(", ")}]`);
+  assert.ok(syns.includes("backend developer"), `expected a backend equivalent, got [${syns.join(", ")}]`);
+  assert.ok(!syns.includes("developer"), `specific role should suppress the generic title: [${syns.join(", ")}]`);
+});
+
+test("role expansions prefer the specific profession over a generic title", () => {
+  const accounting = Keywords.getSynonyms("Analista Contable");
+  assert.ok(accounting.includes("accounting analyst"), `missing accounting equivalent: ${accounting}`);
+  assert.ok(!accounting.includes("analyst"), `a narrow profession should not add a generic title: ${accounting}`);
+
+  const sap = Keywords.getSynonyms("Consultor SAP FI/CO");
+  assert.ok(sap.includes("SAP functional consultant"), `missing functional SAP title: ${sap}`);
+  assert.ok(!sap.includes("especialista") && !sap.includes("analista"), `do not dilute the SAP family with broad titles: ${sap}`);
+
+  const qa = Keywords.getSynonyms("QA de automatización");
+  assert.ok(qa.includes("automation tester") && qa.includes("test automation engineer"), `missing QA automation equivalents: ${qa}`);
+
+  const rf = Keywords.getSynonyms("Radio Frequency Engineer");
+  assert.ok(rf.includes("ingeniero de radiofrecuencia"), `missing telecom RF equivalent: ${rf}`);
+  const support = Keywords.getSynonyms("Customer Support Specialist");
+  assert.ok(support.includes("especialista de soporte al cliente"), `missing service-role equivalent: ${support}`);
 });
 
 test("getSynonyms returns [] when nothing matches", () => {

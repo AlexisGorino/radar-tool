@@ -29,16 +29,16 @@
   <section class="welcome" aria-labelledby="welcomeTitle">
     <p class="welcome-kicker">BÚSQUEDA DE TALENTO</p>
     <h2 id="welcomeTitle">Encontrá el perfil que necesitás.</h2>
-    <p class="welcome-copy guided-only">Pegá una JD o describí el perfil. Revisá los criterios antes de buscar.</p>
-    <p class="welcome-copy expert-only">Ajustá los criterios y elegí dónde buscar.</p>
+    <p class="welcome-copy guided-only">Puede ser una vacante completa o una idea de perfil. RADAR ordena lo que sabe y te pregunta lo que falte.</p>
+    <p class="welcome-copy expert-only">Editá los criterios directamente y elegí las rutas de búsqueda.</p>
     <div class="experience-switch" role="group" aria-label="Elegí cómo querés trabajar">
       <button class="experience-option is-active" id="guidedModeBtn" type="button" data-experience-mode="guided" aria-pressed="true">
-        <span class="experience-option-title">Guiado</span>
-        <span class="experience-option-copy">Revisamos cada paso</span>
+        <span class="experience-option-title">Paso a paso</span>
+        <span class="experience-option-copy">Revisá cada criterio antes de buscar</span>
       </button>
       <button class="experience-option" id="expertModeBtn" type="button" data-experience-mode="expert" aria-pressed="false">
-        <span class="experience-option-title">Modo experto</span>
-        <span class="experience-option-copy">Editá los filtros directo</span>
+        <span class="experience-option-title">Edición directa</span>
+        <span class="experience-option-copy">Ajustá los filtros manualmente</span>
       </button>
     </div>
     <p class="experience-status" id="experienceModeHint" role="status" aria-live="polite">1. Describí · 2. Revisá · 3. Buscá</p>
@@ -60,6 +60,16 @@
       <textarea id="jdInput" maxlength="20000" aria-label="Descripción del puesto" placeholder="Ej.: Técnico/a de redes con experiencia en FTTH, para trabajar en Valencia, España..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
+    <details class="profile-examples" id="profileExamples">
+      <summary>Ver ejemplos por tipo de perfil</summary>
+      <p>Elegí uno para cargarlo y revisar cómo RADAR separa cargo, señales y ubicación.</p>
+      <div class="profile-example-list">
+        <button type="button" data-profile-example="Busco QA de automatización con Playwright en Barcelona, España.">QA · Playwright</button>
+        <button type="button" data-profile-example="Busco consultor SAP FI/CO con experiencia en S/4HANA en Ciudad de México, México.">ERP · SAP FI/CO</button>
+        <button type="button" data-profile-example="Busco técnico/a instalador/a de fibra FTTH en Córdoba, Argentina.">Telecom · FTTH</button>
+        <button type="button" data-profile-example="Busco analista contable con experiencia en conciliaciones en Buenos Aires, Argentina.">Contabilidad · conciliaciones</button>
+      </div>
+    </details>
     <div class="row-actions">
       <button class="btn btn-dark" id="analyzeBtn" type="button">Revisar perfil</button>
       <label class="file-label">

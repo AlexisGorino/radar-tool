@@ -138,6 +138,23 @@ describe("RADAR talent search flow", () => {
     cy.get("#applyJdBtn").should("be.disabled");
   });
 
+  it("loads understandable examples for IT, ERP, telecom and non-IT profiles", () => {
+    cy.get("#profileExamples > summary").click();
+    const examples = [
+      { label: "QA · Playwright", role: /qa de automatización/i, place: "Barcelona" },
+      { label: "ERP · SAP FI/CO", role: /consultor sap fi\/co/i, place: "Ciudad de México" },
+      { label: "Telecom · FTTH", role: /técnico.*instalador.*fibra/i, place: "Córdoba" },
+      { label: "Contabilidad · conciliaciones", role: /analista contable/i, place: "Buenos Aires" },
+    ];
+
+    examples.forEach((example, index) => {
+      cy.get(".profile-example-list button").eq(index).should("contain.text", example.label).click();
+      cy.get("#jdInput").should("contain.value", example.place);
+      cy.get("#jdReview").should("be.visible");
+      cy.get("#jdReviewGrid .jd-review-role-input").invoke("val").should("match", example.role);
+    });
+  });
+
   it("boots the search flow on the pinned Angular 21 runtime", () => {
     cy.get("radar-root").should("have.attr", "ng-version", "21.2.25");
     cy.get("#radarBootError").should("not.exist");

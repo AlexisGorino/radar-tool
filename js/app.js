@@ -998,6 +998,15 @@
   });
   descriptionModeBtn.addEventListener("click", () => setIntakeMode("description"));
   ideaModeBtn.addEventListener("click", () => setIntakeMode("idea"));
+  document.querySelectorAll("[data-profile-example]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setIntakeMode("idea");
+      jdInput.value = button.dataset.profileExample || "";
+      jdInput.dispatchEvent(new Event("input", { bubbles: true }));
+      document.getElementById("analyzeBtn").click();
+      jdReview.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
   experienceModeButtons.forEach((button) => {
     button.addEventListener("click", () => setExperienceMode(button.dataset.experienceMode));
   });
