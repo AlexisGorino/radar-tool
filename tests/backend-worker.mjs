@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, exactGithubLocation, resolveSearchLocation } from "../backend/worker.mjs";
+import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, exactGithubLocation, resolveSearchLocation, profileHasExactLocation } from "../backend/worker.mjs";
 
 let passed = 0;
 async function test(name, run) {
@@ -44,6 +44,12 @@ async function main() {
     assert.equal(exactGithubLocation("New York, United States", "United States, York"), false);
     assert.equal(exactGithubLocation("Santiago, Chile", "España, Santiago de Compostela"), false);
     assert.equal(exactGithubLocation("Canary Islands, Spain", "España, Islas Canarias"), true);
+  });
+
+  await test("accepts exact public search location signals and rejects ambiguous cities", () => {
+    assert.equal(profileHasExactLocation({ title: "QA · Barcelona, España", snippet: "Playwright" }, "España, Barcelona"), true);
+    assert.equal(profileHasExactLocation({ title: "QA · Santiago, Chile", snippet: "" }, "España, Santiago de Compostela"), false);
+    assert.equal(profileHasExactLocation({ title: "QA · Barcelona", snippet: "Playwright" }, "España, Barcelona"), false);
   });
 
   await test("resolves a locality only to an exact provider result in the requested country", async () => {
@@ -188,7 +194,7 @@ async function main() {
       assert.equal(json.results.filter((row) => row.source === "linkedin").length, 10);
       assert.equal(json.results.filter((row) => row.source === "github").length, 10);
       assert.deepEqual(json.sourceDiagnostics, [
-        { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 40, code: null },
+        { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 20, code: null },
         { source: "github", status: "profiles_found", organicCount: 25, profileCount: 10, code: null },
       ]);
       assert.deepEqual(json.locationContext, { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" });
@@ -374,9 +380,108 @@ async function main() {
         SEARCH_LIMITER: { limit: async () => ({ success: true }) },
       });
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false });
+      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false, braveConfigured: false });
       assert.deepEqual(requestedPaths, ["/account.json"]);
       assert.equal(response.headers.get("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("accepts a configured Brave-only fallback without checking or spending SerpApi searches", async () => {
+    const previousFetch = globalThis.fetch;
+    let called = false;
+    try {
+      globalThis.fetch = async () => { called = true; throw new Error("Health check must not call a search provider"); };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/health", {
+        method: "GET", headers: { Origin: "https://alexisgorino.github.io" },
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", BRAVE_SEARCH_API_KEY: "brave-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false, braveConfigured: true });
+      assert.equal(called, false);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("uses Brave as a bounded LinkedIn fallback when Google lacks exact-location profiles", async () => {
+    const previousFetch = globalThis.fetch;
+    const braveHeaders = [];
+    const braveUrls = [];
+    try {
+      globalThis.fetch = async (rawUrl, init = {}) => {
+        const url = new URL(rawUrl);
+        if (url.pathname.endsWith("/account.json")) {
+          return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+        }
+        if (url.pathname.endsWith("/locations.json")) {
+          return new Response(JSON.stringify([{ name: "Barcelona", canonical_name: "Barcelona,Spain", country_code: "ES", target_type: "City", reach: 500000 }]), { status: 200 });
+        }
+        if (url.hostname === "api.search.brave.com") {
+          braveHeaders.push(new Headers(init.headers));
+          braveUrls.push(url);
+          return new Response(JSON.stringify({ web: { results: [
+            { url: "https://linkedin.com/in/qa-barcelona", title: "QA Automation Engineer · Barcelona, España", description: "Playwright y testing" },
+            { url: "https://linkedin.com/jobs/view/123", title: "QA job", description: "Barcelona, España" },
+          ] } }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ organic_results: [
+          { title: "QA Engineer · Spain", link: "https://linkedin.com/in/qa-spain", snippet: "Playwright" },
+        ] }), { status: 200 });
+      };
+      const linkedinOnlyPlan = { ...validPlan, location: "España, Barcelona", queries: [
+        { source: "linkedin", query: 'site:linkedin.com/in "QA Automation" Playwright Barcelona' },
+      ] };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(linkedinOnlyPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret", BRAVE_SEARCH_API_KEY: "brave-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.deepEqual(payload.results.map((item) => item.url), ["https://linkedin.com/in/qa-spain", "https://linkedin.com/in/qa-barcelona"]);
+      assert.deepEqual(payload.sourceDiagnostics[0].engines, ["Google", "Brave"]);
+      assert.equal(payload.sourceDiagnostics[0].profileCount, 2, "diagnostic keeps valid links from both engines; returned list uses the exact location signal");
+      assert.equal(braveHeaders.length, 1);
+      assert.equal(braveHeaders[0].get("X-Subscription-Token"), "brave-secret");
+      assert.equal(braveUrls[0].searchParams.get("country"), "ES");
+      assert.equal(braveUrls[0].searchParams.get("extra_snippets"), "true");
+      assert.equal(braveUrls[0].searchParams.get("count"), "20");
+      assert.doesNotMatch(JSON.stringify(payload), /brave-secret|server-secret/);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("does not spend the Brave fallback when Google already has three exact-location profiles", async () => {
+    const previousFetch = globalThis.fetch;
+    let braveCalls = 0;
+    try {
+      globalThis.fetch = async (rawUrl) => {
+        const url = new URL(rawUrl);
+        if (url.pathname.endsWith("/account.json")) return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+        if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+        if (url.hostname === "api.search.brave.com") { braveCalls++; throw new Error("Brave should not be called"); }
+        return new Response(JSON.stringify({ organic_results: Array.from({ length: 3 }, (_, index) => ({
+          title: `QA ${index} · Barcelona, España`, link: `https://linkedin.com/in/qa-${index}`, snippet: "Playwright",
+        })) }), { status: 200 });
+      };
+      const linkedinOnlyPlan = { ...validPlan, location: "España, Barcelona", queries: [
+        { source: "linkedin", query: 'site:linkedin.com/in QA Playwright Barcelona' },
+      ] };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(linkedinOnlyPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret", BRAVE_SEARCH_API_KEY: "brave-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      assert.equal(response.status, 200);
+      assert.equal(braveCalls, 0);
+      assert.deepEqual((await response.json()).sourceDiagnostics[0].engines, undefined);
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -436,7 +541,7 @@ async function main() {
         });
         const payload = await response.json();
         assert.equal(response.status, 502);
-        assert.ok(payload.sourceErrors.every((entry) => entry.code === code));
+        assert.ok(payload.sourceErrors.every((entry) => entry.code === code), JSON.stringify(payload.sourceErrors));
         assert.doesNotMatch(JSON.stringify(payload), new RegExp(message));
       }
     } finally {

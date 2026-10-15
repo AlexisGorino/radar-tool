@@ -187,7 +187,9 @@
       const response = await fetch(endpoint, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" });
       const payload = await response.json();
       if (payload.ready) {
-        publicSearchStatus.textContent = "Conexión correcta. Hay cupo disponible; la prueba no consumió búsquedas.";
+        publicSearchStatus.textContent = payload.braveConfigured
+          ? "Conexión lista. Hay una clave de respaldo configurada; esta prueba no consumió búsquedas."
+          : "Conexión lista. Esta prueba no consumió búsquedas.";
         return;
       }
       const messages = {
@@ -1622,6 +1624,14 @@
       provider_unavailable: "El proveedor no está disponible ahora.",
       source_unavailable: "La fuente devolvió un error inesperado.",
     };
+    const providerErrorMessages = {
+      provider_rate_limited: "alcanzó el límite",
+      provider_timeout: "agotó el tiempo de espera",
+      provider_network_error: "no respondió",
+      provider_credentials_rejected: "rechazó la clave",
+      provider_unavailable: "no está disponible",
+      source_unavailable: "no está disponible",
+    };
     diagnostics.forEach((item) => {
       const entry = document.createElement("li");
       const label = RadarTalentDiscovery.SOURCES[item.source]?.label || item.source;
@@ -1630,7 +1640,11 @@
       else if (item.status === "profiles_found") detail = `${item.profileCount} enlaces de perfil reconocibles de ${item.organicCount} resultados; la pertinencia se revisa aparte.`;
       else if (item.status === "no_public_profiles") detail = `Hubo ${item.organicCount} resultados, pero ninguno era un perfil reconocible.`;
       else if (item.status === "no_indexed_results") detail = "Sin resultados indexados para estos términos.";
-      entry.textContent = `${label}: ${detail}`;
+      const engines = Array.isArray(item.engines) && item.engines.length ? ` · ${item.engines.join(" + ")}` : "";
+      const providerErrors = Array.isArray(item.providerErrors) ? item.providerErrors
+        .map((error) => `${error.provider} ${providerErrorMessages[error.code] || "tuvo un problema"}`) : [];
+      const providerNote = providerErrors.length ? ` (${providerErrors.join("; ")})` : "";
+      entry.textContent = `${label}${engines}: ${detail}${providerNote}`;
       list.appendChild(entry);
     });
     section.append(heading, list);

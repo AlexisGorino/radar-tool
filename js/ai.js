@@ -15,6 +15,7 @@
   const STORAGE_KEY = "radar-gemini-key-v1";
   const MODEL = "gemini-3.8-flash";
   const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":generateContent";
+  const SERVICE_UNAVAILABLE_RETRY_MS = 1000;
   const MAX_JD_CHARS = 4000;
   const MAX_TERMS = 6;
   const MAX_ANALYSIS_CHARS = 16000;
@@ -80,30 +81,38 @@
     if (status === 400) return new Error("Gemini rechazó la solicitud. Revisá que el texto sea válido y volvé a intentar.");
     if (status === 429) return new Error("Límite de uso de Gemini alcanzado, probá de nuevo en un rato.");
     if (status === 404) return new Error("El modelo de Gemini configurado no está disponible para esta API key.");
+    if (status === 503) return new Error("Gemini sigue temporalmente saturado (503). RADAR hizo un reintento; esperá un minuto y volvé a probar.");
     if (status === 0) return new Error("No se pudo conectar con Gemini. Revisá internet, extensiones de bloqueo o la configuración de red.");
     return new Error("Gemini no respondió (" + status + ").");
   }
 
   async function requestGemini(apiKey, url, body) {
-    let response;
-    try {
-      response = await fetch(url, {
-        method: body ? "POST" : "GET",
-        headers: { "x-goog-api-key": apiKey, ...(body ? { "Content-Type": "application/json" } : {}) },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-        signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined,
-      });
-    } catch (error) {
-      if (error && error.name === "TimeoutError") throw new Error("Gemini tardó demasiado en responder. Probá otra vez.");
-      throw errorForStatus(0);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let response;
+      try {
+        response = await fetch(url, {
+          method: body ? "POST" : "GET",
+          headers: { "x-goog-api-key": apiKey, ...(body ? { "Content-Type": "application/json" } : {}) },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+          signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined,
+        });
+      } catch (error) {
+        if (error && error.name === "TimeoutError") throw new Error("Gemini tardó demasiado en responder. Probá otra vez.");
+        throw errorForStatus(0);
+      }
+      let data = null;
+      try { data = await response.json(); } catch (error) { /* empty response */ }
+      if (!response.ok) {
+        if (response.status === 503 && attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, SERVICE_UNAVAILABLE_RETRY_MS));
+          continue;
+        }
+        const apiMessage = data && data.error && data.error.message;
+        throw errorForStatus(response.status, apiMessage);
+      }
+      return data;
     }
-    let data = null;
-    try { data = await response.json(); } catch (error) { /* empty response */ }
-    if (!response.ok) {
-      const apiMessage = data && data.error && data.error.message;
-      throw errorForStatus(response.status, apiMessage);
-    }
-    return data;
+    throw errorForStatus(503);
   }
 
   async function testConnection() {

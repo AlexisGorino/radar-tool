@@ -319,10 +319,16 @@ test("search omits credentials, does not send the JD, and reports provider error
   let request;
   const found = await Discovery.search("https://radar.example/api/search", payload, canaryState, async (url, options) => {
     request = { url, options };
-    return { ok: true, status: 200, json: async () => ({ results: [], locationContext: { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" } }) };
+    return { ok: true, status: 200, json: async () => ({
+      results: [],
+      locationContext: { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" },
+      sourceDiagnostics: [{ source: "linkedin", status: "no_indexed_results", organicCount: 0, profileCount: 0, code: null, engines: ["Google", "Brave", "Unknown"], providerErrors: [{ provider: "Brave", code: "provider_rate_limited" }, { provider: "Untrusted", code: "secret" }] }],
+    }) };
   });
   assert.equal(found.results.length, 0);
   assert.deepEqual(found.locationContext, { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" });
+  assert.deepEqual(found.sourceDiagnostics[0].engines, ["Google", "Brave"]);
+  assert.deepEqual(found.sourceDiagnostics[0].providerErrors, [{ provider: "Brave", code: "provider_rate_limited" }]);
   assert.equal(request.url, "https://radar.example/api/search");
   assert.equal(request.options.credentials, "omit");
   assert.equal(request.options.cache, "no-store");
@@ -337,7 +343,7 @@ test("search omits credentials, does not send the JD, and reports provider error
   );
   await assert.rejects(
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 429, json: async () => ({ error: "provider_rate_limited" }) })),
-    /SerpApi rechazó temporalmente/
+    /buscador alcanzó su límite temporal/
   );
   await assert.rejects(
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_credentials_rejected" }] }) })),

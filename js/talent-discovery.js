@@ -460,7 +460,7 @@
     if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito del mes. No se inició la búsqueda.");
     if (payload.error === "hourly_quota_exhausted") throw new Error("Se agotó el cupo horario. Esperá y volvé a probar.");
     if (payload.error === "rate_limited") throw new Error("Se alcanzó el límite temporal de RADAR. Probá en un minuto.");
-    if (payload.error === "provider_rate_limited") throw new Error("SerpApi rechazó temporalmente la consulta. Revisá el cupo.");
+    if (payload.error === "provider_rate_limited") throw new Error("Un buscador alcanzó su límite temporal. Revisá el cupo o probá más tarde.");
     if (payload.error === "sources_unavailable") {
       const codes = new Set((Array.isArray(payload.sourceErrors) ? payload.sourceErrors : []).map((item) => item.code));
       if (codes.has("provider_credentials_rejected")) failWithSourceDetails("El proveedor rechazó la credencial configurada. Revisá Cloudflare.");
@@ -488,6 +488,10 @@
           organicCount: Math.max(0, Number(item.organicCount) || 0),
           profileCount: Math.max(0, Number(item.profileCount) || 0),
           code: typeof item.code === "string" ? item.code : null,
+          engines: Array.isArray(item.engines) ? item.engines.filter((engine) => ["Google", "Brave"].includes(engine)) : [],
+          providerErrors: Array.isArray(item.providerErrors) ? item.providerErrors
+            .filter((entry) => entry && ["Google", "Brave"].includes(entry.provider))
+            .map((entry) => ({ provider: entry.provider, code: typeof entry.code === "string" ? entry.code : "source_unavailable" })) : [],
         })),
       count: Number(payload.count) || 0,
       locationContext: payload.locationContext && typeof payload.locationContext === "object"

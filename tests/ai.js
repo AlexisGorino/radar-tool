@@ -167,6 +167,53 @@ test("Gemini convierte el rechazo de clave en una instrucción clara", async () 
   }
 });
 
+test("Gemini reintenta una sola vez tras un 503 y devuelve el análisis", async () => {
+  const jd = "Buscamos QA Analyst con Cypress en Córdoba, Argentina.";
+  const analysis = {
+    isJobPosting: true,
+    jobEvidence: "Buscamos QA Analyst",
+    role: { term: "QA Analyst", evidence: "Buscamos QA Analyst" },
+    roleAlternatives: [], requiredSkills: [{ term: "Cypress", evidence: "con Cypress" }],
+    preferredSkills: [], industries: [],
+    locations: [{ country: "Argentina", locality: "Córdoba", evidence: "en Córdoba, Argentina" }],
+    seniority: { term: "", evidence: "" }, modality: { term: "", evidence: "" },
+  };
+  global.localStorage = { getItem: () => "AIza-test-secret" };
+  const previousFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    if (calls === 1) return { ok: false, status: 503, json: async () => ({ error: { message: "Service unavailable" } }) };
+    return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }] }) };
+  };
+  try {
+    const result = await AI.analyzeJD(jd);
+    assert.strictEqual(calls, 2);
+    assert.strictEqual(result.isJobPosting, true);
+    assert.deepStrictEqual(result.rol, ["QA Analyst"]);
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
+test("Gemini comunica claramente cuando el segundo intento también devuelve 503", async () => {
+  global.localStorage = { getItem: () => "AIza-test-secret" };
+  const previousFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return { ok: false, status: 503, json: async () => ({ error: { message: "Service unavailable" } }) };
+  };
+  try {
+    await assert.rejects(AI.testConnection(), /temporalmente saturado \(503\).*hizo un reintento/);
+    assert.strictEqual(calls, 2);
+  } finally {
+    global.fetch = previousFetch;
+    delete global.localStorage;
+  }
+});
+
 test("Gemini envía la JD en JSON y devuelve criterios confirmables", async () => {
   const jd = "Buscamos QA Analyst con Cypress en Córdoba, Argentina. Excel es deseable.";
   const analysis = {

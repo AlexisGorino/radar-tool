@@ -1,10 +1,10 @@
 # Búsqueda pública de perfiles
 
-El frontend de GitHub Pages no contiene credenciales. `worker.mjs` es un proxy
-de alcance limitado para SerpApi; acepta hasta dos consultas `site:` por
-solicitud (LinkedIn y GitHub), pide resultados públicos de Google, valida
-dominio/ruta y devuelve únicamente título, fragmento, URL y posición. No
-persiste consultas ni perfiles.
+El frontend de GitHub Pages no contiene credenciales. `worker.mjs` consulta
+Google mediante SerpApi para LinkedIn, puede recurrir a Brave Search si hay
+menos de tres perfiles con ubicación exacta visible, y consulta la API pública
+de GitHub directamente. Valida dominio/ruta y devuelve título, fragmento, URL
+y posición. No persiste consultas ni perfiles.
 
 ## Configuración segura
 
@@ -30,6 +30,13 @@ persiste consultas ni perfiles.
    `radar-search-endpoint` en `src/index.html` y agregar **solo el origen exacto**
    (`https://<worker>.<cuenta>.workers.dev`) a `connect-src` en la CSP. Ejecutar
    build y publicar el frontend. No se agrega ninguna clave al cliente.
+7. (Opcional) Activar Brave como índice de respaldo. En el panel de Brave,
+   mantener el gasto adicional mensual en **USD 0** y revisar el crédito/cuota
+   antes de habilitarlo. El crédito mensual publicado tiene límites y puede
+   requerir tarjeta; no es ilimitado. Desde `backend/`, guardar la clave como
+   secreto: `npx wrangler secret put BRAVE_SEARCH_API_KEY`. Nunca pegarla en
+   Git, el frontend ni un mensaje. RADAR usa Brave solo cuando Google devuelve
+   menos de tres perfiles LinkedIn con ciudad y país detectables.
 
 ## Límites funcionales
 
@@ -49,9 +56,10 @@ persiste consultas ni perfiles.
 - La ciudad/región más específica debe aparecer en el fragmento para que RADAR
   la marque como visible. La búsqueda que incluya el país pero no la ciudad se
   etiqueta como ubicación sin confirmar.
-- El plan gratis de SerpApi mantiene búsquedas y resultados en su sistema por
-  hasta 31 días. RADAR envía solo el booleano resumido (nunca la JD completa),
-  pero no puede impedir esa retención del proveedor.
+- SerpApi puede conservar consultas hasta 31 días y Brave informa retención de
+  consultas de hasta 90 días. RADAR envía solo cargo, señales y ubicación
+  (nunca la JD completa), pero no puede impedir la retención de cada proveedor.
+  Brave no se consulta si no está configurado.
 - El gate de contraseña de GitHub Pages es una pantalla de cliente, no una
   autenticación corporativa. El rate limit reduce abuso casual, pero no sustituye
   identidad individual ni Cloudflare Access. El cupo del proveedor debe quedarse

@@ -153,6 +153,7 @@ describe("RADAR talent search flow", () => {
 
   it("analyzes a job description through the Gemini review button", () => {
     const jd = "Buscamos QA Analyst con Cypress en Córdoba, Argentina. Excel es deseable.";
+    let attempts = 0;
     const analysis = {
       isJobPosting: true,
       jobEvidence: "Buscamos QA Analyst",
@@ -166,10 +167,15 @@ describe("RADAR talent search flow", () => {
       modality: { term: "", evidence: "" },
     };
     cy.intercept("POST", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", (request) => {
+      attempts++;
       expect(request.headers["x-goog-api-key"]).to.equal("AIza-qa-secret");
       expect(request.url).not.to.include("AIza-qa-secret");
       expect(request.body.contents[0].parts[0].text).to.include(jd);
       expect(request.body.generationConfig.responseMimeType).to.equal("application/json");
+      if (attempts === 1) {
+        request.reply({ statusCode: 503, body: { error: { message: "Service temporarily unavailable" } } });
+        return;
+      }
       request.reply({ body: { candidates: [{ content: { parts: [{ text: JSON.stringify(analysis) }] } }] } });
     }).as("geminiAnalyzeJD");
     cy.window().then((win) => win.localStorage.setItem("radar-gemini-key-v1", "AIza-qa-secret"));
@@ -178,6 +184,8 @@ describe("RADAR talent search flow", () => {
     cy.get("#analyzeBtn").click();
     cy.get("#aiAnalyzeJdBtn").should("be.visible").click();
     cy.wait("@geminiAnalyzeJD");
+    cy.wait("@geminiAnalyzeJD");
+    cy.then(() => expect(attempts).to.equal(2));
     cy.get("#jdReviewAiStatus").should("contain.text", "Análisis actualizado");
     cy.contains("#jdReviewQuestions button", "Sí, es este perfil").click();
     cy.contains("#jdReviewQuestions button", "Sí, usar estas señales").click();
@@ -725,7 +733,7 @@ describe("RADAR talent search flow", () => {
           count: 1,
           results: [{ source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Recruiter", snippet: "Recruiting · reclutamiento · Argentina", position: 1 }],
           sourceErrors: [],
-          sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 10, profileCount: 1, code: null }],
+          sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 12, profileCount: 1, code: null, engines: ["Google", "Brave"], providerErrors: [{ provider: "Google", code: "provider_timeout" }] }],
         },
       });
     }).as("partialSearch");
@@ -754,6 +762,7 @@ describe("RADAR talent search flow", () => {
       expect(plans[1].queries.map((query) => query.source)).to.deep.equal(["linkedin"]);
     });
     cy.get(".public-profile-card").should("have.length", 1);
+    cy.get(".public-search-diagnostics").should("contain.text", "Google + Brave").and("contain.text", "Google agotó el tiempo de espera");
     cy.get("#publicSearchRefine").should("be.visible");
   });
 
