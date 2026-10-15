@@ -280,9 +280,10 @@ describe("RADAR talent search flow", () => {
     cy.get('#publicSearchSources input[value="linkedin"]').should("be.checked");
     cy.get("#findProfilesBtn").should("be.enabled").click();
     cy.wait("@juniorRecruiterSearch");
-    cy.get(".public-profile-card").should("have.length", 1).and("contain.text", "Lucía Pérez").and("contain.text", "Playwright");
-    cy.get(".public-profile-card").should("not.contain.text", "Marta Ruiz");
-    cy.get("#publicSearchStatus").should("contain.text", "1 perfil").and("contain.text", "ubicación confirmada");
+    cy.get(".public-profile-card").should("have.length", 2);
+    cy.get(".public-profile-card").eq(0).should("contain.text", "Lucía Pérez").and("contain.text", "Playwright");
+    cy.get(".public-profile-card").eq(1).should("contain.text", "Marta Ruiz").and("contain.text", "Señales de apoyo visibles 0/1");
+    cy.get("#publicSearchStatus").should("contain.text", "2 perfiles").and("contain.text", "ubicación confirmada");
   });
 
   it("lets an expert build a strict SAP Boolean and sends module equivalents to the shortlist", () => {
