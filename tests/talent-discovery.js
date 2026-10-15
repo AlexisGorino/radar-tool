@@ -326,7 +326,7 @@ test("requires locality and country evidence, deduplicates profiles and caps the
   assert.equal(Discovery.locationScopeError({ alcance: ["Chile", "Santiago"] }).includes("Chile"), true);
 });
 
-test("search omits credentials, does not send the JD, and reports provider errors clearly", async () => {
+test("search uses same-origin auth, does not send the JD, and reports provider errors clearly", async () => {
   const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 20, location: "Argentina" };
   let request;
   const found = await Discovery.search("https://radar.example/api/search", payload, canaryState, async (url, options) => {
@@ -342,7 +342,7 @@ test("search omits credentials, does not send the JD, and reports provider error
   assert.deepEqual(found.sourceDiagnostics[0].engines, ["Google", "Brave"]);
   assert.deepEqual(found.sourceDiagnostics[0].providerErrors, [{ provider: "Brave", code: "provider_rate_limited" }]);
   assert.equal(request.url, "https://radar.example/api/search");
-  assert.equal(request.options.credentials, "omit");
+  assert.equal(request.options.credentials, "same-origin");
   assert.equal(request.options.cache, "no-store");
   assert.doesNotMatch(request.options.body, /api_key|job description|full JD/i);
   await assert.rejects(

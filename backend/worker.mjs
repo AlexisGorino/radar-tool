@@ -497,25 +497,33 @@ export default {
   async fetch(request, env) {
     const allowedOrigin = env.ALLOWED_ORIGIN || "https://alexisgorino.github.io";
     const requestOrigin = request.headers.get("Origin") || "";
-    if (requestOrigin !== allowedOrigin) return new Response("Origin not allowed", { status: 403 });
+    const workerOrigin = new URL(request.url).origin;
+    const responseOrigin = requestOrigin === workerOrigin ? workerOrigin : allowedOrigin;
+    const pathname = new URL(request.url).pathname;
+    if (!pathname.startsWith("/api/")) {
+      if ((request.method === "GET" || request.method === "HEAD") && env.ASSETS) return env.ASSETS.fetch(request);
+      return new Response("Not found", { status: 404 });
+    }
+    if (requestOrigin && requestOrigin !== allowedOrigin && requestOrigin !== workerOrigin) {
+      return new Response("Origin not allowed", { status: 403 });
+    }
     if (request.method === "OPTIONS") return new Response(null, {
       status: 204,
       headers: {
-        "Access-Control-Allow-Origin": allowedOrigin,
+        "Access-Control-Allow-Origin": responseOrigin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Accept",
         "Access-Control-Max-Age": "600",
         Vary: "Origin",
       },
     });
-    const pathname = new URL(request.url).pathname;
     const isHealthCheck = request.method === "GET" && pathname === "/api/health";
-    if (!isHealthCheck && (request.method !== "POST" || pathname !== "/api/search")) return json({ error: "not_found" }, 404, allowedOrigin);
-    if (!env.SEARCH_LIMITER) return json({ error: "rate_limit_not_configured" }, 503, allowedOrigin);
+    if (!isHealthCheck && (request.method !== "POST" || pathname !== "/api/search")) return json({ error: "not_found" }, 404, responseOrigin);
+    if (!env.SEARCH_LIMITER) return json({ error: "rate_limit_not_configured" }, 503, responseOrigin);
 
     const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
     const limit = await env.SEARCH_LIMITER.limit({ key: clientIp });
-    if (!limit.success) return json({ error: "rate_limited" }, 429, allowedOrigin, { "Retry-After": "60" });
+    if (!limit.success) return json({ error: "rate_limited" }, 429, responseOrigin, { "Retry-After": "60" });
 
     if (isHealthCheck) {
       const braveConfigured = Boolean(env.BRAVE_SEARCH_API_KEY);
@@ -528,18 +536,18 @@ export default {
         error: ready ? null : budget.reason,
         usesSearchCredit: false,
         braveConfigured,
-      }, ready ? 200 : 503, allowedOrigin);
+      }, ready ? 200 : 503, responseOrigin);
     }
 
     const contentLength = Number(request.headers.get("Content-Length") || 0);
-    if (contentLength > MAX_BODY_BYTES) return json({ error: "request_too_large" }, 413, allowedOrigin);
+    if (contentLength > MAX_BODY_BYTES) return json({ error: "request_too_large" }, 413, responseOrigin);
     let plan;
     try {
       plan = await request.json();
     } catch {
-      return json({ error: "invalid_json" }, 400, allowedOrigin);
+      return json({ error: "invalid_json" }, 400, responseOrigin);
     }
-    if (!validatePlan(plan)) return json({ error: "invalid_search_plan" }, 400, allowedOrigin);
+    if (!validatePlan(plan)) return json({ error: "invalid_search_plan" }, 400, responseOrigin);
 
     const linkedinQueries = plan.queries.filter((entry) => entry.source === "linkedin");
     const githubQueries = plan.queries.filter((entry) => entry.source === "github");
@@ -603,9 +611,9 @@ export default {
     const results = takeBalanced(resultsBySource);
     if (!results.length && sourceErrors.length === plan.queries.length) {
       const rateLimited = sourceErrors.some((error) => error.code === "provider_rate_limited");
-      return json({ error: rateLimited ? "provider_rate_limited" : "sources_unavailable", sourceErrors, sourceDiagnostics }, rateLimited ? 429 : 502, allowedOrigin);
+      return json({ error: rateLimited ? "provider_rate_limited" : "sources_unavailable", sourceErrors, sourceDiagnostics }, rateLimited ? 429 : 502, responseOrigin);
     }
-    return json({ results, sourceErrors, sourceDiagnostics, count: results.length, locationContext: { mode: location.mode, canonicalName: location.canonicalName, countryCode: location.countryCode } }, 200, allowedOrigin);
+    return json({ results, sourceErrors, sourceDiagnostics, count: results.length, locationContext: { mode: location.mode, canonicalName: location.canonicalName, countryCode: location.countryCode } }, 200, responseOrigin);
   },
 };
 

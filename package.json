@@ -5,6 +5,7 @@
   "description": "RADAR talent search query builder",
   "scripts": {
     "build": "ng build && node scripts/stamp-build.js",
+    "build:worker": "ng build --base-href / && node scripts/stamp-build.js && node scripts/stamp-worker-endpoint.js",
     "check:angular": "ngc -p tsconfig.app.json",
     "start:dev": "ng serve --base-href /",
     "test:e2e": "cypress run",

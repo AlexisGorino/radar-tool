@@ -580,6 +580,26 @@ async function main() {
     }
   });
 
+  await test("serves the single-origin web app assets and allows its same-origin API requests", async () => {
+    const requested = [];
+    const assets = {
+      fetch: async (request) => {
+        requested.push(new URL(request.url).pathname);
+        return new Response("<!doctype html><title>Radar</title>", { headers: { "Content-Type": "text/html" } });
+      },
+    };
+    const page = await Worker.fetch(new Request("https://radar-search.example/"), { ASSETS: assets });
+    assert.equal(page.status, 200);
+    assert.deepEqual(requested, ["/"]);
+
+    const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+      method: "OPTIONS",
+      headers: { Origin: "https://radar-search.example" },
+    }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io" });
+    assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://radar-search.example");
+    assert.equal(response.status, 204);
+  });
+
   console.log(`\n${passed} backend-worker tests passed.`);
 }
 

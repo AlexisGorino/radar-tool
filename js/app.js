@@ -184,7 +184,7 @@
     checkProfilesConnectionBtn.textContent = "Comprobando…";
     publicSearchStatus.textContent = "Revisando conexión y cupo. No consume búsquedas.";
     try {
-      const response = await fetch(endpoint, { method: "GET", headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" });
+      const response = await fetch(endpoint, { method: "GET", headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" });
       const payload = await response.json();
       if (payload.ready) {
         publicSearchStatus.textContent = payload.braveConfigured

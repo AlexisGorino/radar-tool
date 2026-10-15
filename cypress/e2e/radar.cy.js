@@ -107,6 +107,37 @@ describe("RADAR talent search flow", () => {
     cy.get("#jdReviewGrid").should("contain.text", "Brasil");
   });
 
+  it("does not treat the CLIENTE template label as a job title", () => {
+    cy.get("#jdInput").type([
+      "DESCRIPCIÓN DEL PUESTO DE TRABAJO",
+      "PUESTO - CLIENTE",
+      "Empresa - Especialista en activos digitales",
+      "UBICACIÓN España, Madrid",
+      "Buscamos un especialista en activos digitales con perfil consultor.",
+      "Conocimiento de criptoactivos, stablecoins, CBDCs y RWA.",
+      "Conocimientos del marco regulatorio MiCA y obligaciones de los CASPs.",
+      "Se valorará experiencia en proyectos de tokenización.",
+    ].join("\n"), { delay: 0 });
+    cy.get("#analyzeBtn").click();
+    cy.get("#jdReview").should("be.visible");
+    cy.get("#jdReviewGrid .jd-review-role-input").should("have.value", "especialista en activos digitales");
+    ["Criptoactivos", "Stablecoins", "CBDCs", "RWA", "MiCA", "Tokenización", "Madrid", "España"].forEach((term) => {
+      cy.get("#jdReviewGrid").should("contain.text", term);
+    });
+
+    cy.get("#jdInput").clear().type([
+      "DESCRIPCIÓN DEL PUESTO DE TRABAJO",
+      "PUESTO - CLIENTE",
+      "CLIENTE",
+      "UBICACIÓN España, Madrid",
+    ].join("\n"), { delay: 0 });
+    cy.get("#analyzeBtn").click();
+    cy.get("#jdReview").should("be.visible");
+    cy.get("#jdReviewGrid .jd-review-role-input").should("have.value", "");
+    cy.contains("#jdReviewQuestions", "No detectamos el cargo.").should("be.visible");
+    cy.get("#applyJdBtn").should("be.disabled");
+  });
+
   it("boots the search flow on the pinned Angular 21 runtime", () => {
     cy.get("radar-root").should("have.attr", "ng-version", "21.2.25");
     cy.get("#radarBootError").should("not.exist");

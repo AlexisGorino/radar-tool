@@ -6,6 +6,12 @@ workers_dev = true
 [vars]
 ALLOWED_ORIGIN = "https://alexisgorino.github.io"
 
+[assets]
+directory = "../dist/radar-tool/browser"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
 [[ratelimits]]
 name = "SEARCH_LIMITER"
 namespace_id = "742019"

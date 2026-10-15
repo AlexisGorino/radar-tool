@@ -450,7 +450,7 @@
       const request = fetcher(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        credentials: "omit",
+        credentials: "same-origin",
         cache: "no-store",
         ...(controller ? { signal: controller.signal } : {}),
         body: JSON.stringify(plan),

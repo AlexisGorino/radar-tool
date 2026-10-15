@@ -105,7 +105,10 @@
   // that only shows up after that marker is optional, not a filter you want
   // eating one of the few slots the boolean has room for. A skill mentioned
   // on BOTH sides (required, and repeated as a "plus") stays a real requirement.
-  const OPTIONAL_SECTION_RE = /\b(deseables?|plus|nice to have|valorable|opcionales?|a favor|suma(?:n)? puntos)\b/i;
+  // JavaScript's `\b` is ASCII-word based, so an accent at the end of
+  // "valorará" has no word boundary before the following space. Use an
+  // explicit Spanish-aware boundary or the optional section is silently lost.
+  const OPTIONAL_SECTION_RE = /\b(deseables?|plus|nice to have|valorable|opcionales?|a favor|suma(?:n)? puntos|(?:se\s+)?valorar[aá])(?=$|[^a-záéíóúñü0-9])/i;
   const REQUIRED_SECTION_RE = /\b(?:requisitos? (?:imprescindibles?|excluyentes?)|requisitos?|requerid[oa]s?|imprescindibles?|excluyentes?|obligatorios?|must have|mandatory|requirements?)\b/i;
   const REQUIRED_HEADING_RE = /(?:^|\n)[ \t]*(?:[-•*][ \t]*)?(?:experiencia|formaci[oó]n|educaci[oó]n|habilidades? t[eé]cnicas|idiomas?|funciones|responsabilidades|conocimientos? t[eé]cnicos?)[ \t]*(?::|\n|$)/gim;
 
@@ -271,10 +274,34 @@
   // Tesorería Junior") — and both resolve to just the trailing title.
   function salvageTemplateHeaderTitle(rawCapture) {
     const segments = rawCapture.split(/\s+-\s+/).map((s) => s.trim());
+    // A label by itself (for example "PUESTO - CLIENTE" on its own line)
+    // has no title to salvage. Returning the last segment here used to turn
+    // the form label "CLIENTE" into a confident occupation.
+    if (segments.length < 2) return null;
     const last = segments[segments.length - 1];
     if (!last) return null;
     const trailingNoiseRe = new RegExp("\\s+(?:" + TEMPLATE_NOISE_WORDS.join("|") + ")\\b[\\s\\S]*", "i");
-    return last.replace(trailingNoiseRe, "").trim();
+    const candidate = last.replace(trailingNoiseRe, "").trim();
+    return startsWithTemplateLabel(candidate) ? null : candidate;
+  }
+
+  // In some table PDFs the value for "PUESTO - CLIENTE" is on the following
+  // line and contains "Empresa - Título". Recover the title only when that
+  // value contains a recognizable occupation noun; never infer it from the
+  // client/company name or from a generic form label.
+  const TEMPLATE_ROLE_NOUN_RE = /\b(?:developer|engineer|manager|analyst|consultant|designer|architect|specialist|director|coordinator|lead|officer|executive|assistant|technician|recruiter|scientist|programmer|auditor|accountant|teacher|nurse|doctor|lawyer|sales(?:person|\s+manager)?|support|operator|chef|driver|mechanic|professor|administrator|desarrollador(?:a)?|ingenier[oa]|gerente|analista|consultor(?:a)?|diseñador(?:a)?|arquitect[oa]|especialista|director[ao]|coordinador(?:a)?|l[ií]der|jefe(?:a)?|ejecutivo(?:a)?|asistente|t[eé]cnic[oa]|instalador(?:a)?|programador(?:a)?|auditor(?:a)?|contable|contador(?:a)?|abogado(?:a)?|vendedor(?:a)?|comercial|operador(?:a)?|operario(?:a)?|conductor(?:a)?|mec[aá]nico(?:a)?|enfermer[oa]|m[eé]dic[oa]|profesor(?:a)?|docente|administrador(?:a)?|administrativo(?:a)?)\b/i;
+  function titleAfterClientTemplate(text) {
+    const header = /\bpuesto\s*[-–—:]\s*cliente\b[ \t]*(?:\n[ \t]*|\s+)([^\n]+)/i.exec(text);
+    if (!header) return "";
+    const segments = header[1].split(/\s+[-–—]\s+/).map((part) => part.trim()).filter(Boolean);
+    for (let index = segments.length - 1; index >= 0; index -= 1) {
+      const segment = segments[index];
+      const noun = TEMPLATE_ROLE_NOUN_RE.exec(segment);
+      if (!noun) continue;
+      const candidate = trimRolPhrase(segment.slice(0, Math.max(noun.index + noun[0].length, segment.length)));
+      if (candidate && !looksLikeTemplateNoise(candidate) && !isBareNonRole(candidate) && !looksLikeVagueRole(candidate)) return candidate;
+    }
+    return "";
   }
 
   // A bare programming language, cloud provider or framework name is never a
@@ -285,6 +312,7 @@
   const NEVER_A_ROLE = new Set(
     [
       "java", "python", "javascript", "typescript", "c#", "c++", "php", "ruby", "go", "kotlin", "swift",
+      "cliente", "client", "puesto", "cargo", "position", "job title",
       "node.js", ".net", "react", "angular", "vue",
       "aws", "azure", "gcp", "sql", "nosql", "mongodb", "postgresql", "mysql",
       "docker", "kubernetes", "terraform", "ci/cd",
@@ -346,11 +374,13 @@
   }
 
   function looksLikeAdministrativeText(candidate) {
-    return /(?:\b(?:nombre|firma|fecha|puesto)\s*:|recibido y conforme|esta descripci[oó]n|^c[oó]digo\b|^descriptivo de funciones\b|^objetivo del puesto\b)/i.test(candidate);
+    return /(?:\b(?:nombre|firma|fecha|puesto)\s*:|^puesto\s*[-–—:]\s*cliente\b|recibido y conforme|esta descripci[oó]n|^c[oó]digo\b|^descriptivo de funciones\b|^descripci[oó]n del puesto\b|^objetivo del puesto\b)/i.test(candidate);
   }
 
   function guessRol(rawText) {
     const text = stripTags(rawText);
+    const clientTemplateTitle = titleAfterClientTemplate(text);
+    if (clientTemplateTitle) return [clientTemplateTitle];
     // This compound title is common in telecom field-service postings. Check
     // it before the generic title noun can stop at just "Técnico/a".
     const titlePrefix = text.slice(0, 180).replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "");
@@ -594,7 +624,7 @@
     let level = "Revisar";
     if (blocked) level = "Texto ilegible";
     else if (analyzed.isResume) level = "Parece un CV";
-    else if (!requiresSourceReview && analyzed.isJobPosting && analyzed.rol.length && wordCount >= 35 && warnings.length <= 1) level = "Buena señal";
+    else if (!requiresSourceReview && analyzed.isJobPosting && analyzed.rol.length && analyzed.atributos.length && wordCount >= 35 && warnings.length <= 1) level = "Buena señal";
     else if (analyzed.isJobPosting && analyzed.rol.length) level = "Revisión recomendada";
     else level = "Validación necesaria";
 

@@ -835,6 +835,14 @@ test("a 3-segment ficha header (empresa - área - título) salvages just the tit
   assert.strictEqual(Extractor.guessRol(jd)[0], "Tesorería");
 });
 
+test("a CLIENTE form label without a role is never accepted as an occupation", () => {
+  const jd = "DESCRIPCIÓN DEL PUESTO DE TRABAJO\nPUESTO - CLIENTE\nCLIENTE\nUBICACIÓN España, Madrid";
+  assert.deepStrictEqual(Extractor.guessRol(jd), []);
+  const result = Extractor.analyzeJD(jd);
+  assert.ok(result.quality.warnings.some((warning) => /No pudimos identificar el título/.test(warning)));
+  assert.notStrictEqual(result.quality.level, "Buena señal");
+});
+
 test("Cancún and Quintana Roo are recognized as México", () => {
   const r1 = Countries.detectLocationDetailed("Puesto híbrido en Cancún.");
   assert.strictEqual(r1.country, "México");

@@ -61,6 +61,10 @@
     "Playwright", "JMeter", "Postman", "SoapUI",
     // Mobile / blockchain
     "Android", "iOS", "Xamarin", "Blockchain", "Solidity", "Web3", "Smart Contracts",
+    // Activos digitales y regulación europea. Son señales concretas para
+    // sourcing financiero; sin este vocabulario, la JD de un especialista
+    // podía quedar con cargo falso y cero requisitos detectados.
+    "Activos digitales", "Digital Assets", "Criptoactivos", "Crypto Assets", "Stablecoins", "CBDC", "CBDCs", "RWA", "MiCA", "CASP", "CASPs", "Tokenización", "Tokenization",
     // Salud / farma
     "Farmacovigilancia", "Buenas Practicas de Manufactura", "Buenas Prácticas de Manufactura",
     "GMP", "Registro Sanitario", "Ensayos Clinicos", "Ensayos Clínicos",
@@ -121,6 +125,8 @@
     "técnico instalador": ["tecnico de campo", "field technician", "instalador de telecomunicaciones", "tecnico de fibra optica"],
     "instalador de telecomunicaciones": ["técnico instalador", "técnico de campo", "telecom field technician", "instalador de fibra óptica"],
     "tecnico de telecomunicaciones": ["técnico instalador", "telecom technician", "field technician"],
+    "especialista en activos digitales": ["digital assets specialist", "digital assets consultant", "digital asset specialist", "consultor de activos digitales"],
+    "digital assets specialist": ["especialista en activos digitales", "digital asset consultant", "crypto assets specialist"],
   };
 
   const GH_LANGUAGES = [

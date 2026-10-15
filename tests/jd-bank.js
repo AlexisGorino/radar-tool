@@ -19,6 +19,18 @@ const pdfTemplateJD = fs.readFileSync(path.join(__dirname, "fixtures", "pdf-tabl
 // same reason as the one above.
 const pdfModernTemplateJD = fs.readFileSync(path.join(__dirname, "fixtures", "pdf-modern-template-jd.txt"), "utf8");
 
+// Repro of ERROR 5: the table label "PUESTO - CLIENTE" appears on a line by
+// itself, while its value (company - real title) starts on the next line.
+// Keep this synthetic so the fixture does not retain client or employee data.
+const clientTemplateJD = `DESCRIPCIÓN DEL PUESTO DE TRABAJO
+PUESTO - CLIENTE
+Empresa - Especialista en activos digitales
+UBICACIÓN España, Madrid
+Buscamos un especialista en activos digitales con perfil consultor.
+Conocimiento de criptoactivos, stablecoins, CBDCs y RWA, incluyendo su ciclo de vida operativo.
+Conocimientos del marco regulatorio MiCA y obligaciones de los CASPs.
+Se valorará experiencia en proyectos de tokenización.`;
+
 const cases = [
   {
     name: "ES - JD real en formato ficha/tabla (PDF de agencia, PM Ciberseguridad)",
@@ -39,6 +51,16 @@ const cases = [
     expectSkills: ["Go", "AWS", "Lambda", "SQS"],
     expectDominio: "fintech",
     expectCountry: "Argentina",
+  },
+  {
+    name: "ES - ficha con CLIENTE en rótulo y título en la celda siguiente",
+    text: clientTemplateJD,
+    expectRolExact: "especialista en activos digitales",
+    expectRolNotContains: ["cliente", "empresa"],
+    expectSkills: ["Criptoactivos", "Stablecoins", "CBDCs", "RWA", "MiCA"],
+    expectOptionalSkills: ["Tokenización"],
+    expectCountry: "España",
+    expectLocation: "Madrid",
   },
   {
     name: "AR - Backend Python banco",
