@@ -41,6 +41,10 @@ jobs:
       pages: write
       id-token: write
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - id: deployment
         uses: actions/deploy-pages@v4
       - name: Verify deployed page and assets
