@@ -1748,9 +1748,7 @@
     const message = document.createElement("p");
     message.textContent = error instanceof Error ? error.message : "La consulta no pudo completarse.";
     const note = document.createElement("span");
-    note.textContent = retrySources.length
-      ? "No se reintenta automáticamente para cuidar el cupo. Un reintento manual puede usar otra búsqueda gratuita."
-      : "No se inició un reintento automático. Podés volver a probar.";
+    note.textContent = "No se reintenta automáticamente para cuidar el cupo. Un reintento manual puede usar otra búsqueda gratuita.";
     panel.append(heading, message, note);
     const diagnostics = renderSourceDiagnostics(error && error.sourceDiagnostics);
     if (diagnostics) panel.appendChild(diagnostics);
