@@ -21,6 +21,16 @@
   const MAX_RESULTS = 20;
   const MAX_QUERY_LENGTH = 900;
   const GITHUB_LANGUAGES = ["TypeScript", "JavaScript", "Python", "C++", "C#", "PowerShell", "Kotlin", "Elixir", "Scala", "Ruby", "Swift", "Dart", "Rust", "Java", "PHP", "HCL", "SQL", "Shell", "Lua", "Go", "R"];
+  const SEARCH_ROLE_EQUIVALENTS = [
+    { match: /\b(?:talent acquisition|recruiter|recruiter it|reclutador|reclutadora|seleccionador|seleccionadora)\b/, aliases: ["Talent Acquisition Specialist", "Recruiter"] },
+    { match: /\b(?:consultor funcional sap fi\s*\/\s*co|sap fi\s*\/\s*co consultant|sap functional consultant)\b/, aliases: ["SAP FI/CO Consultant", "SAP Functional Consultant"] },
+    { match: /\b(?:consultor|consultora|consultant)\b.*\berp\b|\berp\b.*\b(?:consultor|consultora|consultant)\b/, aliases: ["ERP Consultant", "Consultor Funcional ERP"] },
+    { match: /\b(?:administrador|administradora|administrator|admin)\b.*\bsalesforce\b|\bsalesforce\b.*\b(?:administrador|administradora|administrator|admin)\b/, aliases: ["Salesforce Administrator", "Salesforce Admin"] },
+    { match: /\b(?:consultor|consultora|consultant)\b.*\bdynamics 365\b|\bdynamics 365\b.*\b(?:consultor|consultora|consultant)\b/, aliases: ["Dynamics 365 Consultant", "Microsoft Dynamics Consultant"] },
+    { match: /\b(?:analista|analyst)\b.*\bsupply chain\b|\bsupply chain\b.*\b(?:analista|analyst)\b/, aliases: ["Supply Chain Analyst", "Analista de Cadena de Suministro"] },
+    { match: /\b(?:auditor interno|internal auditor)\b/, aliases: ["Internal Auditor", "Auditor Interno"] },
+    { match: /\b(?:ingeniero|ingeniera|engineer)\b.*\b(?:redes de telecomunicaciones|telecom(?:munications)? network)\b|\b(?:redes de telecomunicaciones|telecom(?:munications)? network)\b.*\b(?:ingeniero|ingeniera|engineer)\b/, aliases: ["Telecommunications Network Engineer", "Ingeniero de Redes"] },
+  ];
 
   function cleanTerms(values) {
     return (Array.isArray(values) ? values : [])
@@ -58,6 +68,17 @@
       ];
       const seen = new Set(original.map(normalizeText));
       aliases.forEach((term) => {
+        if (!seen.has(normalizeText(term)) && original.length < 6) {
+          original.push(term);
+          seen.add(normalizeText(term));
+        }
+      });
+      return original;
+    }
+    const equivalentFamily = SEARCH_ROLE_EQUIVALENTS.find((family) => family.match.test(normalized));
+    if (equivalentFamily) {
+      const seen = new Set(original.map(normalizeText));
+      equivalentFamily.aliases.forEach((term) => {
         if (!seen.has(normalizeText(term)) && original.length < 6) {
           original.push(term);
           seen.add(normalizeText(term));

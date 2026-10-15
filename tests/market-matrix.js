@@ -84,6 +84,25 @@ assert.ok(recruiterPlan.queries.some((query) => query.source === "linkedin"), "n
 assert.ok(!recruiterPlan.queries.some((query) => query.source === "github"), "no enviar perfiles no técnicos a GitHub");
 assert.ok(recruiterPlan.skippedSources.includes("github"), "explicar por qué GitHub no aplica");
 
+const equivalenceCases = [
+  { jd: "Buscamos Consultor Funcional SAP FI/CO para Buenos Aires, Argentina.", expected: "SAP FI/CO Consultant", locality: "Buenos Aires" },
+  { jd: "Buscamos Administrador Salesforce Service Cloud para Madrid, España.", expected: "Salesforce Administrator", locality: "Madrid" },
+  { jd: "Se busca Consultor Dynamics 365 CRM para Bogotá, Colombia.", expected: "Dynamics 365 Consultant", locality: "Bogotá" },
+  { jd: "Buscamos Talent Acquisition Specialist con ATS para Lima, Perú.", expected: "Recruiter", locality: "Lima" },
+  { jd: "Se busca Analista de Supply Chain con WMS para Montevideo, Uruguay.", expected: "Supply Chain Analyst", locality: "Montevideo" },
+  { jd: "Buscamos Auditor Interno para Valencia, España.", expected: "Internal Auditor", locality: "Valencia" },
+  { jd: "Buscamos Ingeniero de Redes de Telecomunicaciones para Rosario, Argentina.", expected: "Telecommunications Network Engineer", locality: "Rosario" },
+];
+for (const sample of equivalenceCases) {
+  const analyzed = Extractor.analyzeJD(sample.jd);
+  const equivalents = Discovery.expandRoleFamily(analyzed.rol, analyzed.seniority);
+  assert.ok(equivalents.includes(sample.expected), `${sample.expected}: ofrecer un título equivalente conocido`);
+  const plan = Discovery.buildPlan(analyzed, ["linkedin"], Generator);
+  const query = plan.queries[0] && plan.queries[0].query;
+  assert.ok(query && query.includes(sample.locality), `${sample.expected}: consulta conserva localidad`);
+  assert.ok(query.includes(sample.expected), `${sample.expected}: LinkedIn recibe el equivalente sin perder el cargo original`);
+}
+
 console.log(`\n${passed} passed, ${failures.length} failed (${cases.length} market cases)\n`);
 failures.forEach((failure) => console.log(`FAIL: ${failure}`));
 if (failures.length) process.exit(1);
