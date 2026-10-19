@@ -4,6 +4,9 @@
 const path = require("path");
 const fs = require("fs");
 const Extractor = require(path.join(__dirname, "..", "js", "extractor.js"));
+const Review = require(path.join(__dirname, "..", "js", "review.js"));
+const Generator = require(path.join(__dirname, "..", "js", "generator.js"));
+const Discovery = require(path.join(__dirname, "..", "js", "talent-discovery.js"));
 
 // Real JD as extracted by pdf.js from a corporate "ficha de puesto" table
 // template (label/value cells, no sentence punctuation between them once
@@ -401,8 +404,8 @@ const cases = [
     expectCountry: "España",
   },
   {
-    name: "ES - ficha PDF Wicom, jefe de proyecto junior y Santiago de Compostela",
-    text: "PUESTO - CLIENTE Wicom - Jefe de Proyecto Junior (Santiago)\nUbicación: España,  Santiago\nSede de trabajo: Santiago de Compostela\nExperiencia requerida: 0–2 años en gestión de proyectos, PMO, operaciones o consultoría de gestión en telecomunicaciones, instalaciones o ingeniería.\nValorable: PMP y PRINCE2.\nRequisitos y funciones\nSe valoran prácticas. Uso de MS Project, Jira, PMBOK, Gantt, Power BI, Excel avanzado, PowerPoint, SharePoint, Confluence y Teams.",
+    name: "ES - proyecto junior en Santiago de Compostela",
+    text: "PUESTO - CLIENTE Empresa de ejemplo - Jefe de Proyecto Junior\nUbicación: España, Santiago de Compostela\nExperiencia requerida: 0–2 años en gestión de proyectos, PMO, operaciones o consultoría en telecomunicaciones, instalaciones o ingeniería.\nFormación requerida: Grado en Ingeniería de Telecomunicaciones o Industrial.\nValorable: PMP y PRINCE2.\nRequisitos y funciones\nSe valoran prácticas. Uso de MS Project, Jira, PMBOK, Gantt, Power BI, Excel avanzado, PowerPoint y Teams.",
     expectRolContains: "jefe de proyecto",
     expectCountry: "España",
     expectLocation: "Santiago de Compostela",
@@ -501,6 +504,35 @@ cases.forEach((c) => {
     check(`${c.name} :: rol strings are plain text, no markup`, r.rol.every((x) => typeof x === "string" && !x.includes("<script")), `got rol="${r.rol.join(" | ")}"`);
   }
 });
+
+// Sanitized regression profiles preserve the role, seniority, education and
+// geography patterns without publishing the source vacancies or client data.
+const projectCases = [
+  { fixture: "project-manager-junior-es.txt", level: "junior" },
+  { fixture: "project-manager-semi-senior-es.txt", level: "semi-senior" },
+  { fixture: "project-manager-senior-es.txt", level: "senior" },
+];
+for (const item of projectCases) {
+  const text = fs.readFileSync(path.join(__dirname, "fixtures", item.fixture), "utf8");
+  const result = Extractor.analyzeJD(text);
+  check(`${item.fixture} :: recognized as a job description`, result.isJobPosting, "isJobPosting=false");
+  check(`${item.fixture} :: exact role family`, result.rol.length === 1 && result.rol[0] === "Jefe de Proyecto", `got rol=[${result.rol.join(", ")}]`);
+  check(`${item.fixture} :: correct seniority only`, result.seniority.length === 1 && result.seniority[0] === item.level, `got seniority=[${result.seniority.join(", ")}]`);
+  const expectedExperience = item.level === "junior" ? "0-2 años" : item.level === "semi-senior" ? "+5 años" : "+8-10 años";
+  check(`${item.fixture} :: experience is visible as context`, result.roleContext.some((signal) => signal.includes(expectedExperience)), `context=[${result.roleContext.join(" / ")}]`);
+  check(`${item.fixture} :: required engineering background is visible`, result.roleContext.some((signal) => /Formación indicada: Grado en Ingeniería de Telecomunicaciones/i.test(signal)), `context=[${result.roleContext.join(" / ")}]`);
+  check(`${item.fixture} :: Spain and Santiago de Compostela`, result.country === "España" && result.alcance.includes("Santiago de Compostela"), `got ${result.alcance.join(" / ")}`);
+  check(`${item.fixture} :: no Chile location`, !result.alcance.some((term) => /Chile/i.test(term)), `got ${result.alcance.join(" / ")}`);
+  check(`${item.fixture} :: review asks recruiter before applying`, ["role", "requirements", "location"].every((key) => Review.pendingQuestions(result).includes(key)), `questions=[${Review.pendingQuestions(result)}]`);
+  const plan = Discovery.buildPlan({
+    rol: result.rol, seniority: result.seniority, atributos: result.atributos,
+    imprescindibles: result.imprescindibles, deseables: result.atributosDeseables,
+    dominio: result.dominio, alcance: result.alcance, refinar: [],
+  }, ["linkedin"], Generator);
+  const searchText = plan.queries.flatMap((query) => [query.query, ...(query.variants || [])]).join(" ");
+  check(`${item.fixture} :: LinkedIn plan keeps exact Spanish location`, /Santiago de Compostela/i.test(searchText), `queries=${searchText}`);
+  check(`${item.fixture} :: LinkedIn plan never introduces Chile`, !/Chile/i.test(searchText), `queries=${searchText}`);
+}
 
 console.log(`\n${passed} passed, ${failed} failed (${passed + failed} total)\n`);
 if (failed) {

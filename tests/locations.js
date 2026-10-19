@@ -121,6 +121,14 @@ test("a locality that's a strict prefix of a longer, more specific locality reso
   assert.strictEqual(locality, "Santiago de Compostela");
 });
 
+test("Santiago with Spain explicitly means Santiago de Compostela, never Chile", () => {
+  const result = Countries.detectLocationDetailed("Ubicación del puesto: España, Santiago.");
+  assert.strictEqual(result.country, "España");
+  assert.strictEqual(result.locality, "Santiago de Compostela");
+  assert.strictEqual(result.locationNeedsClarification, false);
+  assert.strictEqual(Countries.countryList().includes("Chile"), false);
+});
+
 test("longest locality wins when two names start at the same position", () => {
   const result = Countries.detectLocationDetailed("Puesto en Mato Grosso do Sul, Brasil.");
   assert.strictEqual(result.country, "Brasil");

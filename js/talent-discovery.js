@@ -32,6 +32,54 @@
     { match: /\b(?:auditor interno|internal auditor)\b/, aliases: ["Internal Auditor", "Auditor Interno"] },
     { match: /\b(?:ingeniero|ingeniera|engineer)\b.*\b(?:redes de telecomunicaciones|telecom(?:munications)? network)\b|\b(?:redes de telecomunicaciones|telecom(?:munications)? network)\b.*\b(?:ingeniero|ingeniera|engineer)\b/, aliases: ["Telecommunications Network Engineer", "Ingeniero de Redes"] },
   ];
+  // Adjacent titles are used for a separate discovery route and evidence
+  // scoring. They are deliberately narrower than a thesaurus: each family is
+  // selected from the reviewed role and context, never from generic words
+  // such as "cliente" or "proyecto" alone.
+  const ADJACENT_ROLE_FAMILIES = [
+    { match: /\b(?:jefe de proyectos?|gerente de proyectos?|project managers?|project coordinators?|coordinador de proyectos?|pmo)\b/, kind: "project" },
+    { match: /\b(?:qa|quality assurance|software test(?:ing)?|test automation|sdet)\b/, kind: "qa" },
+    { match: /\b(?:telecom(?:munications|unicaciones)? engineer|ingenier[oa] de telecomunicaciones|network engineer|ingenier[oa] de redes|noc engineer)\b/, kind: "telecom-engineering" },
+    { match: /\b(?:tecnic[oa].{0,24}(?:telecom\w*|redes|fibra)|(?:telecom\w*|fiber optic|ftth|network) technician|instalador.{0,24}(?:telecom\w*|fibra|redes))\b/, kind: "telecom-technician" },
+    { match: /\b(?:service desk|help desk|it support|soporte tecnico|soporte de it)\b/, kind: "it-support" },
+    { match: /\b(?:data analyst|analista de datos|business intelligence analyst|bi analyst)\b/, kind: "data-analyst" },
+    { match: /\b(?:sap.{0,16}consultant|consultor.{0,16}sap|erp consultant|consultor.{0,16}erp)\b/, kind: "erp-consulting" },
+    { match: /\b(?:salesforce administrator|salesforce admin|administrador.{0,16}salesforce)\b/, kind: "crm-admin" },
+    { match: /\b(?:talent acquisition|technical recruiter|it recruiter|recruiter|reclutador|reclutadora|talent sourcer)\b/, kind: "recruiting" },
+    { match: /\b(?:internal auditor|it auditor|auditor interno|auditor de sistemas|auditor de tecnologia)\b/, kind: "auditing" },
+    { match: /\b(?:account executive|account manager|business development|sales development|sales representative|comercial de software|ejecutivo de cuentas)\b/, kind: "sales" },
+    { match: /\b(?:customer success|client success)\b/, kind: "customer-success" },
+    { match: /\b(?:customer support|atencion al cliente|customer service|customer care)\b/, kind: "customer-support" },
+  ];
+
+  const ADJACENT_TITLES = Object.freeze({
+    project: {
+      junior: ["Project Engineer", "Technical Project Coordinator", "Project Support Officer", "Implementation Coordinator", "Deployment Coordinator", "Field Project Coordinator"],
+      senior: ["Technical Project Manager", "Telecom Project Manager", "Delivery Manager", "Program Manager", "PMO Manager", "Deployment Manager"],
+      general: ["Technical Project Coordinator", "Implementation Coordinator", "Project Engineer", "Delivery Coordinator", "Project Support Officer", "Deployment Coordinator"],
+      telecom: ["Telecom Project Coordinator", "Network Deployment Coordinator", "Telecom Project Engineer", "Field Project Coordinator"],
+    },
+    qa: ["QA Analyst", "Software Tester", "Test Analyst", "Quality Analyst", "Test Engineer", "Software Development Engineer in Test"],
+    "telecom-engineering": ["Telecommunications Engineer", "Telecom Engineer", "Network Engineer", "Network Operations Engineer", "NOC Engineer", "Field Engineer"],
+    "telecom-technician": ["Telecom Technician", "Fiber Optic Technician", "FTTH Technician", "Network Technician", "Field Technician", "Telecom Installer"],
+    "it-support": ["IT Support Specialist", "Service Desk Analyst", "Help Desk Technician", "Desktop Support Engineer", "Technical Support Engineer"],
+    "data-analyst": ["BI Analyst", "Reporting Analyst", "Business Data Analyst", "Data Specialist"],
+    "erp-consulting": ["ERP Implementation Consultant", "Functional Consultant", "Business Systems Analyst", "ERP Functional Analyst"],
+    "crm-admin": ["Salesforce Administrator", "CRM Administrator", "Salesforce Consultant", "CRM Specialist"],
+    recruiting: ["Technical Recruiter", "IT Recruiter", "Talent Acquisition Specialist", "Talent Sourcer", "Recruitment Consultant"],
+    auditing: ["Internal Auditor", "IT Auditor", "Technology Auditor", "Compliance Auditor", "Audit Analyst"],
+    sales: ["Account Executive", "Business Development Representative", "Sales Development Representative", "Account Manager", "Commercial Manager", "Sales Representative"],
+    "customer-success": ["Customer Success Manager", "Customer Success Specialist", "Client Success Manager"],
+    "customer-support": ["Customer Support Specialist", "Customer Service Representative", "Customer Care Specialist", "Call Center Agent", "Customer Experience Associate"],
+  });
+
+  const EDUCATION_SIGNAL_ALIASES = Object.freeze([
+    { match: /\b(?:telecomunicaciones|telecommunications|telecom)\b/, terms: ["Ingeniería de Telecomunicaciones", "Telecommunications Engineering"] },
+    { match: /\b(?:industrial|industriales)\b/, terms: ["Ingeniería Industrial", "Industrial Engineering"] },
+    { match: /\b(?:informatica|informaticos|computer science|computer engineering)\b/, terms: ["Ingeniería Informática", "Computer Engineering"] },
+    { match: /\b(?:electronica|electronic engineering)\b/, terms: ["Ingeniería Electrónica", "Electronics Engineering"] },
+    { match: /\b(?:ade|administracion y direccion de empresas|business administration)\b/, terms: ["Administración y Dirección de Empresas", "Business Administration"] },
+  ]);
 
   function cleanTerms(values) {
     return (Array.isArray(values) ? values : [])
@@ -55,7 +103,7 @@
       .replace(/\bgerentes\/as\b/gi, "Gerentes")
       .replace(/\bgerente\/a\b/gi, "Gerente")
       .trim());
-    const normalized = normalizeText(original.join(" "));
+    const normalized = roleFamilyText(original);
     const projectManagement = /\b(?:jefe de proyectos?|gerente de proyectos?|project manager|project coordinator|coordinador de proyectos?)\b/.test(normalized);
     const qualityAssurance = /\b(?:qa|quality assurance|software test(?:ing)?|test automation)\b/.test(normalized);
     if (qualityAssurance) {
@@ -121,6 +169,63 @@
     return alias ? [primary, alias] : [primary];
   }
 
+  function roleFamilyText(roles) {
+    return normalizeText(cleanTerms(roles).join(" ")).replace(/\b([a-z]+)\/[oa]\b/g, "$1");
+  }
+
+  function adjacentRoleTerms(roles, seniority, domains) {
+    const normalized = roleFamilyText(roles);
+    const family = ADJACENT_ROLE_FAMILIES.find((entry) => entry.match.test(normalized));
+    if (!family) return [];
+    const seniorityText = normalizeText([...(Array.isArray(seniority) ? seniority : []), ...cleanTerms(roles)].join(" "));
+    const junior = /\b(?:junior|jr|trainee|pasante|practicante|intern|entry level)\b/.test(seniorityText);
+    const senior = /\b(?:senior|sr|ssr|lead|principal|director|head)\b/.test(seniorityText);
+    let titles = ADJACENT_TITLES[family.kind];
+    if (family.kind === "project") {
+      const allContext = normalizeText([...cleanTerms(domains), ...cleanTerms(roles)].join(" "));
+      const telecom = /\b(?:telecom|telecommunications|telecomunicaciones|fiber|fibra|network|redes|infraestructura|instalaciones)\b/.test(allContext);
+      const levelTitles = junior ? ADJACENT_TITLES.project.junior : senior ? ADJACENT_TITLES.project.senior : ADJACENT_TITLES.project.general;
+      titles = telecom ? [...ADJACENT_TITLES.project.telecom, ...levelTitles] : levelTitles;
+    }
+    const seen = new Set([...cleanTerms(roles).map(normalizeText), ...expandRoleFamily(roles, seniority).map(normalizeText)]);
+    return [...new Set(titles.filter((title) => !seen.has(normalizeText(title))))].slice(0, 8);
+  }
+
+  function educationSignals(state) {
+    const context = (Array.isArray(state && state.roleContext) ? state.roleContext : [])
+      .map((entry) => String(entry || ""))
+      .filter((entry) => /formaci[oó]n indicada/i.test(entry));
+    const source = normalizeText(context.join(" "));
+    if (!source) return { terms: [], required: false };
+    const terms = EDUCATION_SIGNAL_ALIASES
+      .filter((entry) => entry.match.test(source))
+      .flatMap((entry) => entry.terms);
+    return {
+      terms: [...new Set(terms)].slice(0, 10),
+      required: /\b(?:indispensable|requerid[oa]|obligatori[oa]|must have|required)\b/.test(source),
+    };
+  }
+
+  function domainSearchTerms(domains) {
+    const aliases = [
+      { match: /\b(?:telecom|telecommunications|telecomunicaciones|telco)\b/, terms: ["telecomunicaciones", "telecommunications", "telecom", "telco"] },
+      { match: /\b(?:travel|turismo|tourism|hospitality|hotelero)\b/, terms: ["travel", "tourism", "hospitality", "hotel"] },
+      { match: /\b(?:construccion|construction|obra|civil engineering)\b/, terms: ["construcción", "construction", "obra", "civil engineering"] },
+      { match: /\b(?:banca|banking|fintech|financial services)\b/, terms: ["banca", "banking", "fintech", "financial services"] },
+    ];
+    const values = cleanTerms(domains);
+    return [...new Set(values.flatMap((value) => {
+      const family = aliases.find((entry) => entry.match.test(normalizeText(value)));
+      return family ? family.terms : [value];
+    }))];
+  }
+
+  function isJuniorProjectManagement(state) {
+    const roleText = normalizeText([...(Array.isArray(state && state.rol) ? state.rol : []), ...(Array.isArray(state && state.seniority) ? state.seniority : [])].join(" "));
+    return /\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(roleText)
+      && /\b(?:jefe de proyectos?|project managers?|project coordinators?|coordinador de proyectos?|pmo)\b/.test(roleText);
+  }
+
   function buildGithubUserQuery(state) {
     const required = cleanTerms(state && state.imprescindibles);
     const alternatives = cleanTerms(state && state.atributos);
@@ -179,15 +284,55 @@
       }
       const query = generator.buildPublicLinkedinQuery(queryState, strategy);
       if (id === "linkedin" && query && query.length <= MAX_QUERY_LENGTH) {
-        // Search the same strict brief from three angles: role-led, skills-led,
-        // and skills-led without sector. All variants retain the precise scope
-        // and every mandatory criterion; broadening never means dropping them.
+        // Search from three complementary angles. Early-career PM candidates
+        // often use PMO / coordinator titles instead of the vacancy title, so
+        // reserve a query specifically for those adjacent title families.
         const variants = [query];
         for (const variantStrategy of ["equivalent", "market"]) {
-          const variantState = variantStrategy === "market"
-            ? { ...state, rol: [], dominio: [] }
-            : { ...state, rol: compactRoleFamily(state.rol, state.seniority) };
-          const candidate = generator.buildPublicLinkedinQuery(variantState, variantStrategy);
+          let variantState;
+          let queryMode = variantStrategy;
+          let educationTermsForVariant = [];
+          if (isJuniorProjectManagement(state) && variantStrategy === "equivalent") {
+            variantState = { ...state, rol: ["Project Coordinator", "PMO Analyst"], deseables: [] };
+            queryMode = "precise";
+          } else {
+            const adjacent = adjacentRoleTerms(state.rol, state.seniority, state.dominio);
+            if (variantStrategy === "equivalent" && adjacent.length) {
+              variantState = { ...state, rol: adjacent.slice(0, 2), deseables: [] };
+              queryMode = "precise";
+            } else if (variantStrategy === "market" && isJuniorProjectManagement(state)) {
+              const education = educationSignals(state);
+              const telecomContext = /\b(?:telecom|telecommunications|telecomunicaciones|fiber|fibra|network|redes|infraestructura|instalaciones)\b/i
+                .test([...cleanTerms(state.dominio), ...cleanTerms(state.atributos), ...cleanTerms(state.roleContext)].join(" "));
+              variantState = {
+                ...state,
+                rol: telecomContext ? ["Project Engineer", "Telecom Project Coordinator"] : ["Project Engineer", "Implementation Coordinator"],
+                atributos: ["PMO", "project coordination", ...cleanTerms(state.atributos).slice(0, 1)],
+                deseables: [],
+                dominio: cleanTerms(state.dominio),
+              };
+              educationTermsForVariant = education.required ? education.terms : [];
+              queryMode = "precise";
+            } else if (variantStrategy === "market" && adjacent.length > 2) {
+              const education = educationSignals(state);
+              variantState = {
+                ...state,
+                rol: adjacent.slice(2, 4),
+                deseables: [],
+              };
+              educationTermsForVariant = education.required ? education.terms : [];
+              queryMode = "precise";
+            } else {
+              variantState = variantStrategy === "market"
+                ? { ...state, rol: [], dominio: [] }
+                : { ...state, rol: compactRoleFamily(state.rol, state.seniority) };
+            }
+          }
+          const candidateBase = generator.buildPublicLinkedinQuery(variantState, queryMode);
+          const educationClause = educationTermsForVariant.length
+            ? ` (${educationTermsForVariant.map((term) => `"${term.replace(/"/g, "")}"`).join(" OR ")})`
+            : "";
+          const candidate = candidateBase ? candidateBase + educationClause : "";
           if (candidate && candidate.length <= MAX_QUERY_LENGTH && !variants.includes(candidate)) variants.push(candidate);
         }
         return { source: id, query, variants, label: source.label };
@@ -233,16 +378,59 @@
     return Boolean(wanted.trim()) && normalized.includes(wanted);
   }
 
+  function localityAliases(locality) {
+    const aliases = {
+      "islas canarias": ["islas canarias", "canarias", "canary islands"],
+      "canarias": ["canarias", "islas canarias", "canary islands"],
+      "islas baleares": ["islas baleares", "balearic islands"],
+      "palma de mallorca": ["palma de mallorca", "palma"],
+      "pais vasco": ["pais vasco", "basque country"],
+    };
+    return aliases[normalizeText(locality)] || [locality];
+  }
+
+  function nonResidencePrefix(preceding) {
+    return /(?:open to|willing to relocate to|relocating to|abierto a|dispuesto a trasladarme a|busco oportunidades en|interesado en|university of|universidad (?:de|del|en)|degree (?:from|at)|grado (?:en|de)|estudi(?:e|o|aron) en|studied (?:at|in)|graduat(?:ed)? (?:from|in)|experience (?:in|at)|experiencia (?:laboral )?en|trabaj(?:e|o|aron) en|worked (?:at|in)|office in|sede en)\s*$/.test(preceding);
+  }
+
   function hasResidenceEvidence(text, locality) {
     const normalized = normalizeText(text);
-    const wanted = normalizeText(locality);
-    if (!wanted) return false;
-    let index = normalized.indexOf(wanted);
-    while (index >= 0) {
-      const preceding = normalized.slice(Math.max(0, index - 64), index);
-      // A stated interest in a city is not evidence of residence there.
-      if (!/(?:open to|willing to relocate to|relocating to|abierto a|dispuesto a trasladarme a|busco oportunidades en|interesado en)\s*$/.test(preceding)) return true;
-      index = normalized.indexOf(wanted, index + wanted.length);
+    for (const alias of localityAliases(locality)) {
+      const wanted = normalizeText(alias);
+      if (!wanted) continue;
+      let index = normalized.indexOf(wanted);
+      while (index >= 0) {
+        const preceding = normalized.slice(Math.max(0, index - 64), index);
+        // A city in education, work history, or relocation preference is not
+        // evidence of current residence.
+        if (!nonResidencePrefix(preceding)) return true;
+        index = normalized.indexOf(wanted, index + wanted.length);
+      }
+    }
+    return false;
+  }
+
+  function hasNearbyLocationPair(text, localities, countriesAndCodes) {
+    const normalized = normalizeText(text);
+    const localityTerms = cleanTerms(localities).flatMap(localityAliases).map(normalizeText).filter(Boolean);
+    const countryTerms = cleanTerms(countriesAndCodes).map(normalizeText).filter(Boolean);
+    const positions = (haystack, needle) => {
+      const found = [];
+      let at = haystack.indexOf(needle);
+      while (at >= 0) {
+        found.push(at);
+        at = haystack.indexOf(needle, at + needle.length);
+      }
+      return found;
+    };
+    for (const locality of localityTerms) {
+      for (const cityAt of positions(normalized, locality)) {
+        const preceding = normalized.slice(Math.max(0, cityAt - 64), cityAt);
+        if (nonResidencePrefix(preceding)) continue;
+        for (const country of countryTerms) {
+          if (positions(normalized, country).some((countryAt) => Math.abs(countryAt - cityAt) <= 120)) return true;
+        }
+      }
     }
     return false;
   }
@@ -254,13 +442,12 @@
     const countryTerms = new Set(Object.values(countryNames).flat().map(normalizeText));
     const countryPlaces = places.filter((place) => countryTerms.has(normalizeText(place)));
     const localityPlaces = places.filter((place) => !countryTerms.has(normalizeText(place)));
-    const required = localityPlaces.length ? [...localityPlaces, ...countryPlaces] : countryPlaces.length ? countryPlaces : [places[places.length - 1]];
     const countryCodes = countries && countries.COUNTRY_CODES || {};
     const localityVisible = localityPlaces.length
       ? localityPlaces.some((place) => hasResidenceEvidence(text, place))
       : true;
-    const missing = required.filter((place) => {
-      if (countryPlaces.includes(place)) {
+    let countryVisible = countryPlaces.length
+      ? countryPlaces.some((place) => {
         const canonicalCountry = Object.keys(countryNames).find((country) =>
           (countryNames[country] || [country]).some((name) => normalizeText(name) === normalizeText(place))
         );
@@ -268,11 +455,27 @@
         const nameMatch = countryAliases.some((name) => hasPhrase(text, name));
         const codeMatch = canonicalCountry && (countryCodes[canonicalCountry] || [])
           .some((code) => hasPhrase(text, code));
-        return !nameMatch && !codeMatch;
-      }
-      return !hasResidenceEvidence(text, place);
-    });
-    if (localityPlaces.length && !countryPlaces.length) missing.push("país");
+        return nameMatch || codeMatch;
+      })
+      : !localityPlaces.length;
+    if (localityPlaces.length && countryVisible) {
+      const evidenceTerms = countryPlaces.flatMap((place) => {
+        const canonicalCountry = Object.keys(countryNames).find((country) =>
+          (countryNames[country] || [country]).some((name) => normalizeText(name) === normalizeText(place))
+        );
+        return [
+          ...(canonicalCountry ? countryNames[canonicalCountry] || [canonicalCountry] : [place]),
+          ...(canonicalCountry ? countryCodes[canonicalCountry] || [] : []),
+        ];
+      });
+      countryVisible = hasNearbyLocationPair(text, localityPlaces, evidenceTerms);
+    }
+    // Multiple cities in the same search scope are alternatives (e.g. Santiago
+    // de Compostela OR Palma), while country evidence must still be present.
+    const missing = [];
+    if (localityPlaces.length && !localityVisible) missing.push("localidad");
+    if ((localityPlaces.length || countryPlaces.length) && !countryVisible) missing.push("país");
+    if (!localityPlaces.length && !countryPlaces.length && places.length) missing.push(places[places.length - 1]);
     return { confirmed: missing.length === 0, localityVisible, missing: [...new Set(missing)] };
   }
 
@@ -372,36 +575,88 @@
     const required = cleanTerms(state.imprescindibles);
     const alternatives = cleanTerms(state.atributos);
     const role = expandRoleFamily(state.rol, state.seniority);
+    const adjacentRoles = adjacentRoleTerms(state.rol, state.seniority, state.dominio);
     const location = cleanTerms(state.alcance);
     const domain = cleanTerms(state.dominio);
-    const hits = (terms) => terms.filter((term) => searchable.includes(normalizeText(term)));
+    const education = educationSignals(state);
+    // Substring checks make short technology names dangerously noisy ("R"
+    // inside "remote", or "SAP" inside "landscape"). Use normalized token
+    // boundaries so punctuation and accents remain flexible without matching
+    // unrelated words.
+    const hits = (terms) => terms.filter((term) => hasPhrase(searchable, term));
     const roleHits = hits(role);
+    const adjacentRoleHits = hits(adjacentRoles);
     const requiredHits = hits(required);
     const alternativeHits = hits(alternatives);
     const locationHits = hits(location);
-    const domainHits = hits(domain);
+    const domainHits = hits(domainSearchTerms(domain));
+    const educationHits = hits(education.terms);
     const specificLocation = location.length ? location[location.length - 1] : "";
-    const specificLocationHit = Boolean(specificLocation && hasPhrase(searchable, specificLocation));
+    const specificLocationHit = Boolean(specificLocation && hasResidenceEvidence(searchable, specificLocation));
     const geography = geographyEvidence(text, state);
     const mandatoryCoverage = required.length ? requiredHits.length / required.length : 0;
     const attributeCoverage = alternatives.length ? alternativeHits.length / alternatives.length : 0;
-    const roleCoverage = role.length ? (roleHits.length ? 1 : 0) : 0;
+    const roleCoverage = role.length ? (roleHits.length ? 1 : adjacentRoleHits.length ? 0.65 : 0) : 0;
     const locationCoverage = location.length ? (geography.confirmed ? 1 : 0) : 0;
+    const domainWeight = domain.length ? 10 : 0;
+    const educationWeight = education.terms.length ? 5 : 0;
     // This ranks only visible text. Missing snippet evidence remains unknown,
     // never a factual rejection of the candidate.
-    const activeWeight = (required.length ? 45 : 0) + (alternatives.length ? 25 : 0) + (role.length ? 15 : 0) + (location.length ? 15 : 0);
-    const evidencePoints = 45 * mandatoryCoverage + 25 * Math.min(1, attributeCoverage) + 15 * roleCoverage + 15 * locationCoverage;
+    const activeWeight = (required.length ? 45 : 0) + (alternatives.length ? 25 : 0) + (role.length ? 15 : 0)
+      + domainWeight + educationWeight + (location.length ? 15 : 0);
+    const evidencePoints = 45 * mandatoryCoverage + 25 * Math.min(1, attributeCoverage) + 15 * roleCoverage
+      + domainWeight * (domainHits.length ? 1 : 0) + educationWeight * (educationHits.length ? 1 : 0) + 15 * locationCoverage;
     const score = activeWeight ? Math.round((evidencePoints / activeWeight) * 100) : 0;
-    const visibleSignals = [...new Set([...requiredHits, ...alternativeHits, ...roleHits, ...locationHits])];
+    const visibleSignals = [...new Set([...requiredHits, ...alternativeHits, ...roleHits, ...adjacentRoleHits, ...domainHits, ...educationHits, ...locationHits])];
     const locationStatus = !location.length ? "Sin filtro geográfico" : geography.confirmed ? "Localidad y país visibles" : geography.localityVisible ? "Localidad mencionada; país y residencia por confirmar" : "Ubicación sin confirmar";
+    const roleMatchType = roleHits.length ? "equivalent" : adjacentRoleHits.length ? "adjacent" : role.length ? "unverified" : "not_requested";
+    const educationStatus = !education.terms.length ? "Sin formación específica indicada"
+      : educationHits.length ? "Formación relacionada visible"
+        : education.required ? "Formación requerida por confirmar" : "Formación valorable por confirmar";
     const confidence = score >= 70 && (!location.length || geography.confirmed) ? "Coincidencia textual alta" : score >= 40 ? "Coincidencia textual parcial" : "Pocas señales públicas";
     const scoreBreakdown = [
       required.length ? `Obligatorios visibles ${requiredHits.length}/${required.length}` : "Sin obligatorios confirmados",
       alternatives.length ? `Señales de apoyo visibles ${alternativeHits.length}/${alternatives.length}` : "Sin señales de apoyo",
-      role.length ? `Cargo ${roleHits.length}/${role.length}` : "Sin título obligatorio",
+      role.length ? (roleHits.length ? "Cargo equivalente visible" : adjacentRoleHits.length ? "Cargo afín visible" : "Título sin confirmar") : "Sin título obligatorio",
+      domain.length ? `Sector relacionado ${domainHits.length ? "visible" : "por confirmar"}` : "Sin sector",
+      education.terms.length ? educationStatus : "Sin formación indicada",
       location.length ? locationStatus : "Sin filtro geográfico",
     ];
-    return { score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, alternativeHits, locationHits, domainHits, specificLocationHit: Boolean(specificLocationHit), localityVisible: geography.localityVisible, locationConfirmed: geography.confirmed };
+    return {
+      score, confidence, locationStatus, visibleSignals, scoreBreakdown, requiredHits, roleHits, adjacentRoleHits,
+      roleMatchType, alternativeHits, locationHits, domainHits, educationHits, educationRequired: education.required,
+      educationStatus, specificLocationHit: Boolean(specificLocationHit), localityVisible: geography.localityVisible,
+      locationConfirmed: geography.confirmed,
+    };
+  }
+
+  function experienceEvidence(title, snippet, state) {
+    const seniorityText = normalizeText([...(Array.isArray(state && state.seniority) ? state.seniority : []), ...(Array.isArray(state && state.rol) ? state.rol : [])].join(" "));
+    if (!/\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(seniorityText)) {
+      return { experienceFit: "not_requested", experienceLabel: "Antigüedad sin filtro", experienceYears: null, experienceRank: 1 };
+    }
+    const maxFromContext = (Array.isArray(state && state.roleContext) ? state.roleContext : [])
+      .map((entry) => normalizeText(entry).match(/experiencia indicada:\s*0\s*[-–]\s*(\d{1,2}) anos?/))
+      .find(Boolean);
+    const maxYears = maxFromContext ? Number(maxFromContext[1]) : 3;
+    const titleText = normalizeText(title);
+    const description = normalizeText(snippet);
+    const seniorTitle = /\b(?:senior|sr\.?|lead|principal|director|head of|gerente|responsable)\b/.test(titleText);
+    const explicitYears = [
+      ...Array.from(description.matchAll(/\b(?:mas de|over|more than)\s*(\d{1,2})\s*(?:anos?|years?)\b/g), (match) => Number(match[1])),
+      ...Array.from(description.matchAll(/\b(\d{1,2})\s*\+?\s*(?:anos?|years?)\s+(?:de\s+)?(?:experiencia|experience)\b/g), (match) => Number(match[1])),
+    ];
+    const experienceYears = explicitYears.length ? Math.max(...explicitYears) : null;
+    if (seniorTitle || (experienceYears !== null && experienceYears > maxYears)) {
+      return { experienceFit: "above_limit", experienceLabel: "Antigüedad superior a la buscada", experienceYears, experienceRank: 3 };
+    }
+    if (/\b(?:junior|jr|trainee|pasante|practicante|intern|early career|entry level)\b/.test(`${titleText} ${description}`)) {
+      return { experienceFit: "junior_visible", experienceLabel: "Nivel inicial visible; años por confirmar", experienceYears, experienceRank: 0 };
+    }
+    if (experienceYears !== null) {
+      return { experienceFit: "within_limit", experienceLabel: `Experiencia visible: ${experienceYears} años`, experienceYears, experienceRank: 0 };
+    }
+    return { experienceFit: "unknown", experienceLabel: "Años de experiencia por validar", experienceYears: null, experienceRank: 2 };
   }
 
   function normalizeResults(payload, state) {
@@ -416,11 +671,18 @@
       seen.add(url);
       const title = String(item.title || "").slice(0, 240);
       const snippet = String(item.snippet || "").slice(0, 800);
+      const experience = experienceEvidence(title, snippet, state);
+      if (experience.experienceFit === "above_limit") return;
       const evidence = termEvidence(`${title} ${snippet}`, state);
       const required = cleanTerms(state.imprescindibles);
       const alternatives = cleanTerms(state.atributos);
+      const hasSkillEvidence = evidence.alternativeHits.length > 0 || evidence.requiredHits.length > 0;
+      const hasSupportingEvidence = hasSkillEvidence
+        || evidence.domainHits.length > 0 || evidence.educationHits.length > 0;
+      const supportingSignalConfirmed = !alternatives.length || hasSkillEvidence;
       const hasProfileRelevance = evidence.roleHits.length > 0 || evidence.requiredHits.length > 0
-        || evidence.alternativeHits.length > 0 || evidence.domainHits.length > 0;
+        || evidence.alternativeHits.length > 0 || evidence.domainHits.length > 0
+        || (evidence.adjacentRoleHits.length > 0 && hasSupportingEvidence);
       // The provider returns search results, not confirmed candidates. Keep
       // the user's Boolean semantics when checking visible evidence: every
       // mandatory item must appear, and at least one alternative must appear
@@ -431,10 +693,11 @@
       // title or snippet. Do not treat an omitted snippet signal as proof that
       // the person lacks it; keep role/location matches visible for review.
       // Explicitly confirmed mandatory signals remain a hard filter above.
-      // Keep exact city mentions for recruiter review when the snippet omits
-      // the country. They remain visibly unverified and are never shareable
-      // as confirmed matches. Exclude generic intent such as "open to Barcelona".
-      if (!evidence.locationConfirmed && !evidence.localityVisible) return;
+      // The public shortlist is location-specific: a city mention without the
+      // requested country is not enough to distinguish homonyms or confirm
+      // residence. Keep such leads out of the ranked list instead of making
+      // the recruiter infer geography from an incomplete search snippet.
+      if (cleanTerms(state.alcance).length && !evidence.locationConfirmed) return;
       const name = parseDisplayName(title, sourceId);
       const identity = profileIdentityEvidence(name, url, sourceId);
       normalized.push({
@@ -446,10 +709,12 @@
         ...identity,
         snippet,
         providerPosition: Number.isFinite(Number(item.position)) ? Number(item.position) : null,
+        supportingSignalConfirmed,
+        ...experience,
         ...evidence,
       });
     });
-    normalized.sort((a, b) => b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999));
+    normalized.sort((a, b) => a.experienceRank - b.experienceRank || b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999));
     return normalized.slice(0, MAX_RESULTS);
   }
 
@@ -505,6 +770,7 @@
     const failWithSourceDetails = (message) => {
       const error = new Error(message);
       error.sourceDiagnostics = sourceDiagnostics;
+      error.requestId = typeof payload.requestId === "string" ? payload.requestId : null;
       throw error;
     };
     if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito del mes. No se inició la búsqueda.");
@@ -538,13 +804,18 @@
           organicCount: Math.max(0, Number(item.organicCount) || 0),
           profileCount: Math.max(0, Number(item.profileCount) || 0),
           queriesRun: Math.max(0, Number(item.queriesRun) || 0),
+          queriesRequested: Math.max(0, Number(item.queriesRequested) || 0),
+          quotaLimited: item.quotaLimited === true,
+          elapsedMs: Math.max(0, Number(item.elapsedMs) || 0),
           code: typeof item.code === "string" ? item.code : null,
-          engines: Array.isArray(item.engines) ? item.engines.filter((engine) => ["Google", "Brave"].includes(engine)) : [],
+          engines: Array.isArray(item.engines) ? item.engines.filter((engine) => ["Google", "Bing", "Yahoo"].includes(engine)) : [],
           providerErrors: Array.isArray(item.providerErrors) ? item.providerErrors
-            .filter((entry) => entry && ["Google", "Brave"].includes(entry.provider))
+            .filter((entry) => entry && ["Google", "Bing", "Yahoo"].includes(entry.provider))
             .map((entry) => ({ provider: entry.provider, code: typeof entry.code === "string" ? entry.code : "source_unavailable" })) : [],
         })),
       count: Number(payload.count) || 0,
+      requestId: typeof payload.requestId === "string" && /^[0-9a-f-]{36}$/i.test(payload.requestId) ? payload.requestId : null,
+      elapsedMs: Math.max(0, Number(payload.elapsedMs) || 0),
       locationContext: payload.locationContext && typeof payload.locationContext === "object"
         ? {
           mode: payload.locationContext.mode === "provider_location" ? "provider_location" : "query_only",
@@ -555,5 +826,5 @@
     };
   }
 
-  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, SEARCH_TIMEOUT_MS, buildPlan, buildGithubUserQuery, expandRoleFamily, compactRoleFamily, validateProfileUrl, parseDisplayName, profileIdentityEvidence, termEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
+  return { SOURCES, PUBLIC_SOURCE_IDS, MAX_SOURCES, MAX_RESULTS, SEARCH_TIMEOUT_MS, buildPlan, buildGithubUserQuery, expandRoleFamily, compactRoleFamily, adjacentRoleTerms, educationSignals, domainSearchTerms, validateProfileUrl, parseDisplayName, profileIdentityEvidence, termEvidence, experienceEvidence, geographyEvidence, locationScopeNeedsCountry, locationScopeError, normalizeResults, search };
 });

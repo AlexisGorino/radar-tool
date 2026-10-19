@@ -107,6 +107,24 @@ test("parseJDAnalysis accepts only evidence-backed role, requirements and locati
   assert.deepStrictEqual(result.modality, []);
 });
 
+test("Gemini analysis cannot turn a client label into the role or Santiago into Palma", () => {
+  const jd = require("fs").readFileSync(path.join(__dirname, "fixtures", "project-manager-junior-es.txt"), "utf8");
+  const payload = {
+    isJobPosting: true,
+    jobEvidence: "DESCRIPCIÓN DEL PUESTO DE TRABAJO",
+    role: { term: "Empresa de ejemplo", evidence: "PUESTO - CLIENTE Empresa de ejemplo" },
+    roleAlternatives: [], requiredSkills: [], preferredSkills: [], industries: [],
+    locations: [{ country: "España", locality: "Palma de Mallorca", evidence: "España, Santiago de Compostela o Palma de Mallorca" }],
+    seniority: { term: "senior", evidence: "Senior" }, modality: { term: "presencial", evidence: "100% Presencial" },
+  };
+  const result = AI.parseJDAnalysis({ candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }] }, jd);
+  assert.deepStrictEqual(result.rol, ["Jefe de Proyecto"]);
+  assert.deepStrictEqual(result.seniority, ["junior"]);
+  assert.deepStrictEqual(result.alcance, ["España", "Santiago de Compostela"]);
+  assert.ok(result.roleContext.some((signal) => signal.includes("0-2 años")));
+  assert.strictEqual(result.quality.evidence.rol, "PUESTO - CLIENTE Empresa de ejemplo - Jefe de Proyecto Junior");
+});
+
 test("parseJDAnalysis refuses a model's unsupported title and still permits a strong roleless search", () => {
   const jd = "Requisitos excluyentes: FTTH y OTDR en Islas Canarias, España.";
   const payload = {

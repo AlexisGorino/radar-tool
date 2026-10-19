@@ -138,6 +138,18 @@ describe("RADAR talent search flow", () => {
     cy.get("#applyJdBtn").should("be.disabled");
   });
 
+  it("reads the Wicom junior JD as a project role and keeps both Spanish cities", () => {
+    cy.readFile("tests/fixtures/wicom-junior-santiago-jd.txt", "utf8").then((jd) => {
+      cy.get("#jdInput").invoke("val", jd).trigger("input");
+    });
+    cy.get("#analyzeBtn").click();
+    cy.get("#jdReview").should("be.visible");
+    cy.get("#jdReviewGrid .jd-review-role-input").should("have.value", "Jefe de Proyecto");
+    cy.get("#jdReviewGrid").should("contain.text", "Santiago de Compostela").and("contain.text", "Palma de Mallorca");
+    cy.get("#jdReviewGrid").should("not.contain.text", "Chile");
+    cy.get("#jdReviewQuestions").should("contain.text", "junior");
+  });
+
   it("loads understandable examples for IT, ERP, telecom and non-IT profiles", () => {
     cy.get("#profileExamples > summary").click();
     const examples = [
@@ -276,17 +288,18 @@ describe("RADAR talent search flow", () => {
     cy.get("#applyJdBtn").click();
     cy.get("#chips-rol").should("contain.text", "QA Analyst");
     cy.get("#chips-atributos").should("contain.text", "Cypress");
-    cy.get("#chips-alcance").should("contain.text", "Argentina").and("contain.text", "Córdoba");
+    cy.get("#countrySelect").should("have.value", "Argentina");
+    cy.get("#chips-alcance").should("contain.text", "Córdoba").and("not.contain.text", "Argentina");
   });
 
   it("keeps optional filters and extra portals out of the first view", () => {
     cy.get("#welcomeTitle").should("contain.text", "Encontrá el perfil que necesitás.");
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
-    cy.get('label[for="roleInput"]').should("contain.text", "Cargo o familia");
+    cy.get('label[for="roleInput"]').should("contain.text", "Cargo principal o equivalentes");
     cy.get('label[for="signalsInput"]').should("contain.text", "Conocimientos o tareas");
     cy.get('label[for="requiredInput"]').should("contain.text", "Obligatorios · deben coincidir todos");
-    cy.contains(".field-desc", "Sumá tareas o tecnologías relacionadas").should("be.visible");
-    cy.get(".required-help").should("contain.text", "Dejá acá solo lo excluyente");
+    cy.contains(".field-desc", "Agregá tecnologías, tareas o contexto").should("be.visible");
+    cy.get(".required-help").should("contain.text", "Si no puede flexibilizarse, va acá");
     cy.get("#generateBtn").should("contain.text", "Ver búsquedas");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get('[data-field="deseables"]').should("not.be.visible");
@@ -467,7 +480,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#readinessProfile").should("contain.text", "Incompleto");
     cy.get("#readinessLocation").should("contain.text", "Falta ubicación");
     cy.get("#readinessJd").should("contain.text", "Manual");
-    cy.get(".hint.guided-only").should("contain.text", "Enter agrega cada criterio");
+    cy.get(".hint.guided-only").should("contain.text", "pulsando Enter");
 
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
     cy.get('[data-field="atributos"]').type("SQL{enter}");
@@ -569,8 +582,14 @@ describe("RADAR talent search flow", () => {
         statusCode: 200,
         body: {
           count: 24,
+          requestId: "01234567-89ab-cdef-0123-456789abcdef",
+          elapsedMs: 1400,
           locationContext: { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" },
           sourceErrors: [{ source: "github", code: "source_unavailable" }],
+          sourceDiagnostics: [
+            { source: "linkedin", status: "profiles_found", organicCount: 30, profileCount: 22, queriesRun: 2, queriesRequested: 3, quotaLimited: true, elapsedMs: 1100, engines: ["Google", "Bing"], code: null },
+            { source: "github", status: "error", organicCount: 0, profileCount: 0, elapsedMs: 900, code: "source_unavailable" },
+          ],
           results: [
             ...Array.from({ length: 22 }, (_, index) => ({
               source: "linkedin",
@@ -605,10 +624,10 @@ describe("RADAR talent search flow", () => {
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").should("be.enabled").click();
     cy.get(".public-profile-card").should("have.length", 20);
-    cy.get(".public-search-results-heading").should("contain.text", "20 perfiles públicos para revisar");
+    cy.get(".public-search-results-heading").should("contain.text", "20 perfiles con ubicación y señales visibles");
     cy.get(".public-profile-rank").first().should("have.text", "01");
     cy.get(".public-profile-rank").last().should("have.text", "20");
-    cy.get(".public-profile-score").first().should("contain.text", "/100");
+    cy.get(".public-profile-score").first().should("contain.text", "Requisito clave visible").and("not.contain.text", "/100");
     cy.get(".public-profile-details summary").first().click();
     cy.get(".public-profile-details[open]").should("contain.text", "Coincidencias");
     cy.contains("Ana Pérez").should("be.visible");
@@ -617,9 +636,11 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
-    cy.get("#publicSearchStatus").should("contain.text", "Resultado parcial: 20 perfiles");
+    cy.get("#publicSearchStatus").should("contain.text", "Resultado parcial: 20 perfiles con ubicación y señales visibles");
     cy.get("#publicSearchResults").should("contain.text", "Búsqueda en Canary Islands,Spain");
     cy.get("#publicSearchResults").should("contain.text", "No respondió GitHub");
+    cy.get(".public-search-diagnostics").should("contain.text", "Google + Bing").and("contain.text", "cupo: 2 de 3 consultas").and("contain.text", "1.1 s");
+    cy.get(".public-search-trace").should("contain.text", "01234567-89ab-cdef-0123-456789abcdef");
     cy.get(".public-search-next-actions").should("contain.text", "Seguí con otras rutas");
     cy.get(".public-search-next-actions a").should("have.attr", "href", "#results");
     cy.get("#publicSearchSources input").should("have.length", 2);
@@ -712,7 +733,9 @@ describe("RADAR talent search flow", () => {
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
     cy.get(".public-profile-card").should("have.length", 2);
-    cy.get(".public-search-location-review").should("contain.text", "no confirma el país");
+    cy.get(".public-profile-list:not(.public-profile-review-list) .public-profile-card").should("have.length", 1);
+    cy.get(".public-search-review-group").should("contain.text", "Pistas para revisar (1)").and("not.have.attr", "open");
+    cy.get(".public-search-location-review").should("contain.text", "confirmá la ciudad, el país y los conocimientos pedidos");
     cy.get(".public-profile-card").should("contain.text", "Localidad mencionada; país y residencia por confirmar");
     cy.get(".public-profile-card").should("not.contain.text", "Kseniya Cherasheva");
     cy.get(".public-profile-share-checkbox").should("have.length", 1);
@@ -821,7 +844,7 @@ describe("RADAR talent search flow", () => {
           count: 1,
           results: [{ source: "linkedin", url: "https://www.linkedin.com/in/ana-perez", title: "Ana Pérez - Recruiter", snippet: "Recruiting · reclutamiento · Argentina", position: 1 }],
           sourceErrors: [],
-          sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 12, profileCount: 1, code: null, engines: ["Google", "Brave"], providerErrors: [{ provider: "Google", code: "provider_timeout" }] }],
+          sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 12, profileCount: 1, code: null, engines: ["Google", "Bing"], providerErrors: [{ provider: "Google", code: "provider_timeout" }] }],
         },
       });
     }).as("partialSearch");
@@ -850,7 +873,7 @@ describe("RADAR talent search flow", () => {
       expect(plans[1].queries.map((query) => query.source)).to.deep.equal(["linkedin"]);
     });
     cy.get(".public-profile-card").should("have.length", 1);
-    cy.get(".public-search-diagnostics").should("contain.text", "Google + Brave").and("contain.text", "Google agotó el tiempo de espera");
+    cy.get(".public-search-diagnostics").should("contain.text", "Google + Bing").and("contain.text", "Google agotó el tiempo de espera");
     cy.get("#publicSearchRefine").should("be.visible");
   });
 

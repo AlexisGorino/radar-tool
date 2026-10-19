@@ -99,16 +99,22 @@
   </section>
 
   <section class="card">
-    <h2>2 · Revisá el perfil y la ubicación</h2>
-    <p class="hint guided-only">Corregí lo que haga falta. Enter agrega cada criterio.</p>
-    <p class="hint expert-only">Enter agrega cada criterio. Marcá como obligatorio solo lo excluyente.</p>
+    <h2>2 · Ajustá los criterios de búsqueda</h2>
+    <p class="hint guided-only">Revisá cada bloque. Podés quitar lo que no aplica y agregar criterios escribiendo y pulsando Enter.</p>
+    <p class="hint expert-only">Editá los criterios. Los cargos son alternativas; los obligatorios se exigen todos.</p>
+    <div class="criteria-key guided-only" aria-label="Cómo interpretar los criterios">
+      <span><b class="criteria-key-mark is-required">!</b> En un conocimiento, lo marca como obligatorio</span>
+      <span><b class="criteria-key-mark is-alternative">↔</b> En un obligatorio, lo vuelve flexible</span>
+      <span>Para ubicar bien: país + localidad</span>
+    </div>
 
     <div class="radar-grid">
-      <div class="field">
-        <label class="field-label" for="roleInput">Cargo o familia</label>
-        <div class="field-desc">Podés buscar solo por conocimientos</div>
+      <div class="field criteria-field">
+        <span class="criteria-step">01 · PERFIL</span>
+        <label class="field-label" for="roleInput">Cargo principal o equivalentes</label>
+        <div class="field-desc">RADAR los trata como alternativas. Quitá los que no describan el perfil.</div>
         <div class="chips" id="chips-rol"></div>
-        <input id="roleInput" type="text" class="field-input" data-field="rol" placeholder="Ej.: Técnico/a de redes" maxlength="80">
+        <input id="roleInput" type="text" class="field-input" data-field="rol" aria-label="Agregar cargo o equivalente" placeholder="Agregar otro cargo…" maxlength="80">
         <div class="synonyms-row hidden" id="synonymsRow">
           <span class="synonyms-label">+ sinónimos:</span>
           <div class="synonyms-list" id="synonymsList"></div>
@@ -118,30 +124,34 @@
           <span class="hint" id="aiSuggestHint"></span>
         </div>
       </div>
-      <div class="field field-alt">
+      <div class="field field-alt criteria-field">
+        <span class="criteria-step">02 · CONOCIMIENTOS</span>
         <label class="field-label" for="signalsInput">Conocimientos o tareas</label>
-        <div class="field-desc">Sumá tareas o tecnologías relacionadas</div>
+        <div class="field-desc">Agregá tecnologías, tareas o contexto. Una señal visible ayuda a priorizar.</div>
         <div class="chips" id="chips-atributos"></div>
-        <input id="signalsInput" type="text" class="field-input" data-field="atributos" placeholder="Ej.: instalación FTTH" maxlength="80">
-        <label class="priority-subhead" for="requiredInput">Obligatorios · deben coincidir todos</label>
+        <input id="signalsInput" type="text" class="field-input" data-field="atributos" aria-label="Agregar conocimiento o tarea relacionada" placeholder="Agregar tecnología o tarea…" maxlength="80">
+        <label class="priority-subhead" for="requiredInput"><span class="criteria-key-mark is-required">!</span> Obligatorios <span>· deben coincidir todos</span></label>
         <div class="chips" id="chips-imprescindibles"></div>
-        <input id="requiredInput" type="text" class="field-input" data-field="imprescindibles" placeholder="Solo lo que debe cumplir sí o sí" maxlength="80">
-        <div class="field-desc required-help">Dejá acá solo lo excluyente</div>
+        <input id="requiredInput" type="text" class="field-input" data-field="imprescindibles" aria-label="Agregar requisito obligatorio" placeholder="Agregar solo un requisito excluyente…" maxlength="80">
+        <div class="field-desc required-help">Si no puede flexibilizarse, va acá. Usá la flecha de un chip para cambiarlo de grupo.</div>
         <div class="synonyms-row hidden" id="aiAtributosRow">
           <span class="synonyms-label">+ sugeridos por IA:</span>
           <div class="synonyms-list" id="aiAtributosList"></div>
         </div>
       </div>
-      <div class="field field-alt">
-        <div class="field-label">Ubicación</div>
-        <div class="field-desc">Elegí país y localidad exactos</div>
+      <div class="field field-alt criteria-field">
+        <span class="criteria-step">03 · UBICACIÓN</span>
+        <label class="field-label" for="countrySelect">País</label>
+        <div class="field-desc">Elegí el país donde debe estar el perfil.</div>
         <div class="alcance-country-row">
           <select id="countrySelect" aria-label="País">
             <option value="">País...</option>
           </select>
         </div>
+        <label class="field-label location-locality-label" for="locationInput">Localidad, provincia o región</label>
+        <div class="field-desc">Agregá una o más zonas dentro de ese país.</div>
         <div class="chips" id="chips-alcance"></div>
-        <input id="locationInput" type="text" class="field-input" data-field="alcance" aria-label="Localidad o región" placeholder="Ej.: Valencia, Islas Canarias" maxlength="80">
+        <input id="locationInput" type="text" class="field-input" data-field="alcance" aria-label="Agregar localidad, provincia o región" placeholder="Ej.: Barcelona" maxlength="80">
         <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Buscar sin restricción geográfica</label>
       </div>
       <details class="advanced-options" id="advancedCriteria">

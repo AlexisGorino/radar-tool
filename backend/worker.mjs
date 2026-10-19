@@ -124,6 +124,12 @@ function normalizeLocation(value) {
     .trim();
 }
 
+function containsProfileTerm(text, term) {
+  const normalizedText = normalizeLocation(text);
+  const normalizedTerm = normalizeLocation(term);
+  return Boolean(normalizedTerm) && (` ${normalizedText} `).includes(` ${normalizedTerm} `);
+}
+
 function countryCodeForLabel(value) {
   const normalized = normalizeLocation(value);
   if (COUNTRY_CODE_CACHE.has(normalized)) return COUNTRY_CODE_CACHE.get(normalized);
@@ -237,16 +243,29 @@ async function resolveSearchLocation(rawLocation) {
   }
 }
 
-async function lookup(query, location, source, apiKey) {
+const SEARCH_ENGINES = Object.freeze([
+  { id: "google", label: "Google", queryParam: "q" },
+  { id: "bing", label: "Bing", queryParam: "q" },
+  { id: "yahoo", label: "Yahoo", queryParam: "p" },
+]);
+
+async function lookup(query, location, source, apiKey, engineId = "google") {
+  const engine = SEARCH_ENGINES.find((item) => item.id === engineId) || SEARCH_ENGINES[0];
   const url = new URL("https://serpapi.com/search.json");
-  url.searchParams.set("engine", "google");
-  url.searchParams.set("q", query);
-  // SerpApi's Google endpoint returns one page of organic results by default.
-  // Its documented pagination uses `start`; `num` is not a supported parameter.
-  // One page per selected source keeps the free-plan cost predictable.
+  url.searchParams.set("engine", engine.id);
+  url.searchParams.set(engine.queryParam, query);
+  // Keep each engine's geographic controls explicit. The requested city and
+  // country also remain in the query; these settings only localize the index.
   url.searchParams.set("api_key", apiKey);
-  if (location.canonicalName) url.searchParams.set("location", location.canonicalName);
-  if (location.countryCode) url.searchParams.set("gl", location.countryCode.toLowerCase());
+  if (engine.id === "google") {
+    if (location.canonicalName) url.searchParams.set("location", location.canonicalName);
+    if (location.countryCode) url.searchParams.set("gl", location.countryCode.toLowerCase());
+  } else if (engine.id === "bing") {
+    if (location.canonicalName) url.searchParams.set("location", location.canonicalName);
+    if (location.countryCode) url.searchParams.set("cc", location.countryCode.toLowerCase());
+  } else if (location.countryCode) {
+    url.searchParams.set("vc", location.countryCode === "GB" ? "uk" : location.countryCode.toLowerCase());
+  }
   const response = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) });
   if (response.status === 429) throw new Error("provider_rate_limited");
   if (response.status === 401 || response.status === 403) throw new Error("provider_credentials_rejected");
@@ -272,6 +291,7 @@ async function lookup(query, location, source, apiKey) {
     results: profileResults.slice(0, MAX_RESULTS),
     organicCount: organicResults.length,
     profileCount: profileResults.length,
+    engine: engine.label,
   };
 }
 
@@ -283,6 +303,7 @@ function profileHasExactLocation(result, rawLocation) {
     "islas canarias": ["canary islands"],
     "canarias": ["canary islands"],
     "islas baleares": ["balearic islands"],
+    "palma de mallorca": ["palma"],
     "pais vasco": ["basque country"],
   };
   const localityNames = [requested.locality, ...(localityAliases[normalizeLocation(requested.locality)] || [])];
@@ -300,35 +321,42 @@ function profileHasExactLocation(result, rawLocation) {
   return hasAnyPhrase(localityNames) && hasAnyPhrase(countryNames);
 }
 
-async function lookupLinkedIn(queries, location, googleKey, googleAllowed) {
+async function lookupLinkedIn(queries, location, serpApiKey, providerAllowed) {
   const variants = Array.isArray(queries) ? queries : [queries];
-  const outcomes = googleAllowed && googleKey
-    ? await Promise.all(variants.map(async (query) => {
-      try { return { result: await lookup(query, location, "linkedin", googleKey) }; }
-      catch (error) { return { error }; }
+  const engines = SEARCH_ENGINES.slice(0, variants.length);
+  const outcomes = providerAllowed && serpApiKey
+    ? await Promise.all(variants.map(async (query, index) => {
+      const engine = engines[index] || SEARCH_ENGINES[0];
+      try { return { result: await lookup(query, location, "linkedin", serpApiKey, engine.id), engine }; }
+      catch (error) { return { error, engine }; }
     }))
     : [];
   const providerErrors = [];
-  outcomes.filter((outcome) => outcome.error).forEach(({ error }) => {
-    providerErrors.push({ provider: "Google", code: safeProviderErrorCode(error) });
+  outcomes.filter((outcome) => outcome.error).forEach(({ error, engine }) => {
+    providerErrors.push({ provider: engine.label, code: safeProviderErrorCode(error) });
   });
-  const googleResults = outcomes.map((outcome) => outcome.result).filter(Boolean);
+  const engineResults = outcomes.map((outcome) => outcome.result).filter(Boolean);
 
   const resultsByUrl = new Map();
-  for (const item of googleResults.flatMap((result) => result.results || [])) {
+  for (const item of engineResults.flatMap((result) => result.results || [])) {
     const current = resultsByUrl.get(item.url);
     if (!current || String(item.snippet || "").length > String(current.snippet || "").length) resultsByUrl.set(item.url, item);
   }
   const results = [...resultsByUrl.values()].slice(0, MAX_RESULTS);
-  if (!googleResults.length) {
+  if (!engineResults.length) {
     const failure = providerErrors.at(-1);
-    throw new Error(failure?.code || "provider_unavailable");
+    const error = new Error(failure?.code || "provider_unavailable");
+    error.providerErrors = providerErrors;
+    error.engines = outcomes.map((outcome) => outcome.engine.label);
+    error.queriesRun = outcomes.length;
+    throw error;
   }
   return {
     results,
-    organicCount: googleResults.reduce((total, result) => total + (result.organicCount || 0), 0),
+    organicCount: engineResults.reduce((total, result) => total + (result.organicCount || 0), 0),
     profileCount: results.length,
-    queriesRun: googleResults.length,
+    queriesRun: outcomes.length,
+    engines: [...new Set(outcomes.map((outcome) => outcome.engine.label))],
     ...(providerErrors.length ? { providerErrors } : {}),
   };
 }
@@ -340,6 +368,7 @@ function exactGithubLocation(profileLocation, rawLocation) {
   const localityAliases = {
     "islas canarias": ["canary islands"], "canarias": ["canary islands"],
     "islas baleares": ["balearic islands"], "pais vasco": ["basque country"],
+    "palma de mallorca": ["palma"],
   };
   const localityTerms = new Set([requested.locality, ...(localityAliases[normalizeLocation(requested.locality)] || [])]
     .map(normalizeLocation).filter(Boolean));
@@ -395,15 +424,15 @@ async function lookupGithubUsers(query, rawLocation, token, profileEvidence = {}
     const profileUrl = new URL(`/users/${encodeURIComponent(login)}`, "https://api.github.com");
     const profile = await githubRequest(profileUrl.toString(), token);
     if (!profile || !exactGithubLocation(profile.location, rawLocation)) return null;
-    const normalizedBio = normalizeLocation(profile.bio || "");
-    if (requiredSignals.some((term) => !normalizedBio.includes(normalizeLocation(term)))) return null;
-    if (alternativeSignals.length && !alternativeSignals.some((term) => normalizedBio.includes(normalizeLocation(term)))) return null;
-    if (roleSignals.length && !roleSignals.some((term) => normalizedBio.includes(normalizeLocation(term)))) return null;
+    const bio = String(profile.bio || "");
+    if (requiredSignals.some((term) => !containsProfileTerm(bio, term))) return null;
+    if (alternativeSignals.length && !alternativeSignals.some((term) => containsProfileTerm(bio, term))) return null;
+    if (roleSignals.length && !roleSignals.some((term) => containsProfileTerm(bio, term))) return null;
     const title = `${String(profile.name || profile.login).slice(0, 100)} - ${String(profile.bio || "GitHub").slice(0, 120)}`;
     const location = String(profile.location || "").slice(0, 180);
-    const bio = String(profile.bio || "").slice(0, 500);
+    const bioSnippet = bio.slice(0, 500);
     const repositories = Math.max(0, Number(profile.public_repos) || 0);
-    const snippet = [bio, location, language ? `Lenguaje de repositorios: ${language}` : "", repositories ? `${repositories} repositorios públicos` : ""].filter(Boolean).join(" · ").slice(0, 800);
+    const snippet = [bioSnippet, location, language ? `Lenguaje de repositorios: ${language}` : "", repositories ? `${repositories} repositorios públicos` : ""].filter(Boolean).join(" · ").slice(0, 800);
     return safeResult({ link: profile.html_url, title, snippet, position: Number(user.score) || null }, "github");
   }));
   const results = details.filter(Boolean);
@@ -411,6 +440,12 @@ async function lookupGithubUsers(query, rawLocation, token, profileEvidence = {}
 }
 
 async function freeBudgetAllows(apiKey, searchesNeeded) {
+  const capacity = await freeSearchCapacity(apiKey, searchesNeeded);
+  if (capacity.allowed && capacity.searchesAvailable >= searchesNeeded) return { allowed: true };
+  return { allowed: false, reason: capacity.reason || (capacity.searchesAvailable < searchesNeeded ? "free_quota_exhausted" : "budget_unavailable") };
+}
+
+async function freeSearchCapacity(apiKey, searchesNeeded) {
   try {
     const url = new URL("https://serpapi.com/account.json");
     url.searchParams.set("api_key", apiKey);
@@ -427,14 +462,17 @@ async function freeBudgetAllows(apiKey, searchesNeeded) {
     if (account.account_status !== "Active" || !Number.isFinite(monthlyPrice) || monthlyPrice !== 0 || !Number.isFinite(remaining)) {
       return { allowed: false, reason: "free_plan_required" };
     }
-    if (remaining < searchesNeeded) return { allowed: false, reason: "free_quota_exhausted" };
     if (!Number.isFinite(searchesThisHour) || !Number.isFinite(hourlyLimit)) {
       return { allowed: false, reason: "budget_unavailable" };
     }
-    if (searchesThisHour + searchesNeeded > hourlyLimit) {
-      return { allowed: false, reason: "hourly_quota_exhausted" };
+    const available = Math.max(0, Math.min(searchesNeeded, remaining, hourlyLimit - searchesThisHour));
+    if (!available) {
+      return { allowed: false, reason: remaining <= 0 ? "free_quota_exhausted" : "hourly_quota_exhausted" };
     }
-    return { allowed: true };
+    const reason = available < searchesNeeded
+      ? (remaining < searchesNeeded ? "free_quota_exhausted" : "hourly_quota_exhausted")
+      : null;
+    return { allowed: true, searchesAvailable: available, searchesRequested: searchesNeeded, ...(reason ? { reason } : {}) };
   } catch {
     return { allowed: false, reason: "budget_unavailable" };
   }
@@ -492,7 +530,7 @@ export default {
 
     if (isHealthCheck) {
       const budget = env.SERPAPI_KEY
-        ? await freeBudgetAllows(env.SERPAPI_KEY, MAX_LINKEDIN_VARIANTS)
+        ? await freeSearchCapacity(env.SERPAPI_KEY, MAX_LINKEDIN_VARIANTS)
         : { allowed: false, reason: "not_configured" };
       const ready = budget.allowed;
       return json({
@@ -500,6 +538,8 @@ export default {
         error: ready ? null : budget.reason,
         usesSearchCredit: false,
         searchesPerLinkedin: MAX_LINKEDIN_VARIANTS,
+        searchesAvailable: ready ? budget.searchesAvailable : 0,
+        engines: SEARCH_ENGINES.map((engine) => engine.label),
       }, ready ? 200 : 503, responseOrigin);
     }
 
@@ -512,22 +552,24 @@ export default {
       return json({ error: "invalid_json" }, 400, responseOrigin);
     }
     if (!validatePlan(plan)) return json({ error: "invalid_search_plan" }, 400, responseOrigin);
+    const searchStartedAt = Date.now();
 
     const linkedinQueries = plan.queries.filter((entry) => entry.source === "linkedin");
     const githubQueries = plan.queries.filter((entry) => entry.source === "github");
     const sourceErrorsBeforeSearch = [];
-    let googleLinkedinAllowed = false;
-    let googleBudgetError = null;
+    let linkedinSearchAllowed = false;
+    let linkedinBudgetError = null;
     if (linkedinQueries.length && env.SERPAPI_KEY) {
       const searchesNeeded = linkedinQueries.reduce((total, entry) => total + (Array.isArray(entry.variants) ? entry.variants.length : 1), 0);
-      const budget = await freeBudgetAllows(env.SERPAPI_KEY, searchesNeeded);
-      googleLinkedinAllowed = budget.allowed;
-      if (!budget.allowed) googleBudgetError = budget.reason;
+      const budget = await freeSearchCapacity(env.SERPAPI_KEY, searchesNeeded);
+      linkedinSearchAllowed = budget.allowed;
+      if (budget.allowed) plan.linkedinSearchCapacity = budget;
+      if (!budget.allowed) linkedinBudgetError = budget.reason;
     } else if (linkedinQueries.length) {
-      googleBudgetError = "provider_credentials_rejected";
+      linkedinBudgetError = "provider_credentials_rejected";
     }
-    if (linkedinQueries.length && !googleLinkedinAllowed) {
-      sourceErrorsBeforeSearch.push({ source: "linkedin", code: googleBudgetError || "provider_credentials_rejected" });
+    if (linkedinQueries.length && !linkedinSearchAllowed) {
+      sourceErrorsBeforeSearch.push({ source: "linkedin", code: linkedinBudgetError || "provider_credentials_rejected" });
     }
 
     // The free locations catalog validates/canonicalizes search origin once
@@ -537,19 +579,27 @@ export default {
     // Query selected sources concurrently: sequential timeouts could leave a
     // four-source search waiting up to two minutes before reporting failure.
     const activeQueries = [
-      ...(googleLinkedinAllowed
-        ? linkedinQueries.map((entry) => ({ ...entry, googleAllowed: googleLinkedinAllowed }))
+      ...(linkedinSearchAllowed
+        ? linkedinQueries.map((entry) => ({ ...entry, providerAllowed: linkedinSearchAllowed }))
         : []),
       ...githubQueries,
     ];
     const settledSources = await Promise.all(activeQueries.map(async (entry) => {
+      const sourceStartedAt = Date.now();
       try {
         const result = entry.source === "github"
           ? await lookupGithubUsers(entry.query, plan.location, env.GITHUB_TOKEN, entry.profileEvidence)
-          : await lookupLinkedIn(entry.variants || [entry.query], location, env.SERPAPI_KEY, entry.googleAllowed);
-        return { source: entry.source, ...await result };
+          : await lookupLinkedIn((entry.variants || [entry.query]).slice(0, plan.linkedinSearchCapacity?.searchesAvailable || MAX_LINKEDIN_VARIANTS), location, env.SERPAPI_KEY, entry.providerAllowed);
+        return { source: entry.source, elapsedMs: Date.now() - sourceStartedAt, ...result };
       } catch (error) {
-        return { source: entry.source, error: safeProviderErrorCode(error) };
+        return {
+          source: entry.source,
+          elapsedMs: Date.now() - sourceStartedAt,
+          error: safeProviderErrorCode(error),
+          ...(Array.isArray(error?.providerErrors) ? { providerErrors: error.providerErrors } : {}),
+          ...(Array.isArray(error?.engines) ? { engines: error.engines } : {}),
+          ...(Number.isFinite(error?.queriesRun) ? { queriesRun: error.queriesRun } : {}),
+        };
       }
     }));
     const resultsBySource = settledSources.filter((item) => Array.isArray(item.results)).map((item) => item.results);
@@ -568,17 +618,34 @@ export default {
         organicCount: Number(item.organicCount) || 0,
         profileCount: Number(item.profileCount) || 0,
         code: item.error || item.providerErrors?.[0]?.code || null,
-        ...(item.queriesRun > 1 ? { queriesRun: item.queriesRun } : {}),
+        elapsedMs: Number(item.elapsedMs) || 0,
+        ...(item.queriesRun > 0 ? { queriesRun: item.queriesRun } : {}),
+        ...(item.engines?.length ? { engines: item.engines } : {}),
+        ...(item.source === "linkedin" && plan.linkedinSearchCapacity?.searchesAvailable < plan.linkedinSearchCapacity?.searchesRequested
+          ? { queriesRequested: plan.linkedinSearchCapacity.searchesRequested, quotaLimited: true }
+          : {}),
         ...(item.providerErrors ? { providerErrors: item.providerErrors } : {}),
       })),
     ];
     const results = takeBalanced(resultsBySource);
-    if (!results.length && sourceErrors.length === plan.queries.length) {
+    const requestId = crypto.randomUUID();
+    const elapsedMs = Date.now() - searchStartedAt;
+    console.log(JSON.stringify({
+      event: "radar_public_search",
+      requestId,
+      elapsedMs,
+      sources: sourceDiagnostics.map(({ source, status, organicCount, profileCount, elapsedMs: sourceMs, queriesRun, code }) => ({
+        source, status, organicCount, profileCount, elapsedMs: sourceMs, queriesRun: queriesRun || 0, errorCode: code || null,
+      })),
+      visibleResults: results.length,
+    }));
+    const failedSources = new Set(sourceDiagnostics.filter((item) => item.status === "error").map((item) => item.source));
+    if (!results.length && plan.queries.every((entry) => failedSources.has(entry.source))) {
       const rateLimited = sourceErrors.some((error) => error.code === "provider_rate_limited");
-      return json({ error: rateLimited ? "provider_rate_limited" : "sources_unavailable", sourceErrors, sourceDiagnostics }, rateLimited ? 429 : 502, responseOrigin);
+      return json({ error: rateLimited ? "provider_rate_limited" : "sources_unavailable", sourceErrors, sourceDiagnostics, requestId, elapsedMs }, rateLimited ? 429 : 502, responseOrigin, { "X-Radar-Request-ID": requestId });
     }
-    return json({ results, sourceErrors, sourceDiagnostics, count: results.length, locationContext: { mode: location.mode, canonicalName: location.canonicalName, countryCode: location.countryCode } }, 200, responseOrigin);
+    return json({ results, sourceErrors, sourceDiagnostics, count: results.length, requestId, elapsedMs, locationContext: { mode: location.mode, canonicalName: location.canonicalName, countryCode: location.countryCode } }, 200, responseOrigin, { "X-Radar-Request-ID": requestId });
   },
 };
 
-export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation, exactGithubLocation, lookupGithubUsers, profileHasExactLocation };
+export { validatePlan, validProfileUrl, safeResult, takeBalanced, freeBudgetAllows, freeSearchCapacity, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, resolveSearchLocation, exactGithubLocation, lookupGithubUsers, profileHasExactLocation, containsProfileTerm };

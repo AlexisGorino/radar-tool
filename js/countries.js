@@ -71,7 +71,7 @@
     "España": [
       "espana", "españa", "spain", "madrid", "barcelona", "valencia", "sevilla", "bilbao",
       "cataluña", "cataluna", "andalucia", "andalucía", "pais vasco", "país vasco", "galicia", "aragon", "aragón", "canarias", "murcia",
-      "mallorca", "palma", "baleares", "islas baleares", "santiago de compostela", "islas canarias", "canary islands", "gran canaria", "lanzarote", "fuerteventura", "la palma", "la gomera", "el hierro", "castilla y leon", "castilla y león", "castilla la mancha", "extremadura", "asturias", "cantabria", "navarra", "la rioja", "zaragoza", "malaga", "málaga", "granada", "alicante", "a coruña", "vigo", "valladolid", "toledo", "girona", "tarragona", "lleida", "ibiza", "menorca", "tenerife", "las palmas", "oviedo", "pamplona", "donostia", "san sebastian", "san sebastián",
+      "palma de mallorca", "mallorca", "palma", "baleares", "islas baleares", "santiago de compostela", "islas canarias", "canary islands", "gran canaria", "lanzarote", "fuerteventura", "la palma", "la gomera", "el hierro", "castilla y leon", "castilla y león", "castilla la mancha", "extremadura", "asturias", "cantabria", "navarra", "la rioja", "zaragoza", "malaga", "málaga", "granada", "alicante", "a coruña", "vigo", "valladolid", "toledo", "girona", "tarragona", "lleida", "ibiza", "menorca", "tenerife", "las palmas", "oviedo", "pamplona", "donostia", "san sebastian", "san sebastián",
       "alava", "álava", "albacete", "almeria", "almería", "avila", "ávila", "badajoz", "burgos", "caceres", "cáceres", "cadiz", "cádiz", "castellon", "castellón", "ceuta", "ciudad real", "cordoba", "córdoba", "cuenca", "guadalajara", "guipuzcoa", "guipúzcoa", "huelva", "huesca", "jaen", "jaén", "leon", "león", "lerida", "lérida", "lugo", "melilla", "ourense", "palencia", "pontevedra", "salamanca", "segovia", "soria", "teruel", "vizcaya", "zamora", "santa cruz de tenerife",
     ],
     "Reino Unido": ["reino unido", "united kingdom", "londres", "london", "manchester", "birmingham", "england", "scotland", "wales", "northern ireland", "edinburgh", "glasgow", "leeds", "liverpool", "bristol", "cambridge", "oxford", "cardiff", "belfast", "sheffield", "nottingham", "newcastle", "brighton"],
@@ -322,7 +322,25 @@
           !containsWord(text, "santiago de compostela") &&
           !containsWord(text, "santiago del estero");
         if (country === "España" && partialSantiago) {
-          return { country: null, locality: null, secondLocality: null, ambiguousLocations: [], locationNeedsClarification: true };
+          // RADAR's supported recruiting locale rule: when the country is
+          // explicitly Spain, a short “Santiago” means Santiago de Compostela.
+          // A bare Santiago without Spain remains unresolved below, and Chile
+          // is not part of the supported country catalog.
+          const first = earliestLocalityMatch(text, country);
+          const locationLabel = /(?:ubicaci[oó]n(?:\s+candidato)?|localidad)\s*[:\-]?/i.exec(text);
+          const locationArea = locationLabel ? text.slice(locationLabel.index + locationLabel[0].length, locationLabel.index + locationLabel[0].length + 180) : "";
+          const locationAlternative = earliestLocalityMatch(locationArea, country);
+          return { country, locality: displayLocality(ALL_COUNTRIES[country], "santiago de compostela"), secondLocality: (locationAlternative && locationAlternative.locality !== "Santiago de Compostela" ? locationAlternative.locality : null) || nearbyLocality(text, country, first), ambiguousLocations: [], locationNeedsClarification: false };
+        }
+        // If both the abbreviated city and its canonical full name appear in
+        // a PDF, prefer the explicit Santiago de Compostela mention even when
+        // another allowed office is listed earlier in the location table.
+        if (country === "España" && containsWord(text, "santiago de compostela")) {
+          const first = earliestLocalityMatch(text, country);
+          const locationLabel = /(?:ubicaci[oó]n(?:\s+candidato)?|localidad)\s*[:\-]?/i.exec(text);
+          const locationArea = locationLabel ? text.slice(locationLabel.index + locationLabel[0].length, locationLabel.index + locationLabel[0].length + 180) : "";
+          const locationAlternative = earliestLocalityMatch(locationArea, country);
+          return { country, locality: displayLocality(ALL_COUNTRIES[country], "santiago de compostela"), secondLocality: (locationAlternative && locationAlternative.locality !== "Santiago de Compostela" ? locationAlternative.locality : null) || nearbyLocality(text, country, first), ambiguousLocations: [] };
         }
         const first = earliestLocalityMatch(text, country);
         return { country, locality: first ? first.locality : null, secondLocality: nearbyLocality(text, country, first), ambiguousLocations: [] };

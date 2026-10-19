@@ -11,7 +11,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = "js/vendor/pdf.worker.min.js";
   }
 
-  const state = { rol: [], atributos: [], imprescindibles: [], deseables: [], dominio: [], alcance: [], refinar: [] };
+  const state = { rol: [], atributos: [], imprescindibles: [], deseables: [], dominio: [], alcance: [], refinar: [], seniority: [], roleContext: [] };
   let selectedNetwork = "linkedin";
 
   // Qué tipo de perfil aparece en cada red y con qué confianza, según pruebas
@@ -27,7 +27,7 @@
   };
 
   const NOTES = {
-    linkedin: "Google busca perfiles públicos que tiene indexados. Confirmá la ciudad en LinkedIn.",
+    linkedin: "Google, Bing y Yahoo consultan perfiles públicos indexados. Confirmá la ciudad en LinkedIn.",
     stackoverflow: "La actividad técnica es una señal; no confirma experiencia laboral.",
     xing: "Más cobertura en Alemania, Austria y Suiza. Confirmá residencia actual.",
     behance: "Revisá portfolio y especialidad dentro del sitio.",
@@ -187,7 +187,10 @@
       const response = await fetch(endpoint, { method: "GET", headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" });
       const payload = await response.json();
       if (payload.ready) {
-        publicSearchStatus.textContent = `Conexión lista; una búsqueda exhaustiva usa hasta ${Number(payload.searchesPerLinkedin) || 3} consultas de Google. La prueba no consumió búsquedas.`;
+        const available = Number(payload.searchesAvailable) || Number(payload.searchesPerLinkedin) || 3;
+        publicSearchStatus.textContent = available < (Number(payload.searchesPerLinkedin) || 3)
+          ? `Conexión lista; hoy hay cupo para ${available} de ${Number(payload.searchesPerLinkedin) || 3} motores. La prueba no consumió búsquedas.`
+          : `Conexión lista; LinkedIn se busca en Google, Bing y Yahoo (hasta ${available} consultas). La prueba no consumió búsquedas.`;
         return;
       }
       const messages = {
@@ -256,6 +259,7 @@
     const wrap = document.getElementById("chips-" + field);
     wrap.innerHTML = "";
     state[field].forEach((term, i) => {
+      if (field === "alcance" && RadarCountries.countryList().some((country) => country.toLowerCase() === term.toLowerCase())) return;
       const chip = document.createElement("div");
       chip.className = "chip";
 
@@ -436,6 +440,9 @@
   countrySelect.addEventListener("change", () => {
     if (countrySelect.value) {
       addTerm("alcance", countrySelect.value);
+    } else {
+      state.alcance = state.alcance.filter((term) => !RadarCountries.countryList().some((country) => country.toLowerCase() === term.toLowerCase()));
+      renderChips("alcance");
     }
   });
   noLocationCheckbox.addEventListener("change", () => {
@@ -856,7 +863,7 @@
       ["Puntos extra · opcional", result.atributosDeseables || result.preferredAttributes, quality.evidence && (quality.evidence.atributosDeseables || quality.evidence.preferredAttributes), "atributosDeseables", true],
       ["Sector", result.dominio, quality.evidence && quality.evidence.dominio, "dominio"],
       ["Ubicación", result.alcance, quality.evidence && quality.evidence.alcance, "alcance"],
-      ["Contexto · no filtra", [...(result.seniority || []), ...(result.modality || [])], []],
+      ["Contexto · no filtra", [...(result.seniority || []), ...(result.modality || []), ...(result.roleContext || [])], []],
     ];
     fields.forEach(([label, terms, evidence, fieldName, promotable]) => {
       const card = document.createElement("div");
@@ -951,6 +958,7 @@
       state[field] = (pendingAnalysis[sourceField] || []).slice();
     });
     state.seniority = (pendingAnalysis.seniority || []).slice();
+    state.roleContext = (pendingAnalysis.roleContext || []).slice();
     renderAllChips();
     countrySelect.value = pendingAnalysis.country || RadarCountries.detectCountry(pendingAnalysis.alcance.join(" ")) || "";
     noLocationCheckbox.checked = !pendingAnalysis.alcance.length;
@@ -1432,8 +1440,8 @@
 
   function renderPublicProfileResults(rows, sourceErrors, locationContext) {
     publicSearchResults.replaceChildren();
-    const confirmedRows = rows.filter((row) => row.locationConfirmed);
-    const reviewLocationRows = rows.filter((row) => !row.locationConfirmed);
+    const confirmedRows = rows.filter((row) => row.locationConfirmed && row.supportingSignalConfirmed);
+    const reviewLocationRows = rows.filter((row) => !row.locationConfirmed || !row.supportingSignalConfirmed);
     publicShareRows = new Map(confirmedRows.map((row) => [row.url, row]));
     if (locationContext) {
       const geography = document.createElement("p");
@@ -1454,19 +1462,13 @@
       const summary = document.createElement("div");
       summary.className = "public-search-results-heading";
       const resultCount = document.createElement("strong");
-      resultCount.textContent = rows.length === 1
-        ? "1 perfil público para revisar"
-        : `${rows.length} perfiles públicos para revisar`;
+      resultCount.textContent = confirmedRows.length === 1
+        ? "1 perfil con ubicación y señales visibles"
+        : `${confirmedRows.length} perfiles con ubicación y señales visibles`;
       const summaryNote = document.createElement("span");
-      summaryNote.textContent = `${confirmedRows.length} con ciudad y país visibles · ${reviewLocationRows.length} con ciudad visible y país por confirmar.`;
+      summaryNote.textContent = `${reviewLocationRows.length} ${reviewLocationRows.length === 1 ? "pista" : "pistas"} para validar ubicación o conocimientos.`;
       summary.append(resultCount, summaryNote);
       publicSearchResults.appendChild(summary);
-      if (reviewLocationRows.length) {
-        const reviewNote = document.createElement("p");
-        reviewNote.className = "public-search-location-review";
-        reviewNote.textContent = "Estos perfiles mencionan la localidad, pero el resultado público no confirma el país o la residencia actual. Revisalos en LinkedIn antes de contarlos como coincidencias.";
-        publicSearchResults.appendChild(reviewNote);
-      }
       const shareTools = document.createElement("div");
       shareTools.className = "public-profile-share-tools";
       shareTools.setAttribute("aria-label", "Compartir perfiles seleccionados");
@@ -1503,11 +1505,12 @@
         : "Confirmá localidad y país en la fuente antes de preparar un mensaje.";
       shareTools.append(selectAllLabel, selectedCount, emailButton, whatsappButton, shareHint);
       publicSearchResults.appendChild(shareTools);
-      const list = document.createElement("ol");
-      list.className = "public-profile-list";
-      rows.forEach((row, index) => {
+      const renderCards = (candidateRows, listClass, cardClass) => {
+        const list = document.createElement("ol");
+        list.className = listClass;
+        candidateRows.forEach((row, index) => {
         const item = document.createElement("li");
-        item.className = "public-profile-card";
+        item.className = cardClass;
         const head = document.createElement("div");
         head.className = "public-profile-head";
         const rank = document.createElement("span");
@@ -1522,13 +1525,25 @@
         title.append(name, headline);
         const score = document.createElement("span");
         score.className = "public-profile-score";
-        const scoreValue = document.createElement("strong");
-        scoreValue.textContent = `${row.score}/100`;
-        const scoreLabel = document.createElement("small");
-        scoreLabel.textContent = row.identityAlignment === "mismatch"
-          ? "Identidad por revisar"
-          : !row.locationConfirmed ? "Ubicación por revisar" : row.confidence;
-        score.append(scoreValue, scoreLabel);
+        const evidenceLabel = document.createElement("strong");
+        const hasRequired = row.requiredHits.length > 0;
+        const hasRole = row.roleHits.length > 0;
+        const hasAdjacentRole = row.adjacentRoleHits.length > 0;
+        const hasSkill = row.alternativeHits.length > 0;
+        evidenceLabel.textContent = row.educationRequired && !row.educationHits.length
+          ? "Formación requerida por validar"
+          : !row.supportingSignalConfirmed
+          ? "Conocimiento por validar"
+          : hasRequired
+            ? "Requisito clave visible"
+            : hasRole && hasSkill ? "Cargo y conocimiento visibles"
+              : hasRole ? "Cargo relacionado visible"
+                : hasAdjacentRole && hasSkill ? "Perfil afín y conocimiento visible"
+                  : hasAdjacentRole ? "Perfil afín al puesto"
+                : hasSkill ? "Conocimiento relacionado visible" : "Revisar relación";
+        const evidenceNote = document.createElement("small");
+        evidenceNote.textContent = "Señales del resultado público";
+        score.append(evidenceLabel, evidenceNote);
         const identity = document.createElement("div");
         identity.className = "public-profile-identity";
         identity.append(rank, title);
@@ -1545,7 +1560,10 @@
         const identityCheck = document.createElement("span");
         identityCheck.className = row.identityAlignment === "mismatch" ? "public-profile-identity-warning" : "public-profile-identity-check";
         identityCheck.textContent = row.identityStatus;
-        meta.append(source, location, identityCheck);
+        const experience = document.createElement("span");
+        experience.className = row.experienceFit === "unknown" ? "public-profile-identity-warning" : "public-profile-identity-check";
+        experience.textContent = row.experienceLabel;
+        meta.append(source, location, identityCheck, experience);
         if (row.locationConfirmed) {
           const includeLabel = document.createElement("label");
           includeLabel.className = "public-profile-share-select";
@@ -1567,8 +1585,9 @@
         detailsSummary.textContent = "Ver coincidencias";
         const evidence = document.createElement("p");
         evidence.className = "public-profile-evidence";
-        const signalText = row.visibleSignals.length ? `Coincidencias: ${row.visibleSignals.join(" · ")}. ` : "Sin coincidencias claras. ";
-        evidence.textContent = `${signalText}Identidad: ${row.identityStatus}. Evidencia: ${row.scoreBreakdown.join(" · ")}.`;
+        const signalText = row.visibleSignals.length ? `Coincidencias visibles: ${row.visibleSignals.join(" · ")}. ` : "Sin coincidencias claras. ";
+        const roleText = row.roleMatchType === "adjacent" ? "El título es afín y puede usar otro nombre. " : "";
+        evidence.textContent = `${signalText}${roleText}Identidad: ${row.identityStatus}. Experiencia: ${row.experienceLabel}. ${row.educationStatus}. Evidencia: ${row.scoreBreakdown.join(" · ")}.`;
         details.append(detailsSummary, evidence);
         const link = document.createElement("a");
         link.className = "public-profile-link";
@@ -1578,8 +1597,29 @@
         link.textContent = "Abrir perfil en la fuente ↗";
         item.append(head, meta, snippet, details, link);
         list.appendChild(item);
-      });
-      publicSearchResults.appendChild(list);
+        });
+        return list;
+      };
+      if (confirmedRows.length) {
+        const confirmedList = renderCards(confirmedRows, "public-profile-list", "public-profile-card");
+        publicSearchResults.appendChild(confirmedList);
+      } else {
+        const noConfirmed = document.createElement("p");
+        noConfirmed.className = "public-search-empty";
+        noConfirmed.textContent = "Todavía no hay perfiles con ubicación y conocimientos visibles en el resultado. Revisá las pistas antes de contarlas como coincidencias.";
+        publicSearchResults.appendChild(noConfirmed);
+      }
+      if (reviewLocationRows.length) {
+        const reviewGroup = document.createElement("details");
+        reviewGroup.className = "public-search-review-group";
+        const reviewSummary = document.createElement("summary");
+        reviewSummary.textContent = `Pistas para revisar (${reviewLocationRows.length}) · falta validar ubicación o conocimientos`;
+        const reviewNote = document.createElement("p");
+        reviewNote.className = "public-search-location-review";
+        reviewNote.textContent = "Abrí cada perfil y confirmá la ciudad, el país y los conocimientos pedidos. Una mención ausente en el fragmento no prueba que la persona no los tenga.";
+        reviewGroup.append(reviewSummary, reviewNote, renderCards(reviewLocationRows, "public-profile-list public-profile-review-list", "public-profile-card public-profile-review-card"));
+        publicSearchResults.appendChild(reviewGroup);
+      }
     }
     if (sourceErrors && sourceErrors.length) {
       const partial = document.createElement("p");
@@ -1604,7 +1644,7 @@
     const nextTitle = document.createElement("strong");
     nextTitle.textContent = "Seguí con otras rutas";
     const nextCopy = document.createElement("span");
-    nextCopy.textContent = "Probá la consulta en otros portales o buscá perfiles públicos desde Google.";
+    nextCopy.textContent = "Probá la consulta en otros portales o abrí una búsqueda pública manual.";
     const nextLink = document.createElement("a");
     nextLink.className = "btn btn-ghost btn-small";
     nextLink.href = "#results";
@@ -1651,10 +1691,14 @@
       else if (item.status === "no_indexed_results") detail = "Sin resultados indexados para estos términos.";
       const engines = Array.isArray(item.engines) && item.engines.length ? ` · ${item.engines.join(" + ")}` : "";
       const queriesRun = Number(item.queriesRun) > 1 ? ` · ${item.queriesRun} consultas` : "";
+      const responseTime = Number.isFinite(Number(item.elapsedMs)) && Number(item.elapsedMs) > 0
+        ? ` · ${(Number(item.elapsedMs) / 1000).toFixed(1)} s` : "";
+      const quotaNote = item.quotaLimited
+        ? ` · cupo: ${Number(item.queriesRun) || 1} de ${Number(item.queriesRequested) || 3} consultas` : "";
       const providerErrors = Array.isArray(item.providerErrors) ? item.providerErrors
         .map((error) => `${error.provider} ${providerErrorMessages[error.code] || "tuvo un problema"}`) : [];
       const providerNote = providerErrors.length ? ` (${providerErrors.join("; ")})` : "";
-      entry.textContent = `${label}${engines}${queriesRun}: ${detail}${providerNote}`;
+      entry.textContent = `${label}${engines}${queriesRun}${responseTime}${quotaNote}: ${detail}${providerNote}`;
       list.appendChild(entry);
     });
     section.append(heading, list);
@@ -1792,6 +1836,12 @@
     panel.append(heading, message, note);
     const diagnostics = renderSourceDiagnostics(error && error.sourceDiagnostics);
     if (diagnostics) panel.appendChild(diagnostics);
+    if (error && error.requestId) {
+      const trace = document.createElement("p");
+      trace.className = "public-search-trace";
+      trace.textContent = `Referencia técnica: ${error.requestId}`;
+      panel.appendChild(trace);
+    }
     const fallback = createManualSearchFallback(monthlyQuotaExhausted);
     if (fallback) panel.appendChild(fallback);
     if (retrySources.length) {
@@ -1885,14 +1935,21 @@
       renderPublicProfileResults(publicSearchRows, response.sourceErrors, response.locationContext);
       const diagnostics = renderSourceDiagnostics(response.sourceDiagnostics);
       if (diagnostics) publicSearchResults.appendChild(diagnostics);
-      const count = publicSearchResults.querySelectorAll(".public-profile-card").length;
+      if (response.requestId) {
+        const trace = document.createElement("p");
+        trace.className = "public-search-trace";
+        trace.textContent = `Referencia técnica: ${response.requestId}`;
+        publicSearchResults.appendChild(trace);
+      }
+      const count = publicSearchRows.length;
       const noMatchContext = count ? null : renderNoMatchContext(response.sourceDiagnostics);
       if (noMatchContext) publicSearchResults.appendChild(noMatchContext);
-      const partial = response.sourceErrors.length > 0;
-      const confirmedCount = publicSearchRows.filter((row) => row.locationConfirmed).length;
+      const quotaLimited = (response.sourceDiagnostics || []).some((item) => item.quotaLimited);
+      const partial = response.sourceErrors.length > 0 || quotaLimited;
+      const confirmedCount = publicSearchRows.filter((row) => row.locationConfirmed && row.supportingSignalConfirmed).length;
       const locationReviewCount = count - confirmedCount;
       publicSearchStatus.textContent = count
-        ? `${partial ? "Resultado parcial" : "Listo"}: ${count} ${count === 1 ? "perfil" : "perfiles"}; ${confirmedCount} con ubicación confirmada y ${locationReviewCount} para revisar.`
+        ? `${partial ? "Resultado parcial" : "Listo"}: ${confirmedCount} ${confirmedCount === 1 ? "perfil" : "perfiles"} con ubicación confirmada${locationReviewCount ? ` y ${locationReviewCount === 1 ? "pista" : "pistas"} para revisar` : ""}${quotaLimited ? ". Se usaron menos consultas porque quedaba poco cupo gratuito" : ""}.`
         : partial
           ? "Respuesta parcial: no hubo perfiles verificables y algunas fuentes fallaron."
           : "Búsqueda completada: sin perfiles verificables.";
@@ -2006,6 +2063,7 @@
       renderChips(f);
     });
     state.seniority = [];
+    state.roleContext = [];
     jdInput.value = "";
     setIntakeMode("description");
     currentFileName = "";
@@ -2062,6 +2120,7 @@
       alcance: state.alcance.slice(),
       refinar: state.refinar.slice(),
       seniority: (state.seniority || []).slice(),
+      roleContext: (state.roleContext || []).slice(),
       network: selectedNetwork,
       universal: universalBoolean,
     };
@@ -2125,6 +2184,7 @@
       state[f] = (entry[f] || []).slice();
     });
     state.seniority = Array.isArray(entry.seniority) ? entry.seniority.slice() : [];
+    state.roleContext = Array.isArray(entry.roleContext) ? entry.roleContext.slice() : [];
     renderAllChips();
     noLocationCheckbox.checked = !state.alcance.length;
     updateSearchReadiness();

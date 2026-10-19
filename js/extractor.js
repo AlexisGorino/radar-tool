@@ -304,6 +304,20 @@
     return "";
   }
 
+  // Structured telecom/PM JDs often put the actual title beside a requisition
+  // code, while the first extracted line is just the document heading. Read
+  // the explicit role label before trying generic title heuristics so codes,
+  // client labels and section headings cannot become the occupation.
+  function structuredProjectTitle(text) {
+    const head = text.slice(0, 2400);
+    const match = /\bjefe\s+de\s+proyectos?\s+(junior|jr\.?|semi[\s-]?senior|ssr\.?|senior|sr\.?)\b/i.exec(head);
+    if (!match) return null;
+    const raw = match[1].toLowerCase().replace(/[.]$/, "").replace(/\s+/g, "-");
+    const seniority = /^(?:semi-senior|ssr)$/.test(raw) ? "semi-senior"
+      : /^(?:junior|jr)$/.test(raw) ? "junior" : "senior";
+    return { role: "Jefe de Proyecto", seniority };
+  }
+
   // A bare programming language, cloud provider or framework name is never a
   // job title on its own ("busco Java" names a skill, not a role) — but an
   // acronym like "SRE" or "SAP FICO" genuinely doubles as informal shorthand
@@ -379,6 +393,8 @@
 
   function guessRol(rawText) {
     const text = stripTags(rawText);
+    const projectTitle = structuredProjectTitle(text);
+    if (projectTitle) return [projectTitle.role];
     const clientTemplateTitle = titleAfterClientTemplate(text);
     if (clientTemplateTitle) return [clientTemplateTitle];
     // This compound title is common in telecom field-service postings. Check
@@ -638,6 +654,15 @@
     return { level, wordCount, warnings, evidence, blocked, requiresSourceReview };
   }
 
+  function extractRoleContext(text) {
+    const experienceMatch = /\bexperiencia(?:\s+en\s+a[nñ]os)?\b[\s\S]{0,90}?((?:\+\s*)?\d+\s*(?:[-–—a]\s*\d+)?\s*(?:a[nñ]os?|years?))/i.exec(text);
+    const educationMatch = /\b(?:grado|ingenier[ií]a|titulaci[oó]n|bachelor)\s+en\s+[^.]{6,180}/i.exec(text);
+    const context = [];
+    if (experienceMatch) context.push("Experiencia indicada: " + experienceMatch[1].replace(/\s+/g, " ").trim());
+    if (educationMatch) context.push("Formación indicada: " + educationMatch[0].replace(/\s+/g, " ").trim());
+    return context;
+  }
+
   function analyzeJD(rawText, options) {
     const text = normalizeJDText(String(rawText || "").slice(0, MAX_INPUT_LENGTH));
     if (!text.trim()) {
@@ -676,6 +701,7 @@
     const rolText = rol.join(" ");
     // "empresa/banco/compañía líder" describes the company, not the candidate's seniority
     const companyLeaderPhrase = /(empresa|compañ[íi]a|compania|banco|organizaci[oó]n|firma|grupo|corporaci[oó]n)\s+l[íi]der/i;
+    const structuredProject = structuredProjectTitle(text);
     const seniorFound = findMatches(text, Keywords.SENIOR_WORDS).filter((w) => {
       if (Countries.containsWord(rolText, w)) return false;
       if (/^l[íi]der$/i.test(w) && companyLeaderPhrase.test(text)) return false;
@@ -683,6 +709,13 @@
     });
     const juniorFound = findMatches(text, Keywords.JUNIOR_WORDS).filter((w) => !Countries.containsWord(rolText, w));
     if (/\b(?:0\s*[-–—a]\s*2|hasta\s+2|entre\s+0\s+y\s+2)\s*(?:a[nñ]os?|years?)\b/i.test(text) && !juniorFound.length) juniorFound.push("junior");
+    // A role level stated in the title is stronger evidence than unrelated
+    // mentions in certification lists, reporting lines or company copy. For
+    // these structured project JDs, keep only that level; never infer three
+    // competing levels from words elsewhere in the document.
+    const seniority = structuredProject
+      ? [structuredProject.seniority]
+      : dedupe([...seniorFound, ...juniorFound]);
 
     // Refinar (NOT/exclusiones) is never auto-filled: it's a deliberate
     // choice by the recruiter, not something a keyword match should guess.
@@ -693,7 +726,7 @@
     // is context rather than a reliable term on public candidate profiles.
     const refinarSuggestion = [];
 
-    const analyzed = { rol, atributos, atributosDeseables, imprescindibles: [], unverifiedSignals, omittedSignals, dominio, alcance, seniority: dedupe([...seniorFound, ...juniorFound]), modality, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
+    const analyzed = { rol, atributos, atributosDeseables, imprescindibles: [], unverifiedSignals, omittedSignals, dominio, alcance, seniority, modality, roleContext: extractRoleContext(text), refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
     const namedCountry = options && options.fileName ? Countries.detectCountry(options.fileName) : null;
     analyzed.fileCountrySuggestion = !country && namedCountry ? namedCountry : null;
     analyzed.isResume = looksLikeResume(text);
@@ -731,6 +764,7 @@
     optionalOnlySkills,
     looksLikeResume,
     extractActionSignals,
+    structuredProjectTitle,
     countJobPostingSignals,
     guessRol,
     trimRolPhrase,

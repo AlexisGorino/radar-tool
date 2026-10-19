@@ -60,6 +60,7 @@
   function expandLocationTerm(term) {
     const regionalAliases = {
       "islas canarias": ["Islas Canarias", "Canarias", "Canary Islands", "Tenerife", "Gran Canaria", "Las Palmas", "Santa Cruz de Tenerife"],
+      "palma de mallorca": ["Palma de Mallorca", "Palma"],
       "munich": ["Múnich", "Munich", "München"],
       "dublin": ["Dublín", "Dublin"],
     };
@@ -71,11 +72,13 @@
 
   function searchLocationTerms(state) {
     const terms = state.alcance || [];
-    const firstIsCountry = terms.length > 1 && Object.keys(Countries.ALL_COUNTRIES).some((country) => country.toLowerCase() === terms[0].toLowerCase());
-    const hasLocality = terms.slice(1).some((term) => !Object.keys(Countries.ALL_COUNTRIES).some((country) => country.toLowerCase() === term.toLowerCase()));
+    const countryNames = new Set(Object.keys(Countries.ALL_COUNTRIES).map((country) => country.toLowerCase()));
+    const localities = terms.filter((term) => !countryNames.has(String(term).toLowerCase()));
     // Country + city/region is a hierarchy, not an alternative. OR-ing the
     // country back in silently widens a city-specific search to the nation.
-    return firstIsCountry && hasLocality ? terms.slice(1) : terms;
+    // Multiple selected cities are alternatives, however: a candidate in any
+    // one of those cities is in scope, so the boolean builder groups them.
+    return localities.length ? localities : terms;
   }
 
   // relaxed=true drops only Dominio from the AND chain. Alcance is a hard
@@ -208,8 +211,7 @@
   const LINKEDIN_MAX_ATRIBUTOS_MEDIA = 1;
 
   function linkedinLocationTerm(state) {
-    const alcance = state.alcance || [];
-    return alcance.length ? [alcance[alcance.length - 1]] : [];
+    return searchLocationTerms(state).filter(Boolean);
   }
 
   function buildLinkedinBooleanTier(state, maxAtributos, includeDeseables) {
@@ -249,16 +251,39 @@
     // long Boolean that tends to break LinkedIn's search box.
     const anchor = required.length ? [] : (state.atributos || []).filter(Boolean).slice(0, 2);
     if (!required.length && !anchor.length) anchor.push(...(state.deseables || []).filter(Boolean).slice(0, 1));
+    const seniority = (state.seniority || []).map((value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
+    const juniorContext = seniority.some((value) => /\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(value));
     const sector = mode !== "market" ? (state.dominio || []).filter(Boolean).slice(0, 1) : [];
-    const location = (state.alcance || []).filter(Boolean).slice(-1);
+    const locations = (state.alcance || []).filter(Boolean);
+    const country = locations.find((place) => Object.keys(Countries.ALL_COUNTRIES)
+      .some((name) => name.toLowerCase() === place.toLowerCase()));
+    const localities = searchLocationTerms(state);
+    const expandedLocalities = [...new Set(localities.flatMap(expandLocationTerm))];
+    // Keep both parts of a selected geography in public X-Ray queries. Search
+    // engines otherwise happily mix homonymous cities (for example Santiago),
+    // while the result snippets still need to independently confirm residence.
+    const location = [expandedLocalities.length > 1 ? orGroup(expandedLocalities) : expandedLocalities[0], country]
+      .filter((term, index) => term && (index === 0 || term.toLowerCase() !== localities[0]?.toLowerCase()));
     const blocks = [];
     if (roles.length === 1) blocks.push(quoteIfPhrase(roles[0]));
     else if (roles.length > 1) blocks.push("(" + roles.map(quoteIfPhrase).join(" OR ") + ")");
+    if (juniorContext) blocks.push('(junior OR jr OR trainee OR pasante OR intern OR "entry level")');
     required.forEach((term) => blocks.push(quoteIfPhrase(term)));
     if (anchor.length === 1) blocks.push(quoteIfPhrase(anchor[0]));
     else if (anchor.length > 1) blocks.push("(" + anchor.map(quoteIfPhrase).join(" OR ") + ")");
     sector.forEach((term) => blocks.push(quoteIfPhrase(term)));
-    location.forEach((term) => blocks.push(quoteIfPhrase(term)));
+    location.forEach((term, index) => {
+      if (country && term.toLowerCase() === country.toLowerCase()) {
+        const alias = Countries.searchAlias(term);
+        blocks.push(alias ? `(${quoteIfPhrase(term)} OR ${quoteIfPhrase(alias)})` : quoteIfPhrase(term));
+      } else if (index === 0 && expandedLocalities.length > 1) {
+        // `term` is already an OR expression; quoting the whole expression
+        // turns it into a literal phrase and makes the X-Ray almost useless.
+        blocks.push(term);
+      } else {
+        blocks.push(quoteIfPhrase(term));
+      }
+    });
     (state.refinar || []).forEach((term) => blocks.push("-" + quoteIfPhrase(term)));
     return "site:linkedin.com/in " + blocks.join(" ");
   }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, exactGithubLocation, resolveSearchLocation, profileHasExactLocation } from "../backend/worker.mjs";
+import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows, freeSearchCapacity, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, exactGithubLocation, resolveSearchLocation, profileHasExactLocation, containsProfileTerm } from "../backend/worker.mjs";
 
 let passed = 0;
 async function test(name, run) {
@@ -50,12 +50,23 @@ async function main() {
     assert.equal(exactGithubLocation("New York, United States", "United States, York"), false);
     assert.equal(exactGithubLocation("Santiago, Chile", "España, Santiago de Compostela"), false);
     assert.equal(exactGithubLocation("Canary Islands, Spain", "España, Islas Canarias"), true);
+    assert.equal(exactGithubLocation("Palma, Balearic Islands, Spain", "España, Palma de Mallorca"), true);
+    assert.equal(exactGithubLocation("Mallorca, Spain", "España, Palma de Mallorca"), false);
+  });
+
+  await test("checks GitHub bio signals as full terms, including short technology names", () => {
+    assert.equal(containsProfileTerm("Remote sapling developer", "R"), false);
+    assert.equal(containsProfileTerm("Remote sapling developer", "SAP"), false);
+    assert.equal(containsProfileTerm("C# developer and R programmer", "C#"), true);
+    assert.equal(containsProfileTerm("C# developer and R programmer", "R"), true);
   });
 
   await test("accepts exact public search location signals and rejects ambiguous cities", () => {
     assert.equal(profileHasExactLocation({ title: "QA · Barcelona, España", snippet: "Playwright" }, "España, Barcelona"), true);
     assert.equal(profileHasExactLocation({ title: "QA · Santiago, Chile", snippet: "" }, "España, Santiago de Compostela"), false);
     assert.equal(profileHasExactLocation({ title: "QA · Barcelona", snippet: "Playwright" }, "España, Barcelona"), false);
+    assert.equal(profileHasExactLocation({ title: "PMO Analyst · Palma, Islas Baleares, España", snippet: "MS Project" }, "España, Palma de Mallorca"), true);
+    assert.equal(profileHasExactLocation({ title: "PMO Analyst · Mallorca, España", snippet: "MS Project" }, "España, Palma de Mallorca"), false);
   });
 
   await test("resolves a locality only to an exact provider result in the requested country", async () => {
@@ -120,6 +131,7 @@ async function main() {
       assert.deepEqual(await freeBudgetAllows("server-secret", 5), { allowed: false, reason: "free_quota_exhausted" });
       globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 20, this_hour_searches: 18, account_rate_limit_per_hour: 20 }), { status: 200 });
       assert.deepEqual(await freeBudgetAllows("server-secret", 4), { allowed: false, reason: "hourly_quota_exhausted" });
+      assert.deepEqual(await freeSearchCapacity("server-secret", 4), { allowed: true, searchesAvailable: 2, searchesRequested: 4, reason: "hourly_quota_exhausted" }, "a partial free quota can still support a smaller search");
       globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 20 }), { status: 200 });
       assert.deepEqual(await freeBudgetAllows("server-secret", 1), { allowed: false, reason: "budget_unavailable" });
       globalThis.fetch = async () => new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 10, plan_searches_left: 20 }), { status: 200 });
@@ -199,10 +211,14 @@ async function main() {
       assert.equal(json.results.length, 20);
       assert.equal(json.results.filter((row) => row.source === "linkedin").length, 10);
       assert.equal(json.results.filter((row) => row.source === "github").length, 10);
-      assert.deepEqual(json.sourceDiagnostics, [
+      assert.deepEqual(json.sourceDiagnostics.map(({ elapsedMs, queriesRun, engines, ...entry }) => entry), [
         { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 20, code: null },
         { source: "github", status: "profiles_found", organicCount: 25, profileCount: 10, code: null },
       ]);
+      assert.ok(json.sourceDiagnostics.every((entry) => Number.isFinite(entry.elapsedMs) && entry.elapsedMs >= 0));
+      assert.ok(json.requestId);
+      assert.equal(response.headers.get("X-Radar-Request-ID"), json.requestId);
+      assert.ok(Number.isFinite(json.elapsedMs));
       assert.deepEqual(json.locationContext, { mode: "provider_location", canonicalName: "Canary Islands,Spain", countryCode: "ES" });
       assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
       assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://alexisgorino.github.io");
@@ -258,9 +274,11 @@ async function main() {
     }
   });
 
-  await test("runs three distinct Google angles for LinkedIn only when all three fit the free quota", async () => {
+  await test("searches LinkedIn across three engines and degrades safely to remaining free quota", async () => {
     const previousFetch = globalThis.fetch;
     const seenQueries = [];
+    const enginesSeen = [];
+    const engineRequests = [];
     let searchesLeft = 250;
     globalThis.fetch = async (rawUrl) => {
       const url = new URL(rawUrl);
@@ -269,14 +287,18 @@ async function main() {
       }
       if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
       if (url.hostname === "api.search.brave.com") throw new Error("Brave must not be queried");
-      seenQueries.push(url.searchParams.get("q"));
+      const engine = url.searchParams.get("engine");
+      enginesSeen.push(engine);
+      const queryParam = engine === "yahoo" ? "p" : "q";
+      seenQueries.push(url.searchParams.get(queryParam));
+      engineRequests.push({ engine, queryParam, query: url.searchParams.get(queryParam), geo: url.searchParams.get(engine === "google" ? "gl" : engine === "bing" ? "cc" : "vc") });
       return new Response(JSON.stringify({ organic_results: [{
         title: `QA Engineer ${seenQueries.length} · Barcelona, Spain`,
         link: `https://linkedin.com/in/qa-barcelona-${seenQueries.length}`,
         snippet: "Playwright automation",
       }] }), { status: 200 });
     };
-    const baseEntry = validPlan.queries[0];
+    const baseEntry = { ...validPlan.queries[0], query: 'site:linkedin.com/in "QA Engineer" Playwright Barcelona Spain' };
     const linkedinPlan = {
       ...validPlan, location: "España, Barcelona",
       queries: [{ ...baseEntry, variants: [baseEntry.query, 'site:linkedin.com/in "QA Automation" Playwright Barcelona', 'site:linkedin.com/in Playwright Barcelona'] }],
@@ -290,17 +312,106 @@ async function main() {
       assert.equal(response.status, 200);
       assert.equal(seenQueries.length, 3);
       assert.equal(new Set(seenQueries).size, 3);
+      assert.deepEqual(enginesSeen, ["google", "bing", "yahoo"]);
+      assert.deepEqual(engineRequests.map(({ engine, queryParam, geo }) => ({ engine, queryParam, geo })), [
+        { engine: "google", queryParam: "q", geo: "es" },
+        { engine: "bing", queryParam: "q", geo: "es" },
+        { engine: "yahoo", queryParam: "p", geo: "es" },
+      ]);
+      assert.ok(engineRequests.every(({ query }) => /Barcelona/.test(query)));
       assert.equal(payload.results.length, 3);
       assert.equal(payload.sourceDiagnostics[0].queriesRun, 3);
+      assert.deepEqual(payload.sourceDiagnostics[0].engines, ["Google", "Bing", "Yahoo"]);
       assert.equal(payload.sourceDiagnostics[0].profileCount, 3);
       assert.doesNotMatch(JSON.stringify(payload), /server-secret|brave-secret/);
 
       searchesLeft = 2;
       seenQueries.length = 0;
-      const exhausted = await send(linkedinPlan);
-      assert.equal(exhausted.status, 502);
-      assert.equal(seenQueries.length, 0, "do not start a partial or billable search when free quota cannot cover all variants");
-      assert.equal((await exhausted.json()).error, "sources_unavailable");
+      const partial = await send(linkedinPlan);
+      const partialPayload = await partial.json();
+      assert.equal(partial.status, 200);
+      assert.equal(seenQueries.length, 2, "use only the remaining free quota");
+      assert.equal(partialPayload.sourceDiagnostics[0].queriesRun, 2);
+      assert.deepEqual(partialPayload.sourceDiagnostics[0].engines, ["Google", "Bing"]);
+      assert.equal(partialPayload.sourceDiagnostics[0].quotaLimited, true);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("uses the remaining free quota for a smaller LinkedIn search instead of dropping the source", async () => {
+    const previousFetch = globalThis.fetch;
+    const seenQueries = [];
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) {
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 1, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      seenQueries.push(url.searchParams.get("q"));
+      return new Response(JSON.stringify({ organic_results: [{
+        title: "QA Engineer · Barcelona, Spain", link: "https://linkedin.com/in/qa-barcelona", snippet: "Playwright automation",
+      }] }), { status: 200 });
+    };
+    try {
+      const linkedinPlan = {
+        ...validPlan,
+        queries: [
+          { ...validPlan.queries[0], variants: [validPlan.queries[0].query, 'site:linkedin.com/in "QA automation" Playwright Barcelona Spain', 'site:linkedin.com/in Playwright QA Barcelona Spain'] },
+        ],
+      };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(linkedinPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(seenQueries.length, 1, "only the remaining free search is used");
+      assert.equal(payload.sourceDiagnostics[0].status, "profiles_found");
+      assert.equal(payload.sourceDiagnostics[0].queriesRun, 1);
+      assert.deepEqual(payload.sourceDiagnostics[0].engines, ["Google"]);
+      assert.equal(payload.sourceDiagnostics[0].queriesRequested, 3);
+      assert.equal(payload.sourceDiagnostics[0].quotaLimited, true);
+      assert.equal(payload.sourceDiagnostics[0].profileCount, 1);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("keeps LinkedIn results from working engines when Bing temporarily fails", async () => {
+    const previousFetch = globalThis.fetch;
+    const calledEngines = [];
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      const engine = url.searchParams.get("engine");
+      calledEngines.push(engine);
+      if (engine === "bing") return new Response("temporarily unavailable", { status: 503 });
+      return new Response(JSON.stringify({ organic_results: [{
+        title: `QA Engineer ${engine} · Barcelona, Spain`,
+        link: `https://linkedin.com/in/qa-${engine}`,
+        snippet: "Playwright automation",
+      }] }), { status: 200 });
+    };
+    try {
+      const entry = { ...validPlan.queries[0], query: 'site:linkedin.com/in "QA Engineer" Playwright Barcelona Spain' };
+      const plan = { ...validPlan, location: "España, Barcelona", queries: [{
+        ...entry,
+        variants: [entry.query, 'site:linkedin.com/in "QA Automation" Playwright Barcelona Spain', 'site:linkedin.com/in Playwright QA Barcelona Spain'],
+      }] };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(plan),
+      }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.deepEqual(calledEngines, ["google", "bing", "yahoo"]);
+      assert.equal(payload.results.length, 2);
+      assert.deepEqual(payload.sourceDiagnostics[0].engines, ["Google", "Bing", "Yahoo"]);
+      assert.deepEqual(payload.sourceDiagnostics[0].providerErrors, [{ provider: "Bing", code: "provider_unavailable" }]);
+      assert.deepEqual(payload.sourceErrors, [{ source: "linkedin", code: "provider_unavailable" }]);
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -350,7 +461,7 @@ async function main() {
       assert.equal(response.status, 200);
       assert.equal(payload.results.length, 1);
       assert.equal(payload.results[0].url, "https://github.com/buenos-aires-engineer");
-      assert.deepEqual(payload.sourceDiagnostics, [
+      assert.deepEqual(payload.sourceDiagnostics.map(({ elapsedMs, queriesRun, engines, ...entry }) => entry), [
         { source: "github", status: "profiles_found", organicCount: 2, profileCount: 1, code: null },
       ]);
       assert.ok(requestedPaths.every((path) => !path.endsWith("/account.json") && !path.endsWith("/search.json")), "GitHub-only search must not check or spend SerpApi search quota");
@@ -434,9 +545,32 @@ async function main() {
         SEARCH_LIMITER: { limit: async () => ({ success: true }) },
       });
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false, searchesPerLinkedin: 3 });
+      assert.deepEqual(await response.json(), { ready: true, error: null, usesSearchCredit: false, searchesPerLinkedin: 3, searchesAvailable: 3, engines: ["Google", "Bing", "Yahoo"] });
       assert.deepEqual(requestedPaths, ["/account.json"]);
       assert.equal(response.headers.get("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("reports partial free search capacity without consuming it", async () => {
+    const previousFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => new Response(JSON.stringify({
+        account_status: "Active", plan_monthly_price: 0, plan_searches_left: 1,
+        this_hour_searches: 49, account_rate_limit_per_hour: 50,
+      }), { status: 200 });
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/health", {
+        method: "GET", headers: { Origin: "https://alexisgorino.github.io" },
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      assert.equal(response.status, 200);
+      const payload = await response.json();
+      assert.equal(payload.ready, true);
+      assert.equal(payload.searchesAvailable, 1);
+      assert.equal(payload.usesSearchCredit, false);
     } finally {
       globalThis.fetch = previousFetch;
     }
@@ -454,7 +588,7 @@ async function main() {
         SEARCH_LIMITER: { limit: async () => ({ success: true }) },
       });
       assert.equal(response.status, 503);
-      assert.deepEqual(await response.json(), { ready: false, error: "not_configured", usesSearchCredit: false, searchesPerLinkedin: 3 });
+      assert.deepEqual(await response.json(), { ready: false, error: "not_configured", usesSearchCredit: false, searchesPerLinkedin: 3, searchesAvailable: 0, engines: ["Google", "Bing", "Yahoo"] });
       assert.equal(called, false);
     } finally {
       globalThis.fetch = previousFetch;
@@ -530,7 +664,7 @@ async function main() {
       });
       assert.equal(response.status, 200);
       assert.equal(braveCalls, 0);
-      assert.deepEqual((await response.json()).sourceDiagnostics[0].engines, undefined);
+      assert.deepEqual((await response.json()).sourceDiagnostics[0].engines, ["Google"]);
     } finally {
       globalThis.fetch = previousFetch;
     }
