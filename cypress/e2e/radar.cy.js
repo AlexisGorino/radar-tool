@@ -138,8 +138,8 @@ describe("RADAR talent search flow", () => {
     cy.get("#applyJdBtn").should("be.disabled");
   });
 
-  it("reads the Wicom junior JD as a project role and keeps both Spanish cities", () => {
-    cy.readFile("tests/fixtures/wicom-junior-santiago-jd.txt", "utf8").then((jd) => {
+  it("reads a junior project-management JD and keeps both Spanish cities", () => {
+    cy.readFile("tests/fixtures/project-manager-junior-es.txt", "utf8").then((jd) => {
       cy.get("#jdInput").invoke("val", jd).trigger("input");
     });
     cy.get("#analyzeBtn").click();
@@ -383,7 +383,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card").should("have.length", 2);
     cy.get(".public-profile-card").eq(0).should("contain.text", "Lucía Pérez").and("contain.text", "Playwright");
     cy.get(".public-profile-card").eq(1).should("contain.text", "Marta Ruiz").and("contain.text", "Señales de apoyo visibles 0/1");
-    cy.get("#publicSearchStatus").should("contain.text", "2 perfiles").and("contain.text", "ubicación confirmada");
+    cy.get("#publicSearchStatus").should("contain.text", "Listo: 1 perfil con ubicación confirmada y 1 pista para revisar.");
   });
 
   it("lets an expert build a strict SAP Boolean and sends module equivalents to the shortlist", () => {
@@ -636,7 +636,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
-    cy.get("#publicSearchStatus").should("contain.text", "Resultado parcial: 20 perfiles con ubicación y señales visibles");
+    cy.get("#publicSearchStatus").should("contain.text", "Resultado parcial: 20 perfiles con ubicación confirmada. Se usaron menos consultas porque quedaba poco cupo gratuito.");
     cy.get("#publicSearchResults").should("contain.text", "Búsqueda en Canary Islands,Spain");
     cy.get("#publicSearchResults").should("contain.text", "No respondió GitHub");
     cy.get(".public-search-diagnostics").should("contain.text", "Google + Bing").and("contain.text", "cupo: 2 de 3 consultas").and("contain.text", "1.1 s");
@@ -703,7 +703,7 @@ describe("RADAR talent search flow", () => {
     });
   });
 
-  it("shows city-only LinkedIn leads for review without presenting interest as residence", () => {
+  it("keeps city-only and open-to LinkedIn mentions out of the confirmed shortlist", () => {
     cy.intercept("POST", "/mock-search", {
       statusCode: 200,
       body: {
@@ -732,15 +732,12 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get(".public-profile-card").should("have.length", 2);
+    cy.get(".public-profile-card").should("have.length", 1);
     cy.get(".public-profile-list:not(.public-profile-review-list) .public-profile-card").should("have.length", 1);
-    cy.get(".public-search-review-group").should("contain.text", "Pistas para revisar (1)").and("not.have.attr", "open");
-    cy.get(".public-search-location-review").should("contain.text", "confirmá la ciudad, el país y los conocimientos pedidos");
-    cy.get(".public-profile-card").should("contain.text", "Localidad mencionada; país y residencia por confirmar");
-    cy.get(".public-profile-card").should("not.contain.text", "Kseniya Cherasheva");
+    cy.get(".public-search-review-group").should("not.exist");
+    cy.get(".public-profile-card").should("contain.text", "Localidad y país visibles");
+    cy.get(".public-profile-card").should("not.contain.text", "Lucia Sanchez").and("not.contain.text", "Kseniya Cherasheva");
     cy.get(".public-profile-share-checkbox").should("have.length", 1);
-    cy.get(".public-profile-card").contains("Lucia Sanchez").parents(".public-profile-card")
-      .should("contain.text", "Localidad mencionada; país y residencia por confirmar");
     cy.get(".public-profile-card").contains("Maria Villar Romero").parents(".public-profile-card")
       .should("contain.text", "Localidad y país visibles");
   });
