@@ -57,7 +57,7 @@
 
     <div id="dropzone" class="dropzone">
       <label class="input-caption" id="intakeCaption" for="jdInput">Descripción del puesto <span>Opcional</span></label>
-      <textarea id="jdInput" maxlength="20000" aria-label="Descripción del puesto" placeholder="Ej.: Técnico/a de redes con experiencia en FTTH, para trabajar en Valencia, España..."></textarea>
+      <textarea id="jdInput" maxlength="20000" aria-label="Descripción del puesto" aria-describedby="intakeModeHint" placeholder="Ej.: Técnico/a de redes con experiencia en FTTH, para trabajar en Valencia, España..."></textarea>
       <div class="dropzone-overlay" id="dropOverlay">Soltá el archivo acá</div>
     </div>
     <details class="profile-examples" id="profileExamples">
@@ -71,7 +71,7 @@
       </div>
     </details>
     <div class="row-actions">
-      <button class="btn btn-dark" id="analyzeBtn" type="button">Revisar perfil</button>
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar descripción</button>
       <label class="file-label">
         <span class="file-label-title">Adjuntar archivo</span>
         <span class="file-label-hint">PDF, DOCX o TXT</span>
@@ -99,8 +99,8 @@
   </section>
 
   <section class="card">
-    <h2>2 · Ajustá los criterios de búsqueda</h2>
-    <p class="hint guided-only">Revisá cada bloque. Podés quitar lo que no aplica y agregar criterios escribiendo y pulsando Enter.</p>
+    <h2>2 · Revisá el perfil y el lugar</h2>
+    <p class="hint guided-only">Corregí lo que RADAR entendió. Agregá cada criterio con Enter.</p>
     <p class="hint expert-only">Editá los criterios. Los cargos son alternativas; los obligatorios se exigen todos.</p>
     <div class="criteria-key guided-only" aria-label="Cómo interpretar los criterios">
       <span><b class="criteria-key-mark is-required">!</b> En un conocimiento, lo marca como obligatorio</span>
@@ -112,7 +112,7 @@
       <div class="field criteria-field">
         <span class="criteria-step">01 · PERFIL</span>
         <label class="field-label" for="roleInput">Cargo principal o equivalentes</label>
-        <div class="field-desc">RADAR los trata como alternativas. Quitá los que no describan el perfil.</div>
+        <div class="field-desc">Son alternativas: alcanza con que coincida una.</div>
         <div class="chips" id="chips-rol"></div>
         <input id="roleInput" type="text" class="field-input" data-field="rol" aria-label="Agregar cargo o equivalente" placeholder="Agregar otro cargo…" maxlength="80">
         <div class="synonyms-row hidden" id="synonymsRow">
@@ -127,13 +127,13 @@
       <div class="field field-alt criteria-field">
         <span class="criteria-step">02 · CONOCIMIENTOS</span>
         <label class="field-label" for="signalsInput">Conocimientos o tareas</label>
-        <div class="field-desc">Agregá tecnologías, tareas o contexto. Una señal visible ayuda a priorizar.</div>
+        <div class="field-desc">Sumá habilidades, herramientas o tareas relacionadas.</div>
         <div class="chips" id="chips-atributos"></div>
         <input id="signalsInput" type="text" class="field-input" data-field="atributos" aria-label="Agregar conocimiento o tarea relacionada" placeholder="Agregar tecnología o tarea…" maxlength="80">
-        <label class="priority-subhead" for="requiredInput"><span class="criteria-key-mark is-required">!</span> Obligatorios <span>· deben coincidir todos</span></label>
+        <label class="priority-subhead" for="requiredInput"><span class="criteria-key-mark is-required">!</span> Requisitos indispensables <span>· se pedirán todos</span></label>
         <div class="chips" id="chips-imprescindibles"></div>
         <input id="requiredInput" type="text" class="field-input" data-field="imprescindibles" aria-label="Agregar requisito obligatorio" placeholder="Agregar solo un requisito excluyente…" maxlength="80">
-        <div class="field-desc required-help">Si no puede flexibilizarse, va acá. Usá la flecha de un chip para cambiarlo de grupo.</div>
+        <div class="field-desc required-help">Usalos solo si realmente son excluyentes. Podés mover cada criterio con la flecha.</div>
         <div class="synonyms-row hidden" id="aiAtributosRow">
           <span class="synonyms-label">+ sugeridos por IA:</span>
           <div class="synonyms-list" id="aiAtributosList"></div>
@@ -185,7 +185,7 @@
   </section>
 
   <section class="readiness-panel" id="searchReadiness" aria-labelledby="searchReadinessTitle" aria-live="polite">
-    <div class="readiness-heading"><h2 id="searchReadinessTitle">Estado</h2></div>
+    <div class="readiness-heading"><h2 id="searchReadinessTitle">Antes de buscar</h2></div>
     <ul class="readiness-list">
       <li class="readiness-item" id="readinessProfile" data-state="pending">
         <span class="readiness-marker" aria-hidden="true"></span>
@@ -207,10 +207,10 @@
 
   <div class="generate-row">
     <div class="generate-copy">
-      <span>3 · Encontrá perfiles</span>
-      <p>Lista pública o búsquedas en otros portales.</p>
+      <span>3 · Prepará la búsqueda</span>
+      <p>Listá perfiles públicos o abrí rutas en otros portales.</p>
     </div>
-    <button class="btn btn-primary" id="generateBtn" type="button">Ver búsquedas</button>
+    <button class="btn btn-primary" id="generateBtn" type="button">Preparar búsquedas</button>
   </div>
 
   <section class="results" id="results">

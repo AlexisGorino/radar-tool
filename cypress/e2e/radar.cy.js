@@ -12,6 +12,25 @@ describe("RADAR talent search flow", () => {
     cy.get("#appShell").should("be.visible");
   });
 
+  it("keeps the guided path clear and names each action in plain language", () => {
+    cy.get("#welcomeTitle").should("be.visible");
+    cy.get("#guidedModeBtn").should("have.attr", "aria-pressed", "true");
+    cy.get("#jdInput").should("be.visible").and("have.attr", "aria-describedby", "intakeModeHint");
+    cy.get("#analyzeBtn").should("contain.text", "Analizar descripción");
+    cy.get("#advancedCriteria").should("not.have.attr", "open");
+    cy.get("#searchReadinessTitle").should("contain.text", "Antes de buscar");
+    cy.get("#generateBtn").should("contain.text", "Preparar búsquedas");
+
+    cy.get("#ideaModeBtn").click();
+    cy.get("#analyzeBtn").should("contain.text", "Analizar perfil");
+
+    cy.viewport(390, 844);
+    cy.get(".generate-row").should("have.css", "flex-direction", "column");
+    cy.document().then((document) => {
+      expect(document.documentElement.scrollWidth).to.be.at.most(390);
+    });
+  });
+
   it("requires a country for a city-only scope without consuming a search", () => {
     let searchCalls = 0;
     cy.intercept("POST", "/mock-search", (request) => {
@@ -297,10 +316,10 @@ describe("RADAR talent search flow", () => {
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
     cy.get('label[for="roleInput"]').should("contain.text", "Cargo principal o equivalentes");
     cy.get('label[for="signalsInput"]').should("contain.text", "Conocimientos o tareas");
-    cy.get('label[for="requiredInput"]').should("contain.text", "Obligatorios · deben coincidir todos");
-    cy.contains(".field-desc", "Agregá tecnologías, tareas o contexto").should("be.visible");
-    cy.get(".required-help").should("contain.text", "Si no puede flexibilizarse, va acá");
-    cy.get("#generateBtn").should("contain.text", "Ver búsquedas");
+    cy.get('label[for="requiredInput"]').should("contain.text", "Requisitos indispensables · se pedirán todos");
+    cy.contains(".field-desc", "Sumá habilidades, herramientas o tareas relacionadas").should("be.visible");
+    cy.get(".required-help").should("contain.text", "Usalos solo si realmente son excluyentes");
+    cy.get("#generateBtn").should("contain.text", "Preparar búsquedas");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get('[data-field="deseables"]').should("not.be.visible");
     cy.get('[data-field="refinar"]').should("not.be.visible");
@@ -480,7 +499,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#readinessProfile").should("contain.text", "Incompleto");
     cy.get("#readinessLocation").should("contain.text", "Falta ubicación");
     cy.get("#readinessJd").should("contain.text", "Manual");
-    cy.get(".hint.guided-only").should("contain.text", "pulsando Enter");
+    cy.get(".hint.guided-only").should("contain.text", "con Enter");
 
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
     cy.get('[data-field="atributos"]').type("SQL{enter}");

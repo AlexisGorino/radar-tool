@@ -47,6 +47,7 @@
   const intakeCaption = document.getElementById("intakeCaption");
   const intakeOptional = intakeCaption.querySelector("span");
   const intakeModeHint = document.getElementById("intakeModeHint");
+  const analyzeBtn = document.getElementById("analyzeBtn");
   const experienceModeHint = document.getElementById("experienceModeHint");
   const experienceModeButtons = [...document.querySelectorAll("[data-experience-mode]")];
   const dropzone = document.getElementById("dropzone");
@@ -137,6 +138,7 @@
     intakeModeHint.textContent = ideaMode
       ? "Describilo con tus palabras."
       : "Pegala o adjuntá un archivo.";
+    analyzeBtn.textContent = ideaMode ? "Analizar perfil" : "Analizar descripción";
   }
 
   function setExperienceMode(mode, persist = true) {

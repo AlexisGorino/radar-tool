@@ -6,6 +6,18 @@ de respuestas variables de terceros.
 
 ## Automatizada
 
+La suite unificada corre todos los contratos y tests de lógica con un comando:
+
+```
+npm run test:unit
+```
+
+Incluye extracción y calidad de JDs, perfiles/ubicaciones, mercados, IA simulada,
+archivos PDF/DOCX, descubrimiento, Worker, tracking, resultados y el contrato
+accesible de la interfaz. No llama motores externos ni consume búsquedas.
+
+Para investigar un área puntual, siguen disponibles los scripts individuales:
+
 ```
 node tests/run.js        # tests unitarios: extractor, generator, seguridad
 node tests/jd-bank.js    # tests de regresión con JDs reales
@@ -26,9 +38,18 @@ destinos construidos para LinkedIn, GitHub, Stack Overflow, Xing, Behance, CVs
 públicos y dominios personalizados. Intercepta el webhook de analítica para que
 la ejecución de QA no escriba eventos en la planilla real.
 
-Para correr localmente: `npm install`, iniciar `npm run start:test` y ejecutar
-`npm run test:e2e` en otra terminal. GitHub Actions inicia el servidor y corre
-Cypress en cada push y pull request.
+Para correr localmente, ejecutar `npm run build`, iniciar `npm run start:angular`
+y después `npm run test:e2e` en otra terminal. GitHub Actions inicia ese mismo
+servidor y corre Cypress en cada push y pull request. Si el puerto 8766 ya está
+ocupado, iniciar el servidor en otro puerto desde PowerShell:
+
+```powershell
+$env:PORT = "8767"
+npm run start:angular
+```
+
+En la otra terminal, ejecutar Cypress con `npm run test:e2e -- --config
+baseUrl=http://127.0.0.1:8767`.
 
 ## Shortlist pública (LinkedIn + GitHub)
 

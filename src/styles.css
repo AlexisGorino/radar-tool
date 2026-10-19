@@ -1036,6 +1036,17 @@ summary:focus-visible { outline: 3px solid rgb(167 25 36 / 35%); outline-offset:
 }
 .experience-option-copy { max-width: 170px; }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Criteria editor: make category, priority and location controls distinct. */
 .criteria-key {
   display: flex;
