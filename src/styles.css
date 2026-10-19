@@ -45,6 +45,9 @@ h1,h2{font-family:Arial, Helvetica, sans-serif;}
 .side-panel-inner{padding:22px;}
 .side-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
 .side-panel-head h3{margin:0;font-size:16px;font-weight:800;color:var(--black);}
+.related-search-panel .side-panel-inner>p:first-of-type{padding:12px 14px;border-left:3px solid var(--red);background:#fbf6f6;color:var(--dark);}
+.public-search-related-note{margin:8px 0;padding:10px 12px;border-left:3px solid #b57516;background:#fff9ed;color:#563b12;font-size:13px;}
+.public-profile-route-badge{display:inline-flex;align-items:center;padding:4px 7px;border:1px solid #e7c788;border-radius:999px;background:#fff8e8;color:#68450c;font-size:10px;font-weight:700;}
 .btn-close{background:none;border:none;font-size:22px;line-height:1;color:var(--gray);cursor:pointer;padding:0 4px;}
 .btn-close:hover{color:var(--red);}
 

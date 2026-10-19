@@ -278,6 +278,34 @@ test("offers controlled no-title and no-sector recovery routes that retain hard 
   assert.match(market, /-Senior/i);
 });
 
+test("builds a single related LinkedIn route without the literal title and keeps location and hard criteria", () => {
+  const state = {
+    rol: ["Jefe de Proyecto Junior"], imprescindibles: ["MS Project"], atributos: ["Jira"],
+    deseables: ["PMO"], dominio: ["telecomunicaciones"], alcance: ["España", "Santiago de Compostela"],
+    refinar: ["Senior"], seniority: ["junior"], roleContext: ["Experiencia indicada: 0-3 años"],
+  };
+  const plan = Discovery.buildPlan(state, ["linkedin"], Generator, { strategy: "related" });
+  assert.equal(plan.queries.length, 1);
+  assert.equal(plan.queries[0].variants.length, 1);
+  assert.equal(plan.queries[0].route, "related");
+  assert.doesNotMatch(plan.queries[0].query, /Jefe de Proyecto|Project Manager/i);
+  assert.match(plan.queries[0].query, /MS Project/i);
+  assert.match(plan.queries[0].query, /telecomunicaciones/i);
+  assert.match(plan.queries[0].query, /Santiago de Compostela/i);
+  assert.match(plan.queries[0].query, /España|Spain/i);
+  assert.match(plan.queries[0].query, /-Senior/i);
+});
+
+test("does not create a location-only related search", () => {
+  const plan = Discovery.buildPlan({
+    rol: ["Analista"], imprescindibles: [], atributos: [], deseables: [], dominio: [],
+    alcance: ["España", "Barcelona"], refinar: [], seniority: [], roleContext: [],
+  }, ["linkedin"], Generator, { strategy: "related" });
+  assert.equal(plan.queries.length, 0);
+  assert.deepEqual(plan.skippedSources, ["linkedin"]);
+  assert.equal(plan.skippedReasons.linkedin, "requires_related_signal");
+});
+
 test("preserves every configured country and locality in the public-search query plan", () => {
   const profile = { rol: ["Analista"], imprescindibles: [], atributos: ["atención al cliente"], deseables: [], dominio: [], refinar: [] };
   const normalize = (text) => String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();

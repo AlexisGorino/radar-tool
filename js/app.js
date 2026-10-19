@@ -113,6 +113,8 @@
   const feedbackPanel = document.getElementById("feedbackPanel");
   const jdWarningPanel = document.getElementById("jdWarningPanel");
   const jdWarningMessage = document.getElementById("jdWarningMessage");
+  const relatedSearchPanel = document.getElementById("relatedSearchPanel");
+  const relatedSearchNoticeMessage = document.getElementById("relatedSearchNoticeMessage");
   const sidePanelBackdrop = document.getElementById("sidePanelBackdrop");
   const historyList = document.getElementById("historyList");
 
@@ -1442,7 +1444,14 @@
     publicSearchResults.replaceChildren();
     const confirmedRows = rows.filter((row) => row.locationConfirmed && row.supportingSignalConfirmed);
     const reviewLocationRows = rows.filter((row) => !row.locationConfirmed || !row.supportingSignalConfirmed);
+    const relatedCount = rows.filter((row) => row.discoveryRoute === "related").length;
     publicShareRows = new Map(confirmedRows.map((row) => [row.url, row]));
+    if (relatedCount) {
+      const relatedNote = document.createElement("p");
+      relatedNote.className = "public-search-related-note";
+      relatedNote.textContent = `${relatedCount} ${relatedCount === 1 ? "perfil afín" : "perfiles afines"}: se amplió sin el título literal, conservando ubicación y requisitos obligatorios. Revisá cargo y experiencia antes de avanzar.`;
+      publicSearchResults.appendChild(relatedNote);
+    }
     if (locationContext) {
       const geography = document.createElement("p");
       geography.className = "public-search-geography";
@@ -1564,6 +1573,12 @@
         experience.className = row.experienceFit === "unknown" ? "public-profile-identity-warning" : "public-profile-identity-check";
         experience.textContent = row.experienceLabel;
         meta.append(source, location, identityCheck, experience);
+        if (row.discoveryRoute === "related") {
+          const routeBadge = document.createElement("span");
+          routeBadge.className = "public-profile-route-badge";
+          routeBadge.textContent = "Perfil afín · validar cargo y experiencia";
+          meta.appendChild(routeBadge);
+        }
         if (row.locationConfirmed) {
           const includeLabel = document.createElement("label");
           includeLabel.className = "public-profile-share-select";
@@ -1747,6 +1762,35 @@
     publicSearchResults.appendChild(section);
   }
 
+  function hasExplicitExperienceLimit() {
+    return (state.roleContext || []).some((entry) => /experiencia indicada:/i.test(entry));
+  }
+
+  function exactRoleAndExperienceMatch(row) {
+    if (!row.roleHits || row.roleHits.length === 0) return false;
+    if (hasExplicitExperienceLimit()) {
+      return row.experienceFit === "within_limit" && row.experienceYears !== null;
+    }
+    const seniority = [...(state.seniority || []), ...(state.rol || [])]
+      .map((term) => String(term).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
+      .filter((term) => /\b(?:junior|jr|semi senior|semisenior|mid level|mid-level|senior|sr|trainee|pasante|practicante|intern)\b/.test(term));
+    if (!seniority.length) return true;
+    if (row.experienceFit === "within_limit") return true;
+    const visible = String(row.title || "") + " " + String(row.snippet || "");
+    return seniority.some((level) => {
+      const alternatives = level.includes("junior") || level === "jr" ? /\b(?:junior|jr|trainee|pasante|practicante|intern|entry level)\b/i
+        : level.includes("semi") || level.includes("mid") ? /\b(?:semi[- ]?senior|mid[- ]level|intermediate)\b/i
+          : level === "senior" || level === "sr" ? /\b(?:senior|sr\.?|lead|principal)\b/i
+            : /\b(?:trainee|pasante|practicante|intern)\b/i;
+      return alternatives.test(visible);
+    });
+  }
+
+  function showRelatedSearchNotice(message) {
+    relatedSearchNoticeMessage.textContent = message;
+    openSidePanel(relatedSearchPanel, broadenPublicSearchBtn);
+  }
+
   function selectedPublicShareRows() {
     const selectedUrls = new Set([...publicSearchResults.querySelectorAll(".public-profile-share-checkbox:checked")].map((input) => input.value));
     return [...publicShareRows.values()].filter((row) => selectedUrls.has(row.url));
@@ -1924,8 +1968,72 @@
       : `Buscando ${plan.searchSummary || "con los criterios confirmados"} en ${sourceNames}.${linkedinQuotaNote}${skippedNote}`;
     publicSearchResults.replaceChildren();
     try {
-      const response = await RadarTalentDiscovery.search(publicSearchEndpoint, plan, state);
+      let response = await RadarTalentDiscovery.search(publicSearchEndpoint, plan, state);
       if (sequence !== publicSearchSequence) return;
+      let relatedOutcome = null;
+      let relatedSearchCompleted = false;
+      const hasExactMatch = (rows) => rows.some(exactRoleAndExperienceMatch);
+      if (strategy === "precise" && !sourceOverride && !hasExactMatch(response.results)) {
+        const linkedInDiagnostics = (response.sourceDiagnostics || []).filter((item) => item.source === "linkedin");
+        const linkedInFailed = (response.sourceErrors || []).some((item) => item.source === "linkedin")
+          || linkedInDiagnostics.some((item) => item.status === "error");
+        const linkedInQuotaLimited = linkedInDiagnostics.some((item) => item.quotaLimited);
+        if (response.results.length) {
+          relatedOutcome = {
+            reason: "related_already_found",
+            count: response.results.filter((row) => !exactRoleAndExperienceMatch(row)).length,
+          };
+        } else if (!selected.includes("linkedin")) {
+          relatedOutcome = { reason: "linkedin_not_selected" };
+        } else if (linkedInFailed) {
+          relatedOutcome = { reason: "linkedin_unavailable" };
+        } else if (linkedInQuotaLimited) {
+          relatedOutcome = { reason: "free_quota_limited" };
+        } else {
+          const relatedPlan = RadarTalentDiscovery.buildPlan(state, ["linkedin"], RadarGenerator, { strategy: "related" });
+          if (!relatedPlan.queries.length) {
+            relatedOutcome = { reason: relatedPlan.skippedReasons.linkedin || "requires_related_signal" };
+          } else {
+            publicSearchStatus.textContent = "No vimos coincidencias verificables por cargo y experiencia. Probamos una ruta afín, conservando ubicación y requisitos obligatorios…";
+            try {
+              const relatedResponse = await RadarTalentDiscovery.search(publicSearchEndpoint, relatedPlan, state);
+              if (sequence !== publicSearchSequence) return;
+              relatedSearchCompleted = true;
+              const merged = new Map(response.results.map((row) => [row.url, row]));
+              relatedResponse.results.forEach((row) => {
+                const previous = merged.get(row.url);
+                if (!previous || row.score > previous.score) merged.set(row.url, row);
+              });
+              const mergedDiagnostics = new Map((response.sourceDiagnostics || []).map((item) => [item.source, item]));
+              (relatedResponse.sourceDiagnostics || []).forEach((item) => mergedDiagnostics.set(item.source, item));
+              response = {
+                ...response,
+                results: [...merged.values()],
+                sourceErrors: [
+                  ...(response.sourceErrors || []).filter((item) => item.source !== "linkedin"),
+                  ...(relatedResponse.sourceErrors || []),
+                ],
+                sourceDiagnostics: [...mergedDiagnostics.values()],
+                locationContext: relatedResponse.locationContext || response.locationContext,
+                requestId: relatedResponse.requestId || response.requestId,
+              };
+              relatedOutcome = {
+                attempted: true,
+                count: response.results.filter((row) => !exactRoleAndExperienceMatch(row)).length,
+                failed: (relatedResponse.sourceErrors || []).some((item) => item.source === "linkedin")
+                  || (relatedResponse.sourceDiagnostics || []).some((item) => item.source === "linkedin" && item.status === "error"),
+              };
+            } catch (error) {
+              if (sequence !== publicSearchSequence) return;
+              relatedOutcome = { attempted: true, error: error.message || "La búsqueda afín no pudo completarse." };
+            }
+          }
+        }
+      }
+      response.results = response.results.map((row) => ({
+        ...row,
+        discoveryRoute: exactRoleAndExperienceMatch(row) ? "exact" : "related",
+      }));
       const rowsByUrl = new Map(publicSearchRows.map((row) => [row.url, row]));
       response.results.forEach((row) => {
         const previous = rowsByUrl.get(row.url);
@@ -1945,7 +2053,7 @@
       const noMatchContext = count ? null : renderNoMatchContext(response.sourceDiagnostics);
       if (noMatchContext) publicSearchResults.appendChild(noMatchContext);
       const quotaLimited = (response.sourceDiagnostics || []).some((item) => item.quotaLimited);
-      const partial = response.sourceErrors.length > 0 || quotaLimited;
+      const partial = response.sourceErrors.length > 0 || quotaLimited || Boolean(relatedOutcome?.error || relatedOutcome?.failed);
       const confirmedCount = publicSearchRows.filter((row) => row.locationConfirmed && row.supportingSignalConfirmed).length;
       const locationReviewCount = count - confirmedCount;
       publicSearchStatus.textContent = count
@@ -1954,7 +2062,7 @@
           ? "Respuesta parcial: no hubo perfiles verificables y algunas fuentes fallaron."
           : "Búsqueda completada: sin perfiles verificables.";
       if (count <= 3 && strategy !== "market") {
-        const nextStrategy = strategy === "precise" ? "equivalent" : "market";
+        const nextStrategy = strategy === "precise" && !relatedSearchCompleted ? "equivalent" : "market";
         broadenPublicSearchBtn.dataset.strategy = nextStrategy;
         broadenPublicSearchBtn.textContent = nextStrategy === "equivalent" ? "Probar perfiles equivalentes" : "Ampliar sin cargo ni sector";
         publicSearchRefineTitle.textContent = count ? `Hay ${count} perfiles. ¿Ampliamos?` : "Sin perfiles verificables.";
@@ -1969,6 +2077,29 @@
         publicSearchRefine.classList.add("hidden");
       }
       if (!count && !partial && strategy === "market") renderFinalNoResultQuestions();
+      if (strategy === "precise" && !sourceOverride && !hasExactMatch(publicSearchRows)) {
+        const relatedCount = publicSearchRows.filter((row) => row.discoveryRoute === "related").length;
+        const notice = relatedOutcome?.attempted
+          ? relatedOutcome.error
+            ? `No encontramos una coincidencia exacta. Intentamos ampliar la búsqueda en LinkedIn, pero no respondió: ${relatedOutcome.error} No se agregaron candidatos inventados.`
+            : relatedOutcome.failed
+              ? `No encontramos una coincidencia exacta. La búsqueda afín devolvió ${relatedCount} ${relatedCount === 1 ? "perfil" : "perfiles"} verificables, pero LinkedIn informó un problema; revisá el diagnóstico antes de usarlos.`
+              : relatedCount
+                ? `No encontramos coincidencias verificables por cargo y experiencia. Buscamos una vez más sin exigir el título literal y mantuvimos la ubicación y los requisitos obligatorios. Hay ${relatedCount} ${relatedCount === 1 ? "perfil afín" : "perfiles afines"}; verificá cargo y experiencia en cada fuente.`
+                : "No encontramos coincidencias exactas ni perfiles afines que pudiéramos verificar con la ubicación y los requisitos indicados. La búsqueda no inventa candidatos; podés ampliar manualmente los criterios o probar otras rutas de hunting."
+          : relatedOutcome?.reason === "related_already_found"
+            ? `No se confirmó un perfil exacto por cargo y experiencia. La lista ya trae ${relatedCount} ${relatedCount === 1 ? "perfil afín" : "perfiles afines"}; conservamos la ubicación y los requisitos visibles, y no repetimos la consulta para cuidar el cupo.`
+          : relatedOutcome?.reason === "linkedin_not_selected"
+            ? "No encontramos coincidencias verificables por cargo y experiencia. La búsqueda afín automática usa LinkedIn; seleccioná LinkedIn para probarla."
+            : relatedOutcome?.reason === "linkedin_unavailable"
+              ? "No encontramos coincidencias verificables por cargo y experiencia. LinkedIn no respondió en la primera búsqueda, así que no repetimos una consulta que probablemente vuelva a fallar. Revisá el diagnóstico e intentá de nuevo."
+              : relatedOutcome?.reason === "free_quota_limited"
+                ? "No encontramos coincidencias verificables por cargo y experiencia. El cupo gratuito indicó un límite, por eso RADAR no inició otra consulta. Podés volver a probar cuando haya cupo."
+                : relatedOutcome?.reason === "requires_related_signal"
+                  ? "No encontramos coincidencias verificables por cargo y experiencia. Para buscar perfiles afines hace falta al menos una skill, herramienta, formación o sector además del título y la ubicación."
+                  : "No encontramos coincidencias verificables por cargo y experiencia. No se pudo construir una búsqueda afín segura; revisá los filtros y agregá una señal concreta del perfil.";
+        showRelatedSearchNotice(notice);
+      }
     } catch (error) {
       if (sequence !== publicSearchSequence) return;
       publicSearchStatus.textContent = "La búsqueda no se completó.";
@@ -2207,7 +2338,7 @@
   // panel with Tab while it's open, and returns to whatever triggered it
   // on close, so a keyboard/screen-reader user never loses their place.
   // ---------------------------------------------------------------
-  const ALL_SIDE_PANELS = [historyPanel, helpPanel, aiPanel, feedbackPanel, jdWarningPanel];
+  const ALL_SIDE_PANELS = [historyPanel, helpPanel, aiPanel, feedbackPanel, jdWarningPanel, relatedSearchPanel];
   let sidePanelOpenerEl = null;
 
   function focusableIn(panel) {
@@ -2263,6 +2394,8 @@
   document.getElementById("closeFeedbackBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeJdWarningBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeJdWarningBtnBottom").addEventListener("click", closeSidePanels);
+  document.getElementById("closeRelatedSearchBtn").addEventListener("click", closeSidePanels);
+  document.getElementById("viewRelatedResultsBtn").addEventListener("click", closeSidePanels);
   sidePanelBackdrop.addEventListener("click", closeSidePanels);
 
   // ---------------------------------------------------------------

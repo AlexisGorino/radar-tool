@@ -243,7 +243,7 @@
 
   function buildPublicLinkedinQuery(state, strategy) {
     const mode = strategy || "precise";
-    const useRole = mode !== "equivalent" && mode !== "market";
+    const useRole = mode !== "equivalent" && mode !== "market" && mode !== "related";
     const roles = useRole ? (state.rol || []).map(stripAbbreviatedTitlePrefix).slice(0, 2) : [];
     const required = (state.imprescindibles || []).filter(Boolean);
     // When there is no hard requirement, keep at most two alternatives. This

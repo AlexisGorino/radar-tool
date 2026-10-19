@@ -265,7 +265,26 @@
       // the JD's requirements and its most specific location in the query.
       const queryState = strategy === "market"
         ? { ...state, rol: [], dominio: [] }
+        : strategy === "related"
+          ? { ...state, rol: [] }
         : { ...state, rol: compactRoleFamily(state.rol, state.seniority) };
+      if (strategy === "related" && id === "linkedin") {
+        const hasRelatedSignal = cleanTerms(state.imprescindibles).length
+          || cleanTerms(state.atributos).length
+          || cleanTerms(state.deseables).length
+          || cleanTerms(state.dominio).length
+          || educationSignals(state).terms.length;
+        const query = hasRelatedSignal ? generator.buildPublicLinkedinQuery(queryState, strategy) : "";
+        if (!query || query.length > MAX_QUERY_LENGTH) {
+          skippedSources.push(id);
+          skippedReasons[id] = hasRelatedSignal ? "query_too_long" : "requires_related_signal";
+          return null;
+        }
+        // The related route deliberately removes the literal job title, but
+        // keeps the role's skills, sector, geography and mandatory exclusions.
+        // One focused query avoids duplicating the initial multi-angle search.
+        return { source: id, query, variants: [query], label: source.label, route: "related" };
+      }
       if (id === "github") {
         const query = buildGithubUserQuery(queryState);
         if (!query) {

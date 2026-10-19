@@ -623,6 +623,8 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").should("be.enabled").click();
+    cy.get("#relatedSearchPanel").should("be.visible");
+    cy.get("#viewRelatedResultsBtn").click();
     cy.get(".public-profile-card").should("have.length", 20);
     cy.get(".public-search-results-heading").should("contain.text", "20 perfiles con ubicación y señales visibles");
     cy.get(".public-profile-rank").first().should("have.text", "01");
@@ -678,6 +680,8 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
+    cy.get("#relatedSearchPanel").should("be.visible");
+    cy.get("#viewRelatedResultsBtn").click();
     cy.get(".public-profile-card").should("have.length", 9);
     cy.get("#shareProfilesWhatsappBtn").should("be.disabled");
     cy.get("#publicShareSelectAll").check();
@@ -742,7 +746,7 @@ describe("RADAR talent search flow", () => {
       .should("contain.text", "Localidad y país visibles");
   });
 
-  it("suggests a deliberate broader search after no results and keeps hard requirements and locality", () => {
+  it("automatically tries a related search after no exact match and keeps hard requirements and locality", () => {
     const sentQueries = [];
     cy.intercept("POST", "/mock-search", (request) => {
       sentQueries.push(request.body.queries[0].query);
@@ -765,8 +769,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Conserva ubicación y obligatorias");
-    cy.get("#broadenPublicSearchBtn").click();
+    cy.get("#relatedSearchPanel").should("be.visible").and("contain.text", "No encontramos coincidencias exactas");
     cy.then(() => {
       expect(sentQueries).to.have.length(2);
       expect(sentQueries[0]).to.match(/Jefe de Proyecto/i);
@@ -774,6 +777,7 @@ describe("RADAR talent search flow", () => {
       expect(sentQueries[1]).to.match(/Santiago de Compostela/i);
       expect(sentQueries[1]).to.match(/MS Project/i);
     });
+    cy.get("#viewRelatedResultsBtn").click();
     cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Quita cargo y sector");
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
     cy.get("#publicSearchSources").should("contain.text", "Perfiles técnicos con actividad pública");
@@ -784,7 +788,7 @@ describe("RADAR talent search flow", () => {
     cy.then(() => expect(sentQueries).to.have.length(3));
   });
 
-  it("hides stale expansion advice when a broader search fails", () => {
+  it("reports when the automatic related search fails without presenting it as a completed search", () => {
     let requestCount = 0;
     cy.intercept("POST", "/mock-search", (request) => {
       requestCount += 1;
@@ -809,11 +813,66 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
+    cy.get("#relatedSearchPanel").should("be.visible").and("contain.text", "LinkedIn").and("contain.text", "candidatos inventados");
+    cy.then(() => expect(requestCount).to.equal(2));
     cy.get("#publicSearchRefine").should("be.visible");
-    cy.get("#broadenPublicSearchBtn").click();
-    cy.get(".public-search-error").should("contain.text", "tardó demasiado");
-    cy.get("#publicSearchRefine").should("not.be.visible");
-    cy.get(".public-search-empty").should("not.exist");
+    cy.get("#publicSearchStatus").should("contain.text", "Respuesta parcial").and("not.contain.text", "Búsqueda completada");
+    cy.get(".public-search-empty").should("be.visible");
+  });
+
+  it("shows verified leads as related when title or requested experience is not confirmed", () => {
+    const plans = [];
+    cy.intercept("POST", "/mock-search", (request) => {
+      plans.push(request.body);
+      if (plans.length === 1) {
+        request.reply({ statusCode: 200, body: { count: 0, results: [], sourceErrors: [] } });
+        return;
+      }
+      request.reply({
+        statusCode: 200,
+        body: {
+          count: 1,
+          sourceErrors: [],
+          results: [{
+            source: "linkedin",
+            url: "https://linkedin.com/in/ana-pmo-coordinator",
+            title: "Ana Lopez - PMO Coordinator - LinkedIn",
+            snippet: "MS Project · telecomunicaciones · 2 años de experiencia · Santiago de Compostela, España",
+            position: 1,
+          }],
+        },
+      });
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        win.localStorage.setItem("radar-auth-v1", "ok");
+        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Jefe de Proyecto Junior{enter}");
+    cy.get('[data-field="imprescindibles"]').type("MS Project{enter}");
+    cy.get("#advancedCriteria > summary").click();
+    cy.get('[data-field="dominio"]').type("telecomunicaciones{enter}");
+    cy.get('[data-field="alcance"]').type("España{enter}");
+    cy.get('[data-field="alcance"]').type("Santiago de Compostela{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get("#relatedSearchPanel").should("be.visible").and("contain.text", "1 perfil afín");
+    cy.get("#publicSearchResults").should("contain.text", "Ana Lopez")
+      .and("contain.text", "Perfil afín · validar cargo y experiencia")
+      .and("contain.text", "Santiago de Compostela, España");
+    cy.then(() => {
+      expect(plans).to.have.length(2);
+      expect(plans[1].queries[0].query).not.to.match(/Jefe de Proyecto/i);
+      expect(plans[1].queries[0].query).to.match(/MS Project/i);
+      expect(plans[1].queries[0].query).to.match(/Santiago de Compostela/i);
+      expect(plans[1].queries[0].query).to.match(/España|Spain/i);
+      expect(plans[1].queries[0].variants).to.have.length(1);
+    });
   });
 
   it("offers a source-only retry and a deliberate widening after a partial empty response", () => {
@@ -864,6 +923,8 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-search-diagnostics").should("contain.text", "El proveedor agotó el tiempo de espera");
     cy.get(".public-search-diagnostics").should("contain.text", "Sin resultados indexados");
     cy.wait("@partialSearch");
+    cy.get("#relatedSearchPanel").should("be.visible");
+    cy.get("#viewRelatedResultsBtn").click();
     cy.get(".public-search-retry").should("contain.text", "LinkedIn").click();
     cy.wait("@partialSearch").then(() => {
       expect(plans).to.have.length(2);
