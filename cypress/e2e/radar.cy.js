@@ -147,7 +147,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#jdReviewGrid .jd-review-role-input").should("have.value", "Jefe de Proyecto");
     cy.get("#jdReviewGrid").should("contain.text", "Santiago de Compostela").and("contain.text", "Palma de Mallorca");
     cy.get("#jdReviewGrid").should("not.contain.text", "Chile");
-    cy.get("#jdReviewQuestions").should("contain.text", "junior");
+    cy.get("#jdReviewGrid").should("contain.text", "junior").and("contain.text", "Experiencia indicada: 0-2 años");
   });
 
   it("loads understandable examples for IT, ERP, telecom and non-IT profiles", () => {
@@ -383,7 +383,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card").should("have.length", 2);
     cy.get(".public-profile-card").eq(0).should("contain.text", "Lucía Pérez").and("contain.text", "Playwright");
     cy.get(".public-profile-card").eq(1).should("contain.text", "Marta Ruiz").and("contain.text", "Señales de apoyo visibles 0/1");
-    cy.get("#publicSearchStatus").should("contain.text", "Listo: 1 perfil con ubicación confirmada y 1 pista para revisar.");
+    cy.get("#publicSearchStatus").should("contain.text", "Listo: 1 perfil con ubicación confirmada y pista para revisar.");
   });
 
   it("lets an expert build a strict SAP Boolean and sends module equivalents to the shortlist", () => {
