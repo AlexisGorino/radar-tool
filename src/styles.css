@@ -181,6 +181,15 @@ textarea:focus,.field-input:focus,.jd-review-add input:focus{outline:0;border-co
 @media(max-width:680px){.wrap{padding:22px 14px 48px}.card{padding:17px}.jd-review{padding:14px}.result-hero{padding:17px}.intro{font-size:14px}}
 @media(max-width:520px){.brand-logo{width:160px;height:auto}.brand-left{max-width:100%;min-width:0}.brand-titles{min-width:0}}
 
+.jd-review-model-understanding{grid-column:1/-1;border-color:#c9d8e6;background:#f4f8fc;}
+.jd-review-model-understanding>p{margin:7px 0;color:#344657;font-size:12px;line-height:1.55;}
+.jd-review-model-understanding .jd-review-model-note{padding:9px 11px;border-left:3px solid #7393b3;background:#fff;color:#52606d;}
+.jd-review-model-functions{display:grid;gap:7px;margin:9px 0 12px;padding:0;list-style:none;}
+.jd-review-model-functions li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid #dce5ed;border-radius:8px;background:#fff;color:#283746;font-size:12px;}
+.jd-review-model-functions .jd-review-choice{flex:0 0 auto;}
+.jd-review-question input[aria-label="Años mínimos de experiencia"]{width:118px;min-height:34px;padding:7px 9px;border:1px solid #cbd5df;border-radius:7px;font:inherit;}
+@media(max-width:680px){.jd-review-model-functions li{align-items:flex-start;flex-direction:column;gap:7px}.jd-review-model-functions .jd-review-choice{align-self:flex-start}}
+
 /* ---------- buttons ---------- */
 .btn{
   font-family:Arial, sans-serif;font-weight:700;font-size:13px;

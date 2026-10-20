@@ -195,6 +195,12 @@ test("an unrelated earlier name match doesn't override a real locality mentioned
   assert.strictEqual(locality, "CABA");
 });
 
+test("canonicalizes bare Palma to Palma de Mallorca in Spain", () => {
+  const r = Countries.detectLocationDetailed("Residir en Palma, España.");
+  assert.strictEqual(r.country, "España");
+  assert.strictEqual(r.locality, "Palma de Mallorca");
+});
+
 // Two cities the recruiter listed as equally valid options ("X y Y", or
 // consecutive rows in a table once a PDF flattens the layout) must both
 // come through — dropping the second one silently lost half the real

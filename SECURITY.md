@@ -8,17 +8,13 @@ que se trata siempre como texto plano, nunca como markup.
 
 ## Controles implementados
 
-**Sin red, salvo tres excepciones explícitas y acotadas.** `connect-src` en
-la CSP sólo permite el propio origen, `https://formsubmit.co` (botón de
-feedback, ver más abajo), `https://generativelanguage.googleapis.com`
-(sugerencias con IA, ver "La excepción opcional: IA con Gemini") y
-`https://script.google.com` + `https://script.googleusercontent.com`
-(registro de uso, ver "Excepción: registro de uso por nombre"). Ningún
-otro flujo del sitio hace `fetch`/`XMLHttpRequest`: se puede confirmar con
-`grep -rn "fetch(" js/*.js`, y los únicos resultados son `sendFeedbackTo`
-(`app.js`), `suggestTerms` (`ai.js`) y `logEvent` (`tracking.js`). El texto
-de la JD nunca sale del navegador por ningún otro camino, y `suggestTerms` sólo se ejecuta si el
-usuario tocó "Sugerir con IA" a propósito, con su propia key cargada.
+**Red limitada a las integraciones de RADAR.** `connect-src` en la CSP sólo
+permite el propio origen, el Worker de RADAR (análisis y búsqueda),
+`https://formsubmit.co` (feedback), `https://generativelanguage.googleapis.com`
+(sugerencias opcionales con Gemini) y `https://script.google.com` más
+`https://script.googleusercontent.com` (registro de uso). El análisis de JD
+llama al Worker desde `app.js`; la búsqueda pública también. Gemini solo se
+usa si la persona carga su propia clave y solicita esa función.
 
 **Sin `innerHTML` sobre input de usuario.** Todo lo que viene del usuario
 (términos de los chips, texto de la JD, nombre de archivo) se inserta con
@@ -37,14 +33,14 @@ contenido leído además se trunca a 20.000 caracteres (`MAX_INPUT_LENGTH` en
 `extractor.js`) antes de procesarlo, para no colgar el regex engine con un
 archivo patológico.
 
-**Lectura de PDF sin salir del navegador.** El parseo de `.pdf` usa pdf.js
+**Lectura de PDF sin subir el archivo.** El parseo de `.pdf` usa pdf.js
 (Mozilla), vendorizado en `js/vendor/` — se sirve desde el mismo origen,
 no desde un CDN. El archivo se decodifica localmente y nunca se sube a
 ningún lado. La CSP agrega
 `worker-src 'self' blob:` porque pdf.js corre el parseo en un Web Worker
 propio; sigue sin admitir orígenes externos.
 
-**Lectura de Word sin salir del navegador.** Mammoth extrae solo texto plano
+**Lectura de Word sin subir el archivo.** Mammoth extrae solo texto plano
 de `.docx`; RADAR lo inserta con `textContent`. La librería se sirve desde
 `js/vendor/` y no transmite el archivo a terceros.
 
@@ -119,6 +115,21 @@ commiteada por accidente), hay que rotarla desde AI Studio — no hay forma
 de invalidarla desde RADAR mismo, porque RADAR no tiene backend que la
 custodie.
 
+## Lectura automática con Cloudflare Workers AI
+
+Al tocar "Analizar descripción" o "Analizar perfil", el navegador envía el
+texto extraído al Worker de RADAR y éste llama a Workers AI. El código intenta
+reemplazar correos y teléfonos reconocibles antes de la inferencia; la limpieza
+por patrones no garantiza detectar todos los datos personales. El Worker no
+escribe el texto en logs ni lo guarda en una base de datos. Cloudflare explica
+el tratamiento en su [política de uso de datos de Workers AI](https://developers.cloudflare.com/workers-ai/platform/data-usage/).
+
+La IA separa señales, propone funciones de referencia y devuelve fragmentos
+de evidencia. RADAR verifica que las citas literales aparezcan en el texto; las
+funciones se muestran como sugerencias, nunca se incorporan sin elección de la
+persona. La búsqueda queda bloqueada mientras la lectura está pendiente. Si la
+IA falla, RADAR informa el fallo y permite completar el análisis local.
+
 ## Excepción: registro de uso por nombre (`js/tracking.js`)
 
 A diferencia de las dos excepciones anteriores, ésta **no es opt-in**: es
@@ -142,17 +153,19 @@ generó y se ve en pantalla, envuelta en un `catch` silencioso — si Sheets
 no responde (sin conexión, cuota agotada, endpoint caído), no afecta en
 nada al resto de RADAR, simplemente se pierde ese evento. Ver `js/tracking.js`.
 
-## Qué NO se guarda en ningún lado
+## Persistencia
 
-- El texto de la JD: vive sólo en memoria del navegador mientras la pestaña
-  está abierta. Cerrarla lo borra.
+- RADAR no persiste el texto de la JD. Durante el análisis se envía al Worker y
+  al modelo para procesarlo; durante la búsqueda se envían solo consultas
+  resumidas y ubicación al proveedor. La retención que aplique cada proveedor
+  está sujeta a sus políticas.
 - El historial de búsquedas (opcional): se guarda en `localStorage` del
   navegador que lo generó. No sale de esa máquina, no se sincroniza, no lo
   ve nadie más que esa persona en ese navegador.
 
 ## Qué pasa si falla algo
 
-No hay cuentas, contraseñas ni datos personales sensibles que proteger más
-allá del contenido de la JD, que por definición ya es información pública o
-semi-pública (una vacante publicada). El peor escenario de un bug acá es una
-búsqueda mal armada, no una fuga de datos — no hay dónde fugarlos.
+Los textos de búsqueda y los perfiles públicos consultados deben tratarse como
+información de trabajo. No pegues datos sensibles de candidatos; las ofertas y
+briefs pueden contener información confidencial aunque no incluyan datos
+personales.

@@ -102,6 +102,7 @@
   let currentFileName = "";
   let currentSourceMeta = null;
   let uploadSequence = 0;
+  let aiAnalysisSequence = 0;
   let publicSearchSequence = 0;
   let publicSearchRows = [];
   let publicShareRows = new Map();
@@ -169,6 +170,16 @@
 
   function getPublicSearchEndpoint() {
     return (document.querySelector('meta[name="radar-search-endpoint"]')?.content || "").trim();
+  }
+
+  function getAIAnalysisEndpoint() {
+    const endpoint = getPublicSearchEndpoint();
+    if (!endpoint) return "";
+    const url = new URL(endpoint, window.location.href);
+    url.pathname = url.pathname.endsWith("/api/search")
+      ? url.pathname.replace(/\/api\/search$/, "/api/analyze")
+      : `${url.pathname.replace(/\/$/, "")}/analyze`;
+    return url.toString();
   }
 
   function getPublicSearchHealthEndpoint() {
@@ -581,6 +592,10 @@
         if (fieldName === "alcance") {
           result.country = RadarCountries.detectCountry(result.alcance.join(" ")) || result.country;
           RadarReview.accept(result, "location");
+          if (result.proximityNeedsClarification) {
+            result.proximityNeedsClarification = false;
+            RadarReview.accept(result, "proximity");
+          }
         }
         pendingAnalysis = result;
         renderJdReview(result);
@@ -602,6 +617,9 @@
     container.textContent = "";
     const gaps = reviewGaps(result);
     const ambiguousLocationChoices = (result.ambiguousLocations || []).map((choice) => choice.locality ? `${choice.locality} · ${choice.country}` : choice.country);
+    const modelEducation = result.modelUnderstanding && result.modelUnderstanding.education;
+    const modelExperience = result.modelUnderstanding && result.modelUnderstanding.experience;
+    const contextualEducation = (result.roleContext || []).find((entry) => /formaci[oó]n indicada/i.test(entry));
     const descriptions = {
       source: ["¿El texto coincide con el original?", "La lectura puede estar incompleta. Comparala con el archivo antes de seguir."],
       intent: ["¿Es una descripción de un puesto?", "No parece una vacante. Si es una búsqueda real, completá cargo, conocimientos y ubicación."],
@@ -610,15 +628,29 @@
         : ["No detectamos el cargo.", "Escribilo o buscá por requisitos."],
       requirements: result.atributos.length || (result.imprescindibles || []).length || (result.atributosDeseables || []).length
         ? ["¿Qué es obligatorio?", "Las señales son alternativas: alcanza una. Marcá como imprescindibles solo las que deben cumplirse todas." ]
-        : ["¿Qué distingue al perfil?", "Agregá una habilidad, tarea o experiencia concreta. Sin cargo, hacen falta señales suficientes para identificarlo."],
+        : result.rol.length
+          ? ["¿Qué tareas debe poder hacer?", "Agregá una función, tecnología o tipo de proyecto concreto. El sector por sí solo no alcanza para filtrar con precisión." ]
+          : ["¿Qué distingue al perfil?", "Agregá una habilidad, tarea o experiencia concreta. Sin cargo, hacen falta señales suficientes para identificarlo."],
       signals: ["¿Cómo usamos estas herramientas?", "RADAR las dejó como puntos extra para no filtrar perfiles por una suposición. Decidí una por una."],
       sector: ["¿A qué te referís con “travel”?", "Puede ser tecnología para viajes o turismo y operaciones. Elegí el contexto; no lo tomamos como una herramienta obligatoria."],
+      education: modelEducation
+        ? [`¿Qué formación buscamos?`, `RADAR leyó “${modelEducation.term}”. Confirmá si es requisito, valorable o si no debe filtrar.`]
+        : contextualEducation
+          ? ["¿El título finalizado es obligatorio?", `RADAR detectó “${contextualEducation.replace(/^Formación indicada:\s*/i, "")}". Confirmá si es requisito, valorable o si no debe filtrar.`]
+          : ["¿Qué estudios necesitamos?", "Confirmá la formación requerida, si es valorable o si no debe filtrar."],
+      experience: ["¿Qué nivel de experiencia buscamos?", modelExperience
+        ? `RADAR leyó “${modelExperience.term}”. Definí un mínimo o dejalo como señal deseable; no se infieren años.`
+        : "Definí un mínimo o dejá la experiencia como señal deseable; RADAR no infiere años."],
+      proximity: ["¿Qué significa “cercanos”?", "El listado necesita localidades concretas. Podés usar solo estas ciudades o agregar otras en Ubicación."],
+      understanding: result.aiAnalysisPending
+        ? ["RADAR está contrastando la búsqueda", "La búsqueda seguirá bloqueada hasta recibir la lectura o usar el análisis local y confirmar los campos."]
+        : ["¿La lectura de RADAR representa el perfil?", "Revisá cargo, funciones, estudios, experiencia y ciudades. Las funciones sugeridas solo se usan si las agregás."],
       location: result.locationNeedsClarification
         ? ["El texto dice Santiago, pero falta el país.", "Indicá ciudad y país. RADAR no elige por vos entre localidades con el mismo nombre."]
         : ambiguousLocationChoices.length
         ? [`¿Qué ubicación corresponde: ${ambiguousLocationChoices.join(" o ")}?`, "Elegí ciudad y país para evitar una búsqueda en otro lugar."]
         : result.alcance.length
-        ? [`¿La ubicación es ${result.alcance[result.alcance.length - 1]}?`, "Confirmala, ampliá al país o buscá sin ubicación." ]
+        ? [`¿La ubicación es ${(result.alcance.length > 2 ? result.alcance.slice(1).join(" o ") : result.alcance[result.alcance.length - 1])}?`, "Las localidades se buscan como alternativas dentro del país. Confirmá que todas correspondan." ]
         : [result.fileCountrySuggestion ? `El archivo menciona ${result.fileCountrySuggestion}, pero el texto no.` : "Falta la ubicación.", "Agregá una ubicación o elegí buscar sin ese filtro."],
     };
     gaps.forEach((gap) => {
@@ -639,6 +671,101 @@
           renderJdReview(result);
         });
         row.appendChild(confirmRole);
+      }
+      if (gap === "education") {
+        const formation = contextualEducation || (modelEducation ? `Formación indicada: ${modelEducation.term}` : "");
+        [["Sí, es obligatorio", "required"], ["Es valorable", "preferred"], ["No filtrar por título", "remove"]].forEach(([label, action]) => {
+          const choice = document.createElement("button");
+          choice.type = "button";
+          choice.className = "jd-review-choice";
+          choice.textContent = label;
+          choice.addEventListener("click", () => {
+            result.roleContext = (result.roleContext || []).filter((entry) => !/formaci[oó]n indicada/i.test(entry));
+            if (action !== "remove" && formation) {
+              result.roleContext.push(action === "required" ? `${formation} · obligatorio` : `${formation} · valorable`);
+            }
+            RadarReview.accept(result, "education");
+            renderJdReview(result);
+          });
+          row.appendChild(choice);
+        });
+      }
+      if (gap === "experience") {
+        const minimum = document.createElement("input");
+        minimum.type = "number";
+        minimum.min = "1";
+        minimum.max = "40";
+        minimum.step = "1";
+        minimum.placeholder = "Años mínimos";
+        minimum.setAttribute("aria-label", "Años mínimos de experiencia");
+        const setMinimum = document.createElement("button");
+        setMinimum.type = "button";
+        setMinimum.className = "jd-review-choice";
+        setMinimum.textContent = "Usar mínimo";
+        setMinimum.addEventListener("click", () => {
+          const years = Number(minimum.value);
+          if (!Number.isInteger(years) || years < 1 || years > 40) {
+            minimum.setCustomValidity("Ingresá entre 1 y 40 años.");
+            minimum.reportValidity();
+            return;
+          }
+          result.roleContext = (result.roleContext || []).filter((entry) => !/experiencia sugerida|experiencia m[ií]nima indicada/i.test(entry));
+          result.roleContext.push(`Experiencia mínima indicada: ${years} ${years === 1 ? "año" : "años"}`);
+          RadarReview.accept(result, "experience");
+          renderJdReview(result);
+        });
+        const desirable = document.createElement("button");
+        desirable.type = "button";
+        desirable.className = "jd-review-choice";
+        desirable.textContent = "Deseable · sin años";
+        desirable.addEventListener("click", () => {
+          RadarReview.accept(result, "experience");
+          renderJdReview(result);
+        });
+        const omit = document.createElement("button");
+        omit.type = "button";
+        omit.className = "jd-review-choice";
+        omit.textContent = "No usar como filtro";
+        omit.addEventListener("click", () => {
+          result.roleContext = (result.roleContext || []).filter((entry) => !/experiencia sugerida/i.test(entry));
+          RadarReview.accept(result, "experience");
+          renderJdReview(result);
+        });
+        row.append(minimum, setMinimum, desirable, omit);
+      }
+      if (gap === "proximity") {
+        const exactPlaces = document.createElement("button");
+        exactPlaces.type = "button";
+        exactPlaces.className = "jd-review-choice";
+        exactPlaces.textContent = "Solo estas localidades";
+        exactPlaces.addEventListener("click", () => {
+          result.proximityNeedsClarification = false;
+          RadarReview.accept(result, "proximity");
+          renderJdReview(result);
+        });
+        const addPlace = document.createElement("button");
+        addPlace.type = "button";
+        addPlace.className = "jd-review-choice";
+        addPlace.textContent = "Agregar localidades cercanas";
+        addPlace.addEventListener("click", () => {
+          jdReviewGrid.querySelector('[aria-label="Agregar término para alcance"]')?.focus();
+          jdReviewGrid.querySelector('[aria-label="Agregar término para alcance"]')?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        row.append(exactPlaces, addPlace);
+      }
+      if (gap === "understanding" && !result.aiAnalysisPending && result.modelUnderstanding) {
+        [["Sí, representa la búsqueda", true], ["Voy a corregir los campos", false]].forEach(([label, confirmed]) => {
+          const choice = document.createElement("button");
+          choice.type = "button";
+          choice.className = "jd-review-choice";
+          choice.textContent = label;
+          choice.addEventListener("click", () => {
+            if (!confirmed) result.modelUnderstanding = null;
+            RadarReview.accept(result, "understanding");
+            renderJdReview(result);
+          });
+          row.appendChild(choice);
+        });
       }
       if (gap === "source") {
         const confirmSource = document.createElement("button");
@@ -804,7 +931,7 @@
         });
         row.appendChild(useCountry);
       }
-      if (gap !== "source" && gap !== "intent" && gap !== "requirements" && gap !== "sector") {
+      if (!["source", "intent", "requirements", "sector", "education", "experience", "proximity", "understanding"].includes(gap)) {
         const proceed = document.createElement("button");
         proceed.type = "button";
         proceed.className = "jd-review-choice";
@@ -936,6 +1063,100 @@
       jdReviewGrid.appendChild(alternativesCard);
     }
 
+    if (result.modelUnderstanding) {
+      const modelCard = document.createElement("div");
+      modelCard.className = "jd-review-field jd-review-model-understanding";
+      const heading = document.createElement("h4");
+      heading.textContent = "Lectura automática de RADAR";
+      modelCard.appendChild(heading);
+      const modelNote = document.createElement("p");
+      modelNote.className = "jd-review-model-note";
+      modelNote.textContent = "La IA ayuda a interpretar. Las tareas sugeridas son ejemplos, no datos de la JD; sumá solo las que representen la búsqueda.";
+      modelCard.appendChild(modelNote);
+      const role = result.modelUnderstanding.role;
+      if (role && role.term) {
+        const roleLine = document.createElement("p");
+        roleLine.textContent = `Perfil: ${role.term}`;
+        modelCard.appendChild(roleLine);
+        if (!result.rol.length) {
+          const useRole = document.createElement("button");
+          useRole.type = "button";
+          useRole.className = "jd-review-choice";
+          useRole.textContent = "Usar este cargo";
+          useRole.addEventListener("click", () => {
+            result.rol = [role.term];
+            result.quality.evidence.rol = role.evidence || "";
+            renderJdReview(result);
+          });
+          modelCard.appendChild(useRole);
+        }
+        if (role.evidence) {
+          const quote = document.createElement("small");
+          quote.className = "jd-review-source";
+          quote.textContent = `Texto que lo respalda: “${role.evidence}”`;
+          modelCard.appendChild(quote);
+        }
+      }
+      const functions = Array.isArray(result.modelUnderstanding.functions) ? result.modelUnderstanding.functions : [];
+      const functionHeading = document.createElement("strong");
+      functionHeading.textContent = "Funciones posibles · elegí solo las que correspondan";
+      modelCard.appendChild(functionHeading);
+      if (!functions.length) {
+        const noFunctions = document.createElement("p");
+        noFunctions.textContent = "No detectamos funciones concretas. Si el perfil necesita una especialidad, agregá la tarea clave antes de buscar.";
+        modelCard.appendChild(noFunctions);
+      } else {
+        const functionList = document.createElement("ul");
+        functionList.className = "jd-review-model-functions";
+        functions.forEach((term) => {
+          const item = document.createElement("li");
+          const label = document.createElement("span");
+          label.textContent = term;
+          const use = document.createElement("button");
+          use.type = "button";
+          use.className = "jd-review-choice";
+          const alreadyUsed = (result.atributos || []).some((value) => value.toLowerCase() === term.toLowerCase());
+          use.textContent = alreadyUsed ? "Agregada" : "Sumar como señal";
+          use.disabled = alreadyUsed;
+          use.addEventListener("click", () => {
+            if (result.atributos.length >= RadarGenerator.MAX_TERMS_PER_GROUP) return;
+            result.atributos.push(term);
+            RadarReview.accept(result, "requirements");
+            renderJdReview(result);
+          });
+          item.append(label, use);
+          functionList.appendChild(item);
+        });
+        modelCard.appendChild(functionList);
+      }
+      [["Formación", result.modelUnderstanding.education], ["Experiencia", result.modelUnderstanding.experience]].forEach(([label, item]) => {
+        if (!item || !item.term) return;
+        const line = document.createElement("p");
+        line.textContent = `${label}: ${item.term}`;
+        modelCard.appendChild(line);
+        if (item.evidence) {
+          const quote = document.createElement("small");
+          quote.className = "jd-review-source";
+          quote.textContent = `Texto: “${item.evidence}”`;
+          modelCard.appendChild(quote);
+        }
+      });
+      const modelLocations = Array.isArray(result.modelUnderstanding.locations) ? result.modelUnderstanding.locations : [];
+      if (modelLocations.length) {
+        const locationLine = document.createElement("p");
+        locationLine.textContent = `Ubicación leída: ${modelLocations.map((item) => item.term).join(" o ")}. La ubicación que se usa es la que confirmes arriba.`;
+        modelCard.appendChild(locationLine);
+      }
+      const uncertainty = Array.isArray(result.modelUnderstanding.uncertainties) ? result.modelUnderstanding.uncertainties : [];
+      if (uncertainty.length) {
+        const note = document.createElement("small");
+        note.className = "jd-review-source";
+        note.textContent = `Para confirmar: ${uncertainty.join(" · ")}`;
+        modelCard.appendChild(note);
+      }
+      jdReviewGrid.appendChild(modelCard);
+    }
+
     const warnings = (quality.warnings || []).filter((warning) =>
       !((result.atributos.length || (result.imprescindibles || []).length || (result.unverifiedSignals || []).length) && warning.startsWith("No detectamos requisitos")) &&
       !(result.alcance.length && warning.startsWith("No detectamos una ubicación")) &&
@@ -951,7 +1172,8 @@
     renderReviewQuestions(result);
     aiAnalyzeJdBtn.classList.toggle("hidden", !RadarAI.getKey() || result.isResume);
     jdReviewAiNote.classList.toggle("hidden", aiAnalyzeJdBtn.classList.contains("hidden"));
-    jdReviewAiStatus.textContent = "";
+    jdReviewAiStatus.classList.toggle("hint-error", Boolean(result.aiAnalysisError));
+    jdReviewAiStatus.textContent = result.aiStatus || "";
     jdReview.classList.remove("hidden");
   }
 
@@ -992,9 +1214,72 @@
       result.isBrief = true;
       result.quality.warnings = (result.quality.warnings || []).filter((warning) => !warning.startsWith("El texto es muy breve"));
     }
+    const aiEndpoint = !result.isResume && !(result.quality && result.quality.blocked) ? getAIAnalysisEndpoint() : "";
+    if (aiEndpoint && text.length <= 16000) {
+      result.aiAnalysisPending = true;
+      result.aiStatus = "RADAR está contrastando cargo, tareas, formación, experiencia y lugar con IA…";
+    } else if (text.length > 16000) {
+      result.aiStatus = "El texto supera el límite del análisis automático. La revisión local sigue disponible; reducí el documento para consultar la IA.";
+    } else if (!aiEndpoint && !result.isResume) {
+      result.aiStatus = "No hay análisis IA conectado en este entorno. Revisá el cargo, las señales y el lugar antes de buscar.";
+    }
     renderJdReview(result);
+    if (aiEndpoint && text.length <= 16000) requestProfileUnderstanding(text, result, aiEndpoint);
+  }
+
+  function verifiedModelEvidence(sourceText, value) {
+    const evidence = typeof value === "string" ? value.trim().slice(0, 240) : "";
+    const fold = (input) => String(input || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return evidence && fold(sourceText).includes(fold(evidence)) ? evidence : "";
+  }
+
+  async function requestProfileUnderstanding(sourceText, result, endpoint) {
+    const sequence = ++aiAnalysisSequence;
+    const isCurrent = () => sequence === aiAnalysisSequence && jdInput.value === sourceText && pendingAnalysis === result;
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        cache: "no-store",
+        credentials: "same-origin",
+        body: JSON.stringify({ text: sourceText }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!isCurrent()) return;
+      if (!response.ok || payload.status !== "analyzed" || !payload.understanding) {
+        throw new Error(payload.error || "ai_unavailable");
+      }
+      const understanding = payload.understanding;
+      const roleEvidence = understanding.role && verifiedModelEvidence(sourceText, understanding.role.evidence);
+      const educationEvidence = understanding.education && verifiedModelEvidence(sourceText, understanding.education.evidence);
+      const experienceEvidence = understanding.experience && verifiedModelEvidence(sourceText, understanding.experience.evidence);
+      result.modelUnderstanding = {
+        role: roleEvidence && understanding.role.term ? { term: String(understanding.role.term).slice(0, 100), evidence: roleEvidence } : null,
+        functions: Array.isArray(understanding.functions) ? [...new Set(understanding.functions.filter((term) => typeof term === "string").map((term) => term.trim().slice(0, 100)).filter(Boolean))].slice(0, 5) : [],
+        education: educationEvidence && understanding.education.term ? { term: String(understanding.education.term).slice(0, 140), evidence: educationEvidence } : null,
+        experience: experienceEvidence && understanding.experience.term ? { term: String(understanding.experience.term).slice(0, 140), evidence: experienceEvidence } : null,
+        locations: Array.isArray(understanding.locations) ? understanding.locations
+          .filter((item) => item && typeof item.term === "string" && verifiedModelEvidence(sourceText, item.evidence))
+          .map((item) => ({ term: item.term.slice(0, 100), evidence: verifiedModelEvidence(sourceText, item.evidence) })).slice(0, 5) : [],
+        uncertainties: Array.isArray(understanding.uncertainties) ? understanding.uncertainties.filter((item) => typeof item === "string").map((item) => item.slice(0, 140)).slice(0, 4) : [],
+      };
+      result.aiAnalysisPending = false;
+      result.aiStatus = "La IA leyó el perfil. Confirmá la interpretación y cada filtro antes de buscar.";
+      pendingAnalysis = result;
+      renderJdReview(result);
+    } catch (error) {
+      if (!isCurrent()) return;
+      result.aiAnalysisPending = false;
+      result.aiAnalysisError = true;
+      result.aiStatus = error && error.message === "rate_limited"
+        ? "La IA alcanzó su límite temporal. Podés revisar el análisis local y corregir los campos antes de buscar."
+        : "La IA no respondió. Podés seguir con la revisión local; el cargo, los requisitos y el lugar siguen pidiendo confirmación.";
+      pendingAnalysis = result;
+      renderJdReview(result);
+    }
   }
   jdInput.addEventListener("input", () => {
+    aiAnalysisSequence++;
     currentFileName = "";
     currentSourceMeta = null;
     uploadSequence++;
@@ -1765,7 +2050,7 @@
   }
 
   function hasExplicitExperienceLimit() {
-    return (state.roleContext || []).some((entry) => /experiencia indicada:/i.test(entry));
+    return (state.roleContext || []).some((entry) => /experiencia indicada:|experiencia mínima indicada:/i.test(entry));
   }
 
   function exactRoleAndExperienceMatch(row) {

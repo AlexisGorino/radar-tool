@@ -86,6 +86,30 @@ assert.strictEqual(Review.canApply(incomplete), false);
 for (const question of Review.pendingQuestions(incomplete)) Review.accept(incomplete, question);
 assert.strictEqual(Review.canApply(incomplete), true);
 
+const telecomGraduates = Extractor.analyzeJD("Ingenieros en telecomunicaciones o afines recibidos que residan en España en las localidades de Palma o Santiago de Compostela o cercanos y que tengan algo de experiencia en temas de telecomunicaciones");
+assert.deepStrictEqual(telecomGraduates.rol, ["Ingeniero/a en Telecomunicaciones"]);
+assert.deepStrictEqual(telecomGraduates.alcance, ["España", "Santiago de Compostela", "Palma de Mallorca"]);
+assert.deepStrictEqual(telecomGraduates.unverifiedSignals, []);
+for (const requiredClarification of ["proximity", "education", "experience"]) {
+  assert.ok(Review.pendingQuestions(telecomGraduates).includes(requiredClarification), `${requiredClarification} must be resolved before search`);
+}
+assert.strictEqual(Review.canApply(telecomGraduates), false);
+for (const question of Review.pendingQuestions(telecomGraduates)) Review.accept(telecomGraduates, question);
+assert.strictEqual(Review.canApply(telecomGraduates), false, "a sector name alone cannot stand in for a task or technology");
+telecomGraduates.atributos = ["diseño de redes"];
+Review.accept(telecomGraduates, "requirements");
+assert.strictEqual(Review.canApply(telecomGraduates), true, "a recruiter-confirmed task completes the profile without invented criteria");
+
+const aiPending = { ...Extractor.analyzeJD("Buscamos QA con Playwright en Barcelona, España."), aiAnalysisPending: true };
+assert.ok(Review.pendingQuestions(aiPending).includes("understanding"));
+assert.strictEqual(Review.canApply(aiPending), false, "do not search before the requested AI interpretation completes or fails");
+aiPending.aiAnalysisPending = false;
+aiPending.modelUnderstanding = { role: { term: "QA Engineer" }, functions: ["automatización de pruebas"] };
+assert.ok(Review.pendingQuestions(aiPending).includes("understanding"));
+Review.accept(aiPending, "understanding");
+for (const question of Review.pendingQuestions(aiPending)) Review.accept(aiPending, question);
+assert.strictEqual(Review.canApply(aiPending), true);
+
 const unreadable = Extractor.analyzeJD("Buscamos Auditor", {
   sourceMeta: { pageCount: 1, totalWords: 2, sparsePages: [1], orderPages: [] },
 });

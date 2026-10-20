@@ -2,6 +2,7 @@ describe("RADAR talent search flow", () => {
   beforeEach(() => {
     // Keep automated QA from writing usage events to the real Mindata sheet.
     cy.intercept("POST", "https://script.google.com/**", { statusCode: 200, body: "QA stub" });
+    cy.intercept("POST", "**/api/analyze", { statusCode: 503, body: { error: "ai_unavailable" } }).as("understandProfile");
     cy.visit("/", {
       onBeforeLoad(win) {
         win.localStorage.setItem("radar-auth-v1", "ok");
@@ -99,6 +100,51 @@ describe("RADAR talent search flow", () => {
     cy.get("#chips-dominio").should("contain.text", "travel tech");
     cy.get("#generateBtn").click();
     cy.get("#out-universal").should("contain.text", "Amadeus").and("contain.text", "Buenos Aires");
+  });
+
+  it("shows AI evidence and asks for role, tasks, degree, experience and exact Spanish locations", () => {
+    cy.intercept("POST", "**/api/analyze", {
+      statusCode: 200,
+      body: {
+        status: "analyzed",
+        model: "test-model",
+        understanding: {
+          role: { term: "Ingeniero/a en Telecomunicaciones", evidence: "Ingenieros en telecomunicaciones" },
+          functions: ["diseño de redes de telecomunicaciones"],
+          education: { term: "Carrera universitaria finalizada", evidence: "recibidos" },
+          experience: { term: "Experiencia previa sin años", evidence: "algo de experiencia" },
+          locations: [
+            { term: "Palma de Mallorca", evidence: "Palma" },
+            { term: "Santiago de Compostela", evidence: "Santiago de Compostela" },
+          ],
+          uncertainties: ["Qué significa cercanos"],
+        },
+      },
+    }).as("understandTelecomProfile");
+    cy.get("#ideaModeBtn").click();
+    cy.get("#jdInput").type(
+      "Ingenieros en telecomunicaciones o afines recibidos que residan en España en las localidades de Palma o Santiago de Compostela o cercanos y que tengan algo de experiencia en temas de telecomunicaciones",
+      { delay: 0 }
+    );
+    cy.get("#analyzeBtn").click();
+    cy.wait("@understandTelecomProfile");
+
+    cy.get(".jd-review-role-input").should("have.value", "Ingeniero/a en Telecomunicaciones");
+    cy.get(".jd-review-model-understanding").should("contain.text", "diseño de redes de telecomunicaciones").and("contain.text", "ejemplos, no datos de la JD");
+    cy.get("#jdReviewQuestions").should("contain.text", "¿La lectura de RADAR representa el perfil?")
+      .and("contain.text", "¿Qué nivel de experiencia buscamos?")
+      .and("contain.text", "Experiencia previa sin años")
+      .and("contain.text", "¿Qué significa “cercanos”?")
+      .and("contain.text", "Santiago de Compostela o Palma de Mallorca");
+    cy.contains(".jd-review-model-functions button", "Sumar como señal").click();
+    cy.contains("#jdReviewQuestions button", "Sí, es este perfil").click();
+    cy.contains("#jdReviewQuestions button", "Sí, es obligatorio").click();
+    cy.get('[aria-label="Años mínimos de experiencia"]').type("1");
+    cy.contains("#jdReviewQuestions button", "Usar mínimo").click();
+    cy.contains("#jdReviewQuestions button", "Solo estas localidades").click();
+    cy.contains("#jdReviewQuestions button", "Sí, limitar a esta ubicación").click();
+    cy.contains("#jdReviewQuestions button", "Sí, representa la búsqueda").click();
+    cy.get("#applyJdBtn").should("be.enabled");
   });
 
   it("keeps a SAP skills list out of the job-title field and flags signals beyond the query cap", () => {

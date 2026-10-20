@@ -299,7 +299,13 @@
             : cleanTerms(state.deseables).slice(0, 1),
           role: cleanTerms(expandRoleFamily(state.rol, state.seniority)),
         };
-        return { source: id, query, label: source.label, profileEvidence };
+        const countryNames = new Set(Object.keys(countries && countries.ALL_COUNTRIES || {}).map(normalizeText));
+        const localities = cleanTerms(queryState.alcance).filter((place) => !countryNames.has(normalizeText(place)));
+        const country = cleanTerms(queryState.alcance).find((place) => countryNames.has(normalizeText(place)));
+        const variants = localities.length > 1
+          ? localities.slice(0, 3).map((locality) => buildGithubUserQuery({ ...queryState, alcance: [country, locality].filter(Boolean) })).filter(Boolean)
+          : [query];
+        return { source: id, query, ...(variants.length > 1 ? { variants } : {}), label: source.label, profileEvidence };
       }
       const query = generator.buildPublicLinkedinQuery(queryState, strategy);
       if (id === "linkedin" && query && query.length <= MAX_QUERY_LENGTH) {
@@ -651,12 +657,16 @@
 
   function experienceEvidence(title, snippet, state) {
     const seniorityText = normalizeText([...(Array.isArray(state && state.seniority) ? state.seniority : []), ...(Array.isArray(state && state.rol) ? state.rol : [])].join(" "));
-    if (!/\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(seniorityText)) {
+    const context = Array.isArray(state && state.roleContext) ? state.roleContext.map(normalizeText) : [];
+    const minFromContext = context.map((entry) => entry.match(/experiencia minima indicada:\s*(\d{1,2}) anos?/)).find(Boolean);
+    const juniorRequested = /\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(seniorityText);
+    if (!juniorRequested && !minFromContext) {
       return { experienceFit: "not_requested", experienceLabel: "Antigüedad sin filtro", experienceYears: null, experienceRank: 1 };
     }
-    const maxFromContext = (Array.isArray(state && state.roleContext) ? state.roleContext : [])
-      .map((entry) => normalizeText(entry).match(/experiencia indicada:\s*0\s*[-–]\s*(\d{1,2}) anos?/))
+    const maxFromContext = context
+      .map((entry) => entry.match(/experiencia indicada:\s*0\s*[-–]\s*(\d{1,2}) anos?/))
       .find(Boolean);
+    const minYears = minFromContext ? Number(minFromContext[1]) : null;
     const maxYears = maxFromContext ? Number(maxFromContext[1]) : 3;
     const titleText = normalizeText(title);
     const description = normalizeText(snippet);
@@ -666,13 +676,16 @@
       ...Array.from(description.matchAll(/\b(\d{1,2})\s*\+?\s*(?:anos?|years?)\s+(?:de\s+)?(?:experiencia|experience)\b/g), (match) => Number(match[1])),
     ];
     const experienceYears = explicitYears.length ? Math.max(...explicitYears) : null;
-    if (seniorTitle || (experienceYears !== null && experienceYears > maxYears)) {
+    if ((seniorTitle && minYears === null) || (experienceYears !== null && minYears === null && experienceYears > maxYears)) {
       return { experienceFit: "above_limit", experienceLabel: "Antigüedad superior a la buscada", experienceYears, experienceRank: 3 };
     }
     if (/\b(?:junior|jr|trainee|pasante|practicante|intern|early career|entry level)\b/.test(`${titleText} ${description}`)) {
       return { experienceFit: "junior_visible", experienceLabel: "Nivel inicial visible; años por confirmar", experienceYears, experienceRank: 0 };
     }
     if (experienceYears !== null) {
+      if (minYears !== null && experienceYears < minYears) {
+        return { experienceFit: "below_minimum", experienceLabel: `Experiencia visible: ${experienceYears} años (por debajo del mínimo)`, experienceYears, experienceRank: 3 };
+      }
       return { experienceFit: "within_limit", experienceLabel: `Experiencia visible: ${experienceYears} años`, experienceYears, experienceRank: 0 };
     }
     return { experienceFit: "unknown", experienceLabel: "Años de experiencia por validar", experienceYears: null, experienceRank: 2 };
@@ -691,7 +704,7 @@
       const title = String(item.title || "").slice(0, 240);
       const snippet = String(item.snippet || "").slice(0, 800);
       const experience = experienceEvidence(title, snippet, state);
-      if (experience.experienceFit === "above_limit") return;
+      if (["above_limit", "below_minimum"].includes(experience.experienceFit)) return;
       const evidence = termEvidence(`${title} ${snippet}`, state);
       const required = cleanTerms(state.imprescindibles);
       const alternatives = cleanTerms(state.atributos);

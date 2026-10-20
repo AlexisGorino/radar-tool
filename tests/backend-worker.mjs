@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows, freeSearchCapacity, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, exactGithubLocation, resolveSearchLocation, profileHasExactLocation, containsProfileTerm } from "../backend/worker.mjs";
+import Worker, { safeResult, takeBalanced, validProfileUrl, validatePlan, freeBudgetAllows, freeSearchCapacity, countryCodeForLabel, requestedLocationParts, exactLocationCandidate, exactGithubLocation, resolveSearchLocation, profileHasExactLocation, containsProfileTerm, validateUnderstanding } from "../backend/worker.mjs";
 
 let passed = 0;
 async function test(name, run) {
@@ -23,6 +23,20 @@ async function main() {
     assert.equal(validatePlan({ ...validPlan, location: "Chile, Santiago" }), false);
     assert.equal(validatePlan({ ...validPlan, location: "Santiago" }), false);
     assert.equal(validatePlan({ ...validPlan, queries: [{ source: "github", query: 'in:bio developer location:"Madrid"' }] }), false, "GitHub query locality must match the request scope");
+    const multiCityPlan = {
+      ...validPlan,
+      location: "España, Santiago de Compostela, Palma de Mallorca",
+      queries: [validPlan.queries[0], {
+        source: "github",
+        query: 'type:user language:Python location:"Santiago de Compostela"',
+        variants: [
+          'type:user language:Python location:"Santiago de Compostela"',
+          'type:user language:Python location:"Palma de Mallorca"',
+        ],
+      }],
+    };
+    assert.equal(validatePlan(multiCityPlan), true, "each exact alternative locality may be searched independently");
+    assert.equal(validatePlan({ ...multiCityPlan, queries: [multiCityPlan.queries[0], { ...multiCityPlan.queries[1], variants: [...multiCityPlan.queries[1].variants, 'type:user language:Python location:"Madrid"'] }] }), false, "GitHub variants cannot broaden beyond a selected locality");
     assert.equal(validatePlan({ ...validPlan, maxResults: 500 }), false);
     assert.equal(validatePlan({ ...validPlan, queries: [{ source: "stackoverflow", query: "site:stackoverflow.com/users/42/ person" }] }), false);
     assert.equal(validatePlan({ ...validPlan, queries: [{ source: "linkedin", query: "site:example.com test" }] }), false);
@@ -73,8 +87,9 @@ async function main() {
     assert.equal(countryCodeForLabel("España"), "ES");
     assert.equal(countryCodeForLabel("Chile"), null);
     assert.deepEqual(requestedLocationParts("España, Islas Canarias"), {
-      parts: ["España", "Islas Canarias"], countryCode: "ES", locality: "Islas Canarias",
+      parts: ["España", "Islas Canarias"], countryCode: "ES", localities: ["Islas Canarias"], locality: "Islas Canarias",
     });
+    assert.deepEqual(requestedLocationParts("España, Santiago de Compostela, Palma de Mallorca").localities, ["Santiago de Compostela", "Palma de Mallorca"]);
     assert.equal(exactLocationCandidate({ name: "Canary Islands", canonical_name: "Canary Islands,Spain", country_code: "ES", target_type: "Region" }, "Canary Islands", "ES"), true);
     assert.equal(exactLocationCandidate({ name: "Canary Islands", canonical_name: "Canary Islands,Spain", country_code: "ES", target_type: "Region" }, "Islas Canarias", "ES"), true);
     const previousFetch = globalThis.fetch;
@@ -145,6 +160,67 @@ async function main() {
     } finally {
       globalThis.fetch = previousFetch;
     }
+  });
+
+  await test("validates AI interpretation against literal evidence and bounds suggestions", () => {
+    const source = "Ingenieros en telecomunicaciones recibidos en Palma, España con algo de experiencia.";
+    const result = validateUnderstanding({ response: JSON.stringify({
+      role: "Ingeniero/a en Telecomunicaciones", roleEvidence: "Ingenieros en telecomunicaciones",
+      functions: ["supervisar redes", "instalar fibra", "supervisar redes", "dato inventado"],
+      education: "Ingeniería en Telecomunicaciones finalizada", educationEvidence: "Ingenieros en telecomunicaciones recibidos",
+      experience: "Experiencia previa sin años", experienceEvidence: "algo de experiencia",
+      locations: [
+        { term: "Palma de Mallorca", evidence: "Palma" },
+        { term: "Barcelona", evidence: "Barcelona" },
+      ], uncertainties: ["Qué funciones serán obligatorias"]
+    }) }, source);
+    assert.equal(result.role.term, "Ingeniero/a en Telecomunicaciones");
+    assert.equal(result.education.term, "Ingeniería en Telecomunicaciones finalizada");
+    assert.equal(result.experience.term, "Experiencia previa sin años");
+    assert.deepEqual(result.functions, ["supervisar redes", "instalar fibra", "dato inventado"]);
+    assert.deepEqual(result.locations.map((item) => item.term), ["Palma de Mallorca"]);
+    const falseRole = validateUnderstanding({ response: JSON.stringify({
+      role: "Jefe de Proyecto", roleEvidence: "cliente",
+      functions: [], education: "", educationEvidence: "", experience: "", experienceEvidence: "", locations: [], uncertainties: [],
+    }) }, "La empresa es cliente del servicio.");
+    assert.equal(falseRole.role, null, "an organization or client mention cannot substantiate a job title");
+  });
+
+  await test("analyzes the profile through Workers AI without leaking source text in the response", async () => {
+    let prompt = "";
+    const sourceText = "Ingenieros en telecomunicaciones recibidos en Palma, España. alexis@example.com";
+    const response = await Worker.fetch(new Request("https://radar-search.example/api/analyze", {
+      method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify({ text: sourceText }),
+    }), {
+      ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+      SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      AI: { run: async (model, input) => {
+        assert.equal(model, "@cf/meta/llama-3.3-70b-instruct-fp8-fast");
+        prompt = input.messages.map((message) => message.content).join(" ");
+        return { response: JSON.stringify({
+          role: "Ingeniero/a en Telecomunicaciones", roleEvidence: "Ingenieros en telecomunicaciones",
+          functions: ["gestión de redes"], education: "Estudios finalizados", educationEvidence: "Ingenieros en telecomunicaciones recibidos",
+          experience: "Experiencia previa", experienceEvidence: "", locations: [{ term: "Palma de Mallorca", evidence: "Palma" }], uncertainties: [],
+        }) };
+      } },
+    });
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.status, "analyzed");
+    assert.equal(payload.understanding.role.term, "Ingeniero/a en Telecomunicaciones");
+    assert.equal(payload.understanding.locations[0].term, "Palma de Mallorca");
+    assert.match(prompt, /\[correo omitido\]/);
+    assert.doesNotMatch(prompt, /alexis@example\.com/);
+    assert.doesNotMatch(JSON.stringify(payload), /Ingenieros en telecomunicaciones recibidos en Palma|alexis@example\.com/);
+  });
+
+  await test("returns a safe, explicit fallback when Workers AI is unavailable", async () => {
+    const response = await Worker.fetch(new Request("https://radar-search.example/api/analyze", {
+      method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify({ text: "Buscamos QA con Playwright." }),
+    }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "ai_not_configured" });
+    assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
   });
 
   await test("rejects requests from other origins before consuming provider quota", async () => {
@@ -465,6 +541,51 @@ async function main() {
         { source: "github", status: "profiles_found", organicCount: 2, profileCount: 1, code: null },
       ]);
       assert.ok(requestedPaths.every((path) => !path.endsWith("/account.json") && !path.endsWith("/search.json")), "GitHub-only search must not check or spend SerpApi search quota");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("searches both Palma and Santiago de Compostela on GitHub without including Chile", async () => {
+    const previousFetch = globalThis.fetch;
+    const queries = [];
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.hostname !== "api.github.com") throw new Error(`Unexpected non-GitHub request: ${url}`);
+      if (url.pathname === "/search/users") {
+        const query = url.searchParams.get("q");
+        queries.push(query);
+        const users = query.includes("Santiago de Compostela")
+          ? ["santiago-engineer", "santiago-chile"]
+          : ["palma-engineer"];
+        return new Response(JSON.stringify({ total_count: users.length, items: users.map((login) => ({ login, html_url: `https://github.com/${login}` })) }), { status: 200 });
+      }
+      const login = url.pathname.split("/").at(-1);
+      const locations = {
+        "santiago-engineer": "Santiago de Compostela, España",
+        "santiago-chile": "Santiago, Chile",
+        "palma-engineer": "Palma de Mallorca, España",
+      };
+      return new Response(JSON.stringify({ login, name: login, bio: "Python developer", location: locations[login], public_repos: 4, html_url: `https://github.com/${login}` }), { status: 200 });
+    };
+    const plan = {
+      maxResults: 20,
+      location: "España, Santiago de Compostela, Palma de Mallorca",
+      queries: [{ source: "github", query: 'type:user language:Python location:"Santiago de Compostela"', variants: [
+        'type:user language:Python location:"Santiago de Compostela"',
+        'type:user language:Python location:"Palma de Mallorca"',
+      ] }],
+    };
+    try {
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(plan),
+      }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.deepEqual(queries, plan.queries[0].variants);
+      assert.deepEqual(payload.results.map((profile) => profile.url), ["https://github.com/santiago-engineer", "https://github.com/palma-engineer"]);
+      assert.equal(payload.sourceDiagnostics[0].organicCount, 3);
+      assert.equal(payload.sourceDiagnostics[0].profileCount, 2);
     } finally {
       globalThis.fetch = previousFetch;
     }

@@ -114,6 +114,20 @@ test("junior project searches keep Santiago de Compostela and Palma de Mallorca 
   assert.ok(roleless.length < 900, `education-aware route exceeds provider limit (${roleless.length})`);
 });
 
+test("GitHub searches every selected locality as a separate exact alternative", () => {
+  const state = {
+    rol: ["Python developer"], seniority: [], imprescindibles: ["Python"], atributos: [], deseables: [],
+    dominio: [], alcance: ["España", "Santiago de Compostela", "Palma de Mallorca"], refinar: [], roleContext: [],
+  };
+  const plan = Discovery.buildPlan(state, ["github"], Generator);
+  assert.equal(plan.queries.length, 1);
+  assert.deepEqual(plan.queries[0].variants, [
+    'type:user language:Python location:"Santiago de Compostela"',
+    'type:user language:Python location:"Palma de Mallorca"',
+  ]);
+  assert.equal(plan.location, "España, Santiago de Compostela, Palma de Mallorca");
+});
+
 test("normalizes inclusive Spanish job titles before expanding the public search", () => {
   const state = {
     rol: ["un/a Jefe/a de Proyecto"], imprescindibles: [], atributos: ["coordinación de tareas", "seguimiento de cronograma"],
@@ -434,6 +448,21 @@ test("junior shortlist prioritizes visible early-career evidence and excludes ex
   assert.equal(Discovery.experienceEvidence("Laura - PM", "2 years experience", state).experienceFit, "within_limit");
   assert.equal(Discovery.experienceEvidence("Laura - PM", "1 year experience", state).experienceFit, "within_limit");
   assert.equal(Discovery.experienceEvidence("Laura - PM", "Más de 1 año de experiencia", state).experienceFit, "within_limit");
+});
+
+test("applies a recruiter-confirmed minimum experience only to visible evidence", () => {
+  const state = {
+    rol: ["Engineer"], seniority: [], imprescindibles: [], atributos: [], deseables: [], dominio: [], alcance: [],
+    roleContext: ["Experiencia mínima indicada: 3 años"], refinar: [],
+  };
+  assert.equal(Discovery.experienceEvidence("Engineer", "2 years experience", state).experienceFit, "below_minimum");
+  assert.equal(Discovery.experienceEvidence("Senior Engineer", "8 years experience", state).experienceFit, "within_limit");
+  assert.equal(Discovery.experienceEvidence("Engineer", "Experience with distributed systems", state).experienceFit, "unknown");
+  const rows = Discovery.normalizeResults({ results: [
+    { source: "linkedin", url: "https://linkedin.com/in/below-minimum", title: "Alex Doe - Engineer", snippet: "2 years experience" },
+    { source: "linkedin", url: "https://linkedin.com/in/qualified", title: "Sam Doe - Engineer", snippet: "3 years experience" },
+  ] }, state);
+  assert.deepEqual(rows.map((row) => row.url), ["https://linkedin.com/in/qualified"]);
 });
 
 test("keeps only LinkedIn leads with both exact-city and country evidence", () => {

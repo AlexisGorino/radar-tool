@@ -54,6 +54,7 @@
       <button class="intake-mode" id="ideaModeBtn" type="button" aria-pressed="false">Describir un perfil</button>
     </div>
     <p class="intake-mode-hint" id="intakeModeHint">Pegala o adjuntá un archivo.</p>
+    <p class="hint">Al analizar, RADAR envía el texto a Cloudflare Workers AI (intenta quitar emails y teléfonos detectables). La IA sugiere una lectura; confirmá cargo, tareas y ubicación antes de buscar.</p>
 
     <div id="dropzone" class="dropzone">
       <label class="input-caption" id="intakeCaption" for="jdInput">Descripción del puesto <span>Opcional</span></label>
@@ -93,7 +94,7 @@
         <button class="btn btn-ghost" id="dismissJdBtn" type="button">Seguir editando la descripción</button>
         <button class="btn btn-ghost hidden" id="aiAnalyzeJdBtn" type="button">✨ Mejorar análisis con Gemini</button>
       </div>
-      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">El texto se envía a Google Gemini con tu clave. No pasa por Mindata.</p>
+      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">Este análisis opcional se envía a Google Gemini con tu clave, además del análisis automático de RADAR.</p>
       <p class="jd-review-ai-status" id="jdReviewAiStatus" role="status"></p>
     </section>
   </section>
@@ -331,7 +332,8 @@
     <ul>
       <li>La descripción se analiza en tu navegador y no se guarda en Mindata.</li>
       <li>El historial queda en este navegador. Mindata registra nombre, fecha, acción y portal, no la descripción.</li>
-      <li>Si usás Gemini, Google recibe la descripción. Para buscar perfiles, el proveedor recibe cargo, señales y ubicación.</li>
+      <li>Al analizar, Cloudflare Workers AI recibe el texto; RADAR intenta quitar emails y teléfonos detectables. Si usás Gemini, Google también recibe el texto.</li>
+      <li>Para buscar perfiles, SerpApi recibe una consulta resumida de cargo, señales y ubicación.</li>
       <li>SerpApi puede conservar consultas hasta 31 días. RADAR no guarda perfiles en un servidor.</li>
       <li>Si enviás comentarios, se comparten con el contacto que elijas. Revisá cada perfil en su fuente.</li>
     </ul>

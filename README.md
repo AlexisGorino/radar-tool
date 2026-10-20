@@ -6,8 +6,9 @@ Herramienta de sourcing de Mindata, creada por **Ale Gorino**.
 Convierte una JD en un booleano preciso y en variantes listas para LinkedIn,
 Google/Bing (X-Ray), GitHub, Behance, CVs sueltos en PDF/Word y otras redes.
 
-Pensada para el uso diario de un reclutador: el análisis de JD y la generación
-de consultas siguen funcionando en el navegador. La interfaz se compila con
+Pensada para el uso diario de un reclutador: la extracción determinística y la
+generación de consultas funcionan en el navegador; la lectura complementaria con
+IA usa un Worker configurado para RADAR. La interfaz se compila con
 Angular 21; los documentos se leen localmente con lectores vendorizados para
 PDF y Word `.docx`. Una función opcional de perfiles públicos usa un Worker
 separado con la clave del proveedor en el servidor; requiere configuración
@@ -26,6 +27,13 @@ operativa antes de habilitarse en GitHub Pages.
   RADAR muestra cargo, señales del perfil, industria, ubicación y evidencia.
   Pide confirmar esas decisiones y completar datos concretos antes de aplicar.
   Si el país está solo en el nombre del archivo, pide confirmarlo.
+- **Lectura asistida por IA**: al analizar, el Worker consulta Cloudflare Workers
+  AI sin pedir una clave al usuario. Contrasta cargo, funciones, formación,
+  experiencia y ubicaciones alternativas; una cita literal solo se acepta si
+  aparece en el texto. Las funciones sugeridas se muestran como ejemplos y no
+  se incorporan al filtro hasta que la persona las elija. La búsqueda queda
+  bloqueada mientras la lectura esté pendiente. Si la IA falla, queda visible
+  el análisis local y se pueden corregir sus campos.
 - **Relevamiento mínimo también en modo manual**: exige una señal concreta del
   perfil, además de decidir ubicación o búsqueda sin límite geográfico. Para
   buscar sin título hacen falta varias señales específicas.
@@ -34,7 +42,7 @@ operativa antes de habilitarse en GitHub Pages.
   los escaneos aún requieren que se pegue una versión en texto.
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
-- **Sugerencias con IA (opcional)**: cargando tu propia key gratuita de
+- **Sugerencias extra con Gemini (opcional)**: cargando tu propia key de
   [Google AI Studio](https://aistudio.google.com/apikey) (botón "IA
   (opcional)" en la topbar), RADAR le pide a Gemini sinónimos de rol y
   atributos de nicho adicionales a los del diccionario estático. La key
@@ -171,12 +179,14 @@ una terminal con `npm run start:angular` y ejecutá `npm run test:e2e` en otra.
 ## Seguridad y privacidad
 
 - Todo corre en el navegador. El `Content-Security-Policy` de `src/index.html`
-  restringe `connect-src` al propio origen más tres excepciones puntuales:
-  FormSubmit (botón de feedback), la API de Gemini (solo si activaste
-  "Sugerir con IA" con tu propia key) y un Apps Script propio de Mindata
-  (registro de uso por nombre, ver más abajo).
-- Ningún texto de la JD se envía a ningún servidor ni se guarda ahí, salvo
-  el extracto que vos mandás a Gemini a propósito con "Sugerir con IA".
+  limita `connect-src` al propio origen, el Worker de RADAR, FormSubmit, Gemini
+  opcional y el Apps Script de registro de uso.
+- Al tocar "Analizar", el texto de la JD se envía al Worker para la lectura con
+  Workers AI; el Worker intenta retirar correos y teléfonos antes de enviarlo al
+  modelo y no guarda la JD. No subas datos personales de candidatos. Para
+  descubrir perfiles, SerpApi recibe una consulta resumida, no la JD completa.
+- Gemini es una integración opcional aparte; si se usa, Google recibe el texto
+  enviado desde el navegador con la clave que cargue esa persona.
 - El registro de uso manda nombre, apellido, qué acción se hizo y cuándo —
   nunca el contenido de una búsqueda.
 - El historial de búsquedas (opcional) se guarda solo en `localStorage` del

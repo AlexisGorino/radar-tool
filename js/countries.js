@@ -228,6 +228,7 @@
     // The lookup list may contain an unaccented spelling first for matching,
     // but chips should preserve the canonical Spanish spelling when known.
     const folded = foldAccents(matched);
+    if (folded === "palma") return "Palma de Mallorca";
     const accented = terms.find((candidate) => foldAccents(candidate) === folded && candidate.normalize("NFD") !== candidate);
     return titleCase(accented || matched);
   }

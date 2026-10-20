@@ -6,6 +6,12 @@ por búsqueda de LinkedIn; consulta la API pública de GitHub directamente.
 Valida dominio/ruta y devuelve
 título, fragmento, URL y posición. No persiste consultas ni perfiles.
 
+El mismo Worker expone `/api/analyze`, enlazado a Cloudflare Workers AI. Analiza
+el texto cuando la persona inicia esa acción; intenta retirar correos y
+teléfonos detectables y no registra ni almacena el contenido. No requiere una
+API key de Gemini ni otro secreto. El uso depende de la cuota de Workers AI de
+la cuenta.
+
 ## Configuración segura
 
 1. Crear una cuenta SerpApi y comprobar que el plan activo es el gratuito. El
@@ -26,6 +32,9 @@ título, fragmento, URL y posición. No persiste consultas ni perfiles.
    para comprobar cupo mensual y horario; falla cerrada si no puede verificarlo.
    Cloudflare cuenta por IP compartida y su limitador es una defensa aproximada,
    no un medidor contable del proveedor.
+   El binding `AI` de `wrangler.toml` habilita `/api/analyze` sin crear ni
+   guardar otra clave. Workers AI tiene una cuota gratuita por cuenta; al
+   agotarse, RADAR sigue con el análisis local y pide revisar los campos.
 6. Copiar la URL `https://<worker>.<cuenta>.workers.dev/api/search` a la meta
    `radar-search-endpoint` en `src/index.html` y agregar **solo el origen exacto**
    (`https://<worker>.<cuenta>.workers.dev`) a `connect-src` en la CSP. Ejecutar
@@ -57,8 +66,15 @@ título, fragmento, URL y posición. No persiste consultas ni perfiles.
 - La ciudad/región más específica debe aparecer en el fragmento para que RADAR
   la marque como visible. La búsqueda que incluya el país pero no la ciudad se
   etiqueta como ubicación sin confirmar.
-- SerpApi puede conservar consultas hasta 31 días. RADAR envía solo cargo, señales y ubicación
-  (nunca la JD completa), pero no puede impedir la retención de cada proveedor.
+- Si se seleccionan varias ciudades, LinkedIn las incluye como alternativas y
+  GitHub consulta cada localidad por separado (máximo tres). En ambos casos el
+  filtro final exige ciudad y país; Santiago en Chile no coincide con Santiago
+  de Compostela, España.
+- Para buscar perfiles, SerpApi recibe consultas resumidas de cargo, señales y
+  ubicación; no recibe la JD completa. SerpApi puede conservar esas consultas
+  hasta 31 días. El análisis con Workers AI sí envía el texto extraído al Worker
+  y al modelo cuando la persona toca "Analizar"; el código intenta quitar
+  emails y teléfonos detectables y no guarda el texto.
 - El Worker devuelve tiempos por fuente, un tiempo total y una referencia de
   búsqueda. Cloudflare puede mostrar un evento agregado `radar_public_search`
   (estado, conteos, duración y códigos de error) para diagnosticar fallas. El

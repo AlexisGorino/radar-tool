@@ -87,6 +87,8 @@
         expanded.push("SAP FI", "SAP CO");
       } else if (term === "ServiceNow" && serviceNow) {
         expanded.push("ServiceNow");
+      } else if (/^calpyso$/i.test(term)) {
+        expanded.push("Calypso");
       } else {
         expanded.push(term);
       }
@@ -289,7 +291,7 @@
   // line and contains "Empresa - Título". Recover the title only when that
   // value contains a recognizable occupation noun; never infer it from the
   // client/company name or from a generic form label.
-  const TEMPLATE_ROLE_NOUN_RE = /\b(?:developer|engineer|manager|analyst|consultant|designer|architect|specialist|director|coordinator|lead|officer|executive|assistant|technician|recruiter|scientist|programmer|auditor|accountant|teacher|nurse|doctor|lawyer|sales(?:person|\s+manager)?|support|operator|chef|driver|mechanic|professor|administrator|desarrollador(?:a)?|ingenier[oa]|gerente|analista|consultor(?:a)?|diseñador(?:a)?|arquitect[oa]|especialista|director[ao]|coordinador(?:a)?|l[ií]der|jefe(?:a)?|ejecutivo(?:a)?|asistente|t[eé]cnic[oa]|instalador(?:a)?|programador(?:a)?|auditor(?:a)?|contable|contador(?:a)?|abogado(?:a)?|vendedor(?:a)?|comercial|operador(?:a)?|operario(?:a)?|conductor(?:a)?|mec[aá]nico(?:a)?|enfermer[oa]|m[eé]dic[oa]|profesor(?:a)?|docente|administrador(?:a)?|administrativo(?:a)?)\b/i;
+  const TEMPLATE_ROLE_NOUN_RE = /\b(?:developer|engineer|manager|analyst|consultant|designer|architect|specialist|director|coordinator|lead|officer|executive|assistant|technician|recruiter|scientist|programmer|auditor|accountant|teacher|nurse|doctor|lawyer|sales(?:person|\s+manager)?|support|operator|chef|driver|mechanic|professor|administrator|scrum\s+master|treasury\s+analyst|desarrollador(?:a)?|ingenier[oa]|gerente|analista|consultor(?:a)?|diseñador(?:a)?|arquitect[oa]|especialista|director[ao]|coordinador(?:a)?|l[ií]der|jefe(?:a)?|ejecutivo(?:a)?|asistente|t[eé]cnic[oa]|instalador(?:a)?|programador(?:a)?|auditor(?:a)?|contable|contador(?:a)?|abogado(?:a)?|vendedor(?:a)?|comercial|operador(?:a)?|operario(?:a)?|conductor(?:a)?|mec[aá]nico(?:a)?|enfermer[oa]|m[eé]dic[oa]|profesor(?:a)?|docente|administrador(?:a)?|administrativo(?:a)?|tesorer(?:ía|o|a))\b/i;
   function titleAfterClientTemplate(text) {
     const header = /\bpuesto\s*[-–—:]\s*cliente\b[ \t]*(?:\n[ \t]*|\s+)([^\n]+)/i.exec(text);
     if (!header) return "";
@@ -327,6 +329,7 @@
     [
       "java", "python", "javascript", "typescript", "c#", "c++", "php", "ruby", "go", "kotlin", "swift",
       "cliente", "client", "puesto", "cargo", "position", "job title",
+      "murex", "murex mx.3", "murex datamart", "calypso", "calpyso", "adenza calypso", "kondor", "finastra", "temenos t24",
       "node.js", ".net", "react", "angular", "vue",
       "aws", "azure", "gcp", "sql", "nosql", "mongodb", "postgresql", "mysql",
       "docker", "kubernetes", "terraform", "ci/cd",
@@ -383,7 +386,12 @@
     if (exactRoleSkills.has(clean.toLowerCase())) return false;
     const matchedSkills = findMatches(clean, Keywords.SKILLS);
     if (!matchedSkills.length) return false;
-    const roleNoun = /\b(?:developer|engineer|manager|analyst|consultant|designer|architect|specialist|director|coordinator|lead|officer|executive|assistant|technician|recruiter|scientist|programmer|desarrollador|ingenier[oa]|gerente|analista|consultor[oa]?|diseñador[oa]?|arquitect[oa]|especialista|coordinador[oa]?|ejecutiv[oa]?|asistente|técnic[oa]|instalador[oa]?|responsable|jef[ea]|programador[oa]?|auditor[oa]?|comercial|vendedor[oa]?|sales manager|project manager)\b/i;
+    // A detected technology/skill does not disqualify a title when the same
+    // phrase also contains a recognized occupation. Keep this vocabulary
+    // broad across business, finance, legal, HR, operations and technical
+    // families; e.g. Scrum is a skill in one JD and part of "Scrum Master"
+    // in another.
+    const roleNoun = /\b(?:developer|engineer|manager|analyst|consultant|designer|architect|specialist|director|coordinator|lead|officer|executive|assistant|technician|recruiter|scientist|programmer|administrator|accountant|lawyer|attorney|teacher|nurse|doctor|operator|auditor|scrum\s+master|sales(?:person|\s+manager)|treasury\s+analyst|sre|qa|sap fico|desarrollador[oa]?|ingenier[oa]|gerente|analista|consultor[oa]?|diseñador[oa]?|arquitect[oa]|especialista|coordinador[oa]?|ejecutiv[oa]?|asistente|técnic[oa]|instalador[oa]?|responsable|jef[ea]|programador[oa]?|auditor[oa]?|abogad[oa]|letrad[oa]|contable|contador[oa]?|tesorer(?:ía|o|a)|administrador[oa]?|administrativ[oa]|comercial|vendedor[oa]?|sales manager|project manager)\b/i;
     return !roleNoun.test(clean);
   }
 
@@ -395,6 +403,12 @@
     const text = stripTags(rawText);
     const projectTitle = structuredProjectTitle(text);
     if (projectTitle) return [projectTitle.role];
+    // Informal recruiting briefs often name the candidate by degree family
+    // rather than a literal vacancy title: "ingenieros en telecomunicaciones
+    // o afines recibidos". Keep this narrow so a paragraph about a degree
+    // does not turn into an occupation by itself.
+    const telecomEngineer = /\bingenier(?:o|a|os|as)(?:\s+de|\s+en)\s+telecomunicaciones\b/i.exec(text);
+    if (telecomEngineer) return ["Ingeniero/a en Telecomunicaciones"];
     const clientTemplateTitle = titleAfterClientTemplate(text);
     if (clientTemplateTitle) return [clientTemplateTitle];
     // This compound title is common in telecom field-service postings. Check
@@ -450,6 +464,7 @@
           !looksLikeAdministrativeText(candidate) &&
           !looksLikeTemplateNoise(candidate) &&
           !isBareNonRole(candidate) &&
+          !looksLikeSkillOnlyLine(candidate) &&
           !looksLikeResponsibilityBullet(candidate) &&
           !looksLikeVagueRole(candidate)
         )
@@ -475,7 +490,7 @@
     // right at the start of the document.
     const TITLE_NOUN =
       "Developer|Engineer|Manager|Analyst|Consultant|Designer|Architect|Specialist|Director|Coordinator|Lead|Officer|Representative|Executive|Assistant|Technician|Recruiter|Scientist|Programmer|" +
-      "Desarrollador[a]?|Ingenier[oa]|Gerente|Analista|Consultor[a]?|Diseñador[a]?|Arquitect[oa]|Especialista|Director[a]?|Coordinador[a]?|L[íi]der|Ejecutivo[a]?|Asistente|T[ée]cnic[oa](?:/[oa])?|Instalad[oa](?:/[oa])?(?:\\s+(?:de\\s+)?telecomunicaciones)?|Responsable|Jefe[a]?|Programador[a]?|Comercial|Vendedor[a]?|Auditor[a]?";
+      "Desarrollador[a]?|Ingenier[oa]|Gerente|Analista|Consultor[a]?|Diseñador[a]?|Arquitect[oa]|Especialista|Director[a]?|Coordinador[a]?|L[íi]der|Ejecutivo[a]?|Asistente|T[ée]cnic[oa](?:/[oa])?|Instalad[oa](?:/[oa])?(?:\\s+(?:de\\s+)?telecomunicaciones)?|Responsable|Jefe[a]?|Programador[a]?|Comercial|Vendedor[a]?|Auditor[a]?|Administrator|Accountant|Lawyer|Attorney|Scrum\\s+Master|Treasury\\s+Analyst|Abogad[oa]|Contable|Contador[a]?|Tesorer(?:ía|o|a)|Administrador[a]?|Administrativ[oa]";
     const titleHeadRe = new RegExp("^((?:[A-Za-zÀ-ÿ.]+\\s+){0,6}?(?:" + TITLE_NOUN + "))\\b", "i");
     const prefix = text.slice(0, 150).replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "");
     const specializedTelecomTitle = prefix.match(/^((?:t[ée]cnic[oa](?:\/[oa])?\s+)?instalad[oa](?:\/[oa])?\s+(?:de\s+)?(?:telecomunicaciones|fibra(?:\s+óptica)?|antenas?))/i);
@@ -503,6 +518,7 @@
         !startsWithTemplateLabel(headMatch[1]) &&
         !looksLikeTemplateNoise(candidate) &&
         !isBareNonRole(candidate) &&
+        !looksLikeSkillOnlyLine(candidate) &&
         !looksLikeResponsibilityBullet(candidate) &&
         !looksLikeVagueRole(candidate)
       )
@@ -562,6 +578,8 @@
     if (!term) return "";
     const fold = (value) => String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     let foldedIndex = fold(text).indexOf(fold(term));
+    if (foldedIndex < 0 && /^Palma de Mallorca$/i.test(term)) foldedIndex = fold(text).search(/\bpalma\b/i);
+    if (foldedIndex < 0 && /^Calypso$/i.test(term)) foldedIndex = fold(text).search(/\bcalpyso\b/i);
     if (foldedIndex < 0 && /^SAP CO$/i.test(term) && /\bSAP\s+FI\s*\/\s*CO\b/i.test(text)) {
       foldedIndex = fold(text).search(/sap\s+fi\s*\/\s*co/i);
     }
@@ -583,7 +601,7 @@
   // recruiter review as alternatives instead of silently making them required.
   const ACTION_SIGNAL_RE = /\b(?:manej(?:a|ar|ando|e|en|o|ó)|manejo de|utiliz(?:a|ar|ando)|us(?:a|ar|ando)|oper(?:a|ar|ando)|configur(?:a|ar|ando)|implement(?:a|ar|ando)|experiencia (?:práctica )?(?:en|con)|conocimiento de|trabaja(?:r|ndo)? con|use|uses|used|using|manage|manages|managed|managing|operate|operates|operated|operating|configure|configures|configured|configuring|implement|implements|implemented|implementing|work with|works with|worked with|working with|experience (?:in|with)|experienced (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|the|a|an)\s+)?([A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*(?:\s+[A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*){0,2})/gu;
   const ACTION_TASK_RE = /\b(?:experiencia (?:práctica )?(?:en|con)|conocimiento de|manej(?:a|ar|ando|e|en)|gestiona(?:r|ndo)?|lidera(?:r|ndo)?|coordina(?:r|ndo)?|realiza(?:r|ndo)?|ejecuta(?:r|ndo)?|analiza(?:r|ndo)?|atiende(?:r|ndo)?|vende(?:r|ndo)?|audita(?:r|ndo)?|administra(?:r|ndo)?|organiza(?:r|ndo)?|plans?|manage(?:s|d|ment|ing)?|lead(?:s|ing)?|coordinate(?:s|d|ing)?|perform(?:s|ed|ing)?|analy[sz]e(?:s|d|ing)?|handle(?:s|d|ing)?|experience (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|the|a|an)\s+)?([\p{L}\p{N}+#./-]+(?:(?!\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b)\s+[\p{L}\p{N}+#./-]+){0,2})(?=\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b|[,.;]|$)/giu;
-  const GENERIC_ACTION_SIGNALS = new Set(["herramienta", "herramientas", "sistema", "sistemas", "software", "plataforma", "plataformas", "tecnología", "tecnologias", "solución", "soluciones", "producto", "productos", "instalación", "instalaciones"]);
+  const GENERIC_ACTION_SIGNALS = new Set(["herramienta", "herramientas", "sistema", "sistemas", "software", "plataforma", "plataformas", "tecnología", "tecnologias", "solución", "soluciones", "producto", "productos", "instalación", "instalaciones", "tema", "temas", "asunto", "asuntos", "área", "area", "áreas", "areas"]);
 
   function extractActionSignals(text) {
     const found = [];
@@ -645,7 +663,7 @@
     else level = "Validación necesaria";
 
     const evidence = {
-      rol: analyzed.rol[0] ? evidenceFor(text, analyzed.rol[0]) : "",
+      rol: analyzed.rol[0] ? analyzed.roleEvidence || evidenceFor(text, analyzed.rol[0]) : "",
       atributos: analyzed.atributos.map((term) => ({ term, text: evidenceFor(text, term) })),
       atributosDeseables: analyzed.atributosDeseables.map((term) => ({ term, text: evidenceFor(text, term) })),
       dominio: analyzed.dominio.map((term) => ({ term, text: evidenceFor(text, term) })),
@@ -657,8 +675,12 @@
   function extractRoleContext(text) {
     const experienceMatch = /\bexperiencia(?:\s+en\s+a[nñ]os)?\b[\s\S]{0,90}?((?:\+\s*)?\d+\s*(?:[-–—a]\s*\d+)?\s*(?:a[nñ]os?|years?))/i.exec(text);
     const educationMatch = /\b(?:grado|ingenier[ií]a|titulaci[oó]n|bachelor)\s+en\s+[^.]{6,180}/i.exec(text);
+    const completedTelecomDegree = /\bingenier(?:o|a|os|as)(?:\s+de|\s+en)\s+telecomunicaciones\s+(?:o\s+afines?\s+)?(?:recibid[oa]s?|graduad[oa]s?|titulad[oa]s?)\b/i.test(text);
+    const vagueExperience = /\b(?:algo|cierta|alguna)\s+(?:de\s+)?experiencia\b|\bun poco de experiencia\b|\bexperiencia\s+(?:b[aá]sica|inicial|previa)\b/i.test(text);
     const context = [];
     if (experienceMatch) context.push("Experiencia indicada: " + experienceMatch[1].replace(/\s+/g, " ").trim());
+    else if (vagueExperience) context.push("Experiencia sugerida: previa, sin años especificados");
+    if (completedTelecomDegree) context.push("Formación indicada: Ingeniería en Telecomunicaciones o afín (título finalizado)");
     if (educationMatch) context.push("Formación indicada: " + educationMatch[0].replace(/\s+/g, " ").trim());
     return context;
   }
@@ -696,6 +718,7 @@
     // can offer them as an editable suggestion, never as an auto-added term.
     const { country, locality, secondLocality, ambiguousLocations, locationNeedsClarification } = Countries.detectLocationDetailed(text);
     const alcance = dedupe([...(country ? [country] : []), ...(locality ? [locality] : []), ...(secondLocality ? [secondLocality] : [])]);
+    const proximityNeedsClarification = /\b(?:cercan[oa]s?|cerca de|alrededores?|nearby|close to)\b/i.test(text);
 
     const modality = Countries.detectModality(text);
     const rolText = rol.join(" ");
@@ -726,7 +749,16 @@
     // is context rather than a reliable term on public candidate profiles.
     const refinarSuggestion = [];
 
-    const analyzed = { rol, atributos, atributosDeseables, imprescindibles: [], unverifiedSignals, omittedSignals, dominio, alcance, seniority, modality, roleContext: extractRoleContext(text), refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
+    const roleAlternatives = /\b(?:telecomunicaciones|telecom)\b/i.test(text) && /\bafines?\b/i.test(text)
+      ? ["Ingeniero/a en Comunicaciones", "Ingeniero/a en Sistemas de Telecomunicación", "Ingeniero/a Electrónico/a"]
+      : [];
+    const analyzed = { rol, roleAlternatives, atributos, atributosDeseables, imprescindibles: [], unverifiedSignals, omittedSignals, dominio, alcance, seniority, modality, roleContext: extractRoleContext(text), proximityNeedsClarification, refinar: [], refinarSuggestion, country, ambiguousLocations: ambiguousLocations || [], locationNeedsClarification: Boolean(locationNeedsClarification), sectorNeedsClarification };
+    analyzed.educationNeedsClarification = analyzed.roleContext.some((entry) => /formaci[oó]n indicada/i.test(entry));
+    analyzed.experienceNeedsClarification = analyzed.roleContext.some((entry) => /experiencia sugerida/i.test(entry));
+    if (rol[0] === "Ingeniero/a en Telecomunicaciones") {
+      const roleMatch = /ingenier(?:o|a|os|as)(?:\s+de|\s+en)\s+telecomunicaciones/i.exec(text);
+      analyzed.roleEvidence = roleMatch ? roleMatch[0] : "";
+    }
     const namedCountry = options && options.fileName ? Countries.detectCountry(options.fileName) : null;
     analyzed.fileCountrySuggestion = !country && namedCountry ? namedCountry : null;
     analyzed.isResume = looksLikeResume(text);

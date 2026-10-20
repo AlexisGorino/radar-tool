@@ -21,6 +21,10 @@
       needsSignalClassification ? "signals" : null,
       result.sectorNeedsClarification && !accepted.sector ? "sector" : null,
       !accepted.location ? "location" : null,
+      result.proximityNeedsClarification && !accepted.proximity ? "proximity" : null,
+      (result.educationNeedsClarification || (result.modelUnderstanding && result.modelUnderstanding.education)) && !accepted.education ? "education" : null,
+      (result.experienceNeedsClarification || (result.modelUnderstanding && result.modelUnderstanding.experience)) && !accepted.experience ? "experience" : null,
+      result.aiAnalysisPending || (result.modelUnderstanding && !accepted.understanding) ? "understanding" : null,
     ].filter(Boolean);
   }
 

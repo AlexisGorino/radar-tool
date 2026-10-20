@@ -49,6 +49,20 @@ test("informal non-IT notes separate the activity from its named system", () => 
   assert.ok(result.alcance.includes("Córdoba") && result.alcance.includes("Argentina"));
 });
 
+test("telecom graduate request keeps the real profile, Spanish city alternatives and clarification needs", () => {
+  const text = "Ingenieros en telecomunicaciones o afines recibidos que residan en España en las localidades de Palma o Santiago de Compostela o cercanos y que tengan algo de experiencia en temas de telecomunicaciones";
+  const result = Extractor.analyzeJD(text);
+  assert.deepStrictEqual(result.rol, ["Ingeniero/a en Telecomunicaciones"]);
+  assert.deepStrictEqual(result.alcance, ["España", "Santiago de Compostela", "Palma de Mallorca"]);
+  assert.deepStrictEqual(result.unverifiedSignals, [], "generic wording like 'temas' cannot become a skill filter");
+  assert.ok(result.roleContext.some((entry) => /t[ií]tulo finalizado/i.test(entry)));
+  assert.ok(result.roleContext.some((entry) => /experiencia sugerida: previa/i.test(entry)));
+  assert.strictEqual(result.proximityNeedsClarification, true);
+  assert.strictEqual(result.educationNeedsClarification, true);
+  assert.strictEqual(result.experienceNeedsClarification, true);
+  assert.strictEqual(result.quality.evidence.alcance.find((entry) => entry.term === "Palma de Mallorca").text.toLowerCase().includes("palma"), true);
+});
+
 test("an unknown tool in an optional phrase stays optional", () => {
   const result = Extractor.analyzeJD("Busco un desarrollador que maneje Amadeus; es deseable, no obligatorio.");
   assert.ok(!result.atributos.includes("Amadeus"));
@@ -596,6 +610,19 @@ test("SAP skills brief does not invent a job title, split FI/CO and report signa
   assert.deepStrictEqual(result.omittedSignals, ["Salesforce Sales Cloud", "ServiceNow"]);
   assert.ok(result.quality.warnings.some((warning) => warning.includes("Salesforce Sales Cloud, ServiceNow")), "signals beyond the precise-query cap must be reported, not silently lost");
   assert.deepStrictEqual(result.alcance, ["Brasil"]);
+});
+
+test("treats Murex and Calypso as financial-market platforms, not as occupations", () => {
+  const productOnly = Extractor.analyzeJD("Buscamos Calypso en Madrid, España para un cliente de banca que trabaja también con Murex MX.3.");
+  assert.deepStrictEqual(productOnly.rol, [], "a software name must not be promoted to a candidate occupation");
+  assert.ok(productOnly.atributos.includes("Calypso"));
+  assert.ok(productOnly.atributos.includes("Murex MX.3"));
+  const commonTypo = Extractor.analyzeJD("Experiencia en CALPYSO para banca en Madrid, España.");
+  assert.ok(commonTypo.atributos.includes("Calypso"), "the common spelling error should normalize to the actual platform name");
+  assert.ok(!commonTypo.atributos.includes("Calpyso"));
+  const consultant = Extractor.analyzeJD("Buscamos Consultor Funcional Murex con Murex MX.3 para mercados de capitales en Madrid, España.");
+  assert.ok(consultant.rol[0].toLowerCase().includes("consultor"), `the occupation should stay separate from the system: ${consultant.rol}`);
+  assert.ok(consultant.atributos.some((term) => /Murex/i.test(term)));
 });
 
 test("title-shaped phrase at the very start of a JD with no line breaks or verb is still found", () => {

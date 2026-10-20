@@ -6,6 +6,9 @@ workers_dev = true
 [vars]
 ALLOWED_ORIGIN = "https://alexisgorino.github.io"
 
+[ai]
+binding = "AI"
+
 [assets]
 directory = "../dist/radar-tool/browser"
 binding = "ASSETS"
