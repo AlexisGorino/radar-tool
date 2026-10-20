@@ -2357,7 +2357,7 @@
           ? " Hay fuentes con error; podés reintentarlas por separado sin volver a consultar las demás."
           : "";
         publicSearchRefineText.textContent = nextStrategy === "equivalent"
-          ? `Busca por requisitos sin exigir el título. Conserva ubicación y obligatorias. Consume una consulta adicional por fuente.${retryNote}`
+          ? `Prueba cargos equivalentes y conserva las señales, la ubicación y los requisitos obligatorios. Consume una consulta adicional por fuente.${retryNote}`
           : `Quita cargo y sector; conserva ubicación y obligatorias. Consume una consulta adicional por fuente.${retryNote}`;
         publicSearchRefine.classList.remove("hidden");
       } else {

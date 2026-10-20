@@ -21,6 +21,8 @@
   const MAX_RESULTS = 20;
   const MAX_QUERY_LENGTH = 900;
   const SEARCH_TIMEOUT_MS = 35_000;
+  const QA_REQUEST = /\b(?:qa|quality assurance|software test(?:ing|er)?|test automation|sdet)\b/;
+  const QA_TECHNICAL_CONTEXT = /\b(?:qa|quality assurance|software test(?:ing|er)?|test automation|sdet|e2e|end to end|selenium|cypress|webdriver(?:io)?|postman)\b/;
   const GITHUB_LANGUAGES = ["TypeScript", "JavaScript", "Python", "C++", "C#", "PowerShell", "Kotlin", "Elixir", "Scala", "Ruby", "Swift", "Dart", "Rust", "Java", "PHP", "HCL", "SQL", "Shell", "Lua", "Go", "R"];
   const SEARCH_ROLE_EQUIVALENTS = [
     { match: /\b(?:talent acquisition|recruiter|recruiter it|reclutador|reclutadora|seleccionador|seleccionadora)\b/, aliases: ["Talent Acquisition Specialist", "Recruiter"] },
@@ -382,7 +384,7 @@
       ? selectedSignals.join(" o ")
       : selectedSignals.join(" + ");
     const searchSummary = [
-      cleanTerms(state.rol)[0] && strategy !== "equivalent" && strategy !== "market" ? cleanTerms(state.rol)[0] : "",
+      cleanTerms(state.rol)[0] && strategy !== "market" && strategy !== "related" ? cleanTerms(state.rol)[0] : "",
       signalSummary,
       cleanTerms(state.alcance).at(-1) || "",
     ].filter(Boolean).join(" · ");
@@ -655,6 +657,19 @@
     };
   }
 
+  function hasDisambiguatingEvidence(text, state) {
+    const roleText = roleFamilyText(state && state.rol);
+    const requestedSignals = [...cleanTerms(state && state.imprescindibles), ...cleanTerms(state && state.atributos), ...cleanTerms(state && state.deseables)];
+    const asksForPlaywright = requestedSignals.some((term) => normalizeText(term) === "playwright");
+    // “Playwright” is also a common theatre profession. When the target is QA,
+    // a bare match is not enough: require visible testing/automation context so
+    // a playwright or screenwriter is not presented as a software candidate.
+    if (QA_REQUEST.test(roleText) && asksForPlaywright) {
+      return QA_TECHNICAL_CONTEXT.test(normalizeText(text));
+    }
+    return true;
+  }
+
   function experienceEvidence(title, snippet, state) {
     const seniorityText = normalizeText([...(Array.isArray(state && state.seniority) ? state.seniority : []), ...(Array.isArray(state && state.rol) ? state.rol : [])].join(" "));
     const context = Array.isArray(state && state.roleContext) ? state.roleContext.map(normalizeText) : [];
@@ -703,6 +718,7 @@
       seen.add(url);
       const title = String(item.title || "").slice(0, 240);
       const snippet = String(item.snippet || "").slice(0, 800);
+      if (!hasDisambiguatingEvidence(`${title} ${snippet}`, state)) return;
       const experience = experienceEvidence(title, snippet, state);
       if (["above_limit", "below_minimum"].includes(experience.experienceFit)) return;
       const evidence = termEvidence(`${title} ${snippet}`, state);

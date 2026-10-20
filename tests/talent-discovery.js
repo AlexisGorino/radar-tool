@@ -174,10 +174,10 @@ test("builds a short LinkedIn X-Ray query around the strongest skill instead of 
   assert.equal(query, 'site:linkedin.com/in ("Senior QA Engineer" OR "QA Engineer") (Playwright OR TypeScript) Barcelona (España OR Spain)');
   assert.ok(query.length < 140);
   assert.doesNotMatch(query, /Software Test|Automation QA/);
-  const noTitle = Discovery.buildPlan(state, ["linkedin"], Generator, { strategy: "equivalent" }).queries[0].query;
-  assert.match(noTitle, /Playwright/);
-  assert.match(noTitle, /Barcelona/);
-  assert.doesNotMatch(noTitle, /QA Engineer/);
+  const equivalent = Discovery.buildPlan(state, ["linkedin"], Generator, { strategy: "equivalent" }).queries[0].query;
+  assert.match(equivalent, /Playwright/);
+  assert.match(equivalent, /Barcelona/);
+  assert.match(equivalent, /QA Engineer|QA Automation Engineer/);
 });
 
 test("creates three deduplicated LinkedIn search angles without dropping the city or mandatory criteria", () => {
@@ -272,7 +272,7 @@ test("finds and labels transferable telecom project profiles while enforcing San
   assert.ok(rows.every((row) => row.scoreBreakdown.includes("Formación relacionada visible")));
 });
 
-test("offers controlled no-title and no-sector recovery routes that retain hard criteria", () => {
+test("offers controlled equivalent-title and no-sector recovery routes that retain hard criteria", () => {
   const state = {
     rol: ["Jefe de Proyecto"], imprescindibles: ["MS Project"], atributos: ["Jira", "PMBOK"],
     deseables: ["PRINCE2"], dominio: ["telecomunicaciones"], alcance: ["España", "Santiago de Compostela"], refinar: ["Senior"],
@@ -282,7 +282,7 @@ test("offers controlled no-title and no-sector recovery routes that retain hard 
   const equivalent = Discovery.buildPlan(state, sources, Generator, { strategy: "equivalent" }).queries[0].query;
   const market = Discovery.buildPlan(state, sources, Generator, { strategy: "market" }).queries[0].query;
   assert.match(precise, /Jefe de Proyecto/i);
-  assert.doesNotMatch(equivalent, /Jefe de Proyecto|Project Manager/i);
+  assert.match(equivalent, /Jefe de Proyecto|Project Manager/i);
   assert.match(equivalent, /Santiago de Compostela/i);
   assert.match(equivalent, /MS Project/i);
   assert.match(equivalent, /telecomunicaciones/i);
@@ -478,6 +478,24 @@ test("keeps only LinkedIn leads with both exact-city and country evidence", () =
   ] }, state);
   assert.deepEqual(rows.map((row) => row.url), ["https://linkedin.com/in/verified-barcelona"]);
   assert.equal(rows[0].locationConfirmed, true);
+});
+
+test("disambiguates Playwright as QA software from theatre and screenwriting profiles", () => {
+  const state = {
+    rol: ["QA Engineer"], imprescindibles: [], atributos: ["Playwright"], deseables: [], dominio: [],
+    alcance: ["España", "Barcelona"], refinar: [], seniority: [],
+  };
+  const rows = Discovery.normalizeResults({ results: [
+    { source: "linkedin", url: "https://linkedin.com/in/example-theatre-author", title: "Andrea Example - Playwright, Screenwriter, Theatre Director", snippet: "Trained as theatre director and playwright · Barcelona, España" },
+    { source: "linkedin", url: "https://linkedin.com/in/example-publisher", title: "Robin Example - Publisher | Playwright", snippet: "Director and playwright · Barcelona, España" },
+    { source: "linkedin", url: "https://linkedin.com/in/example-artistic-director", title: "Taylor Example - Artistic Director, Playwright", snippet: "Educator and theatre director · Barcelona, España" },
+    { source: "linkedin", url: "https://linkedin.com/in/example-qa-specialist", title: "Casey Example - QA Specialist", snippet: "Manual + automation QA: 800+ Playwright E2E tests · Barcelona, España" },
+    { source: "linkedin", url: "https://linkedin.com/in/example-qa-webdriver", title: "Morgan Example - QA | Playwright | WebdriverIO", snippet: "Quality assurance · Barcelona, España" },
+  ] }, state);
+  assert.deepEqual(rows.map((row) => row.url), [
+    "https://linkedin.com/in/example-qa-specialist",
+    "https://linkedin.com/in/example-qa-webdriver",
+  ]);
 });
 
 test("rejects public profiles that do not show all mandatory signals", () => {

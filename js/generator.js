@@ -243,7 +243,11 @@
 
   function buildPublicLinkedinQuery(state, strategy) {
     const mode = strategy || "precise";
-    const useRole = mode !== "equivalent" && mode !== "market" && mode !== "related";
+    // The equivalent route should swap in a compact, reviewed role family;
+    // removing the occupation entirely turns ambiguous skills (for example
+    // Playwright) into noisy searches. Only the explicit market/related
+    // routes may omit the literal title.
+    const useRole = mode !== "market" && mode !== "related";
     const roles = useRole ? (state.rol || []).map(stripAbbreviatedTitlePrefix).slice(0, 2) : [];
     const required = (state.imprescindibles || []).filter(Boolean);
     // When there is no hard requirement, keep at most two alternatives. This
