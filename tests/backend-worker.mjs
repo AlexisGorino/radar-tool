@@ -9,7 +9,7 @@ async function test(name, run) {
 }
 
 const validPlan = {
-  maxResults: 20,
+  maxResults: 30,
   location: "España, Islas Canarias",
   queries: [
     { source: "linkedin", query: 'site:linkedin.com/in "Telecom technician" FTTH Canarias' },
@@ -42,6 +42,16 @@ async function main() {
     assert.equal(validatePlan({ ...validPlan, queries: [{ source: "linkedin", query: "site:example.com test" }] }), false);
     assert.equal(validatePlan({ ...validPlan, queries: [...validPlan.queries, ...validPlan.queries] }), false);
     assert.equal(validatePlan({ ...validPlan, location: "x".repeat(181) }), false);
+    const countryWidePlan = {
+      maxResults: 30,
+      location: "España",
+      queries: [
+        { source: "linkedin", query: 'site:linkedin.com/in "Java Developer" España' },
+        { source: "github", query: 'type:user language:Java location:"España"' },
+      ],
+    };
+    assert.equal(validatePlan(countryWidePlan), true, "a country-only scope must be a valid bounded search");
+    assert.equal(validatePlan({ ...countryWidePlan, queries: [{ ...countryWidePlan.queries[1], query: 'type:user language:Java location:"Argentina"' }] }), false, "country-wide GitHub queries must stay inside the selected country");
     const linkedinEntry = validPlan.queries[0];
     const exhaustiveEntry = { ...linkedinEntry, variants: [linkedinEntry.query, 'site:linkedin.com/in "Telecom specialist" FTTH Canarias', 'site:linkedin.com/in fiber optic technician Canarias'] };
     assert.equal(validatePlan({ ...validPlan, queries: [exhaustiveEntry] }), true);
@@ -66,6 +76,10 @@ async function main() {
     assert.equal(exactGithubLocation("Canary Islands, Spain", "España, Islas Canarias"), true);
     assert.equal(exactGithubLocation("Palma, Balearic Islands, Spain", "España, Palma de Mallorca"), true);
     assert.equal(exactGithubLocation("Mallorca, Spain", "España, Palma de Mallorca"), false);
+    assert.equal(exactGithubLocation("Madrid, Spain", "España"), true, "country-only scope accepts any profile inside that country");
+    assert.equal(exactGithubLocation("Barcelona, España", "España"), true);
+    assert.equal(exactGithubLocation("Madrid, Portugal", "España"), false);
+    assert.equal(exactGithubLocation("Madrid", "España"), false, "country-only scope still requires explicit country evidence");
   });
 
   await test("checks GitHub bio signals as full terms, including short technology names", () => {
@@ -81,6 +95,43 @@ async function main() {
     assert.equal(profileHasExactLocation({ title: "QA · Barcelona", snippet: "Playwright" }, "España, Barcelona"), false);
     assert.equal(profileHasExactLocation({ title: "PMO Analyst · Palma, Islas Baleares, España", snippet: "MS Project" }, "España, Palma de Mallorca"), true);
     assert.equal(profileHasExactLocation({ title: "PMO Analyst · Mallorca, España", snippet: "MS Project" }, "España, Palma de Mallorca"), false);
+    assert.equal(profileHasExactLocation({ title: "Java Developer · Madrid, Spain", snippet: "Spring Boot" }, "España"), true);
+    assert.equal(profileHasExactLocation({ title: "Java Developer · Madrid, Portugal", snippet: "Spring Boot" }, "España"), false);
+  });
+
+  await test("runs a country-wide GitHub search without requiring a city", async () => {
+    const previousFetch = globalThis.fetch;
+    const queries = [];
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.hostname !== "api.github.com") throw new Error(`Unexpected outbound request: ${url}`);
+      if (url.pathname === "/search/users") {
+        queries.push(url.searchParams.get("q"));
+        return new Response(JSON.stringify({ total_count: 2, items: [
+          { login: "madrid-java", html_url: "https://github.com/madrid-java" },
+          { login: "lisbon-java", html_url: "https://github.com/lisbon-java" },
+        ] }), { status: 200 });
+      }
+      const login = url.pathname.split("/").at(-1);
+      const location = login === "madrid-java" ? "Madrid, Spain" : "Lisbon, Portugal";
+      return new Response(JSON.stringify({ login, name: "Java Developer", bio: "Java engineer · Spring Boot", location, public_repos: 5, html_url: `https://github.com/${login}` }), { status: 200 });
+    };
+    const plan = {
+      maxResults: 30,
+      location: "España",
+      queries: [{ source: "github", query: 'type:user language:Java location:"España"' }],
+    };
+    try {
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(plan),
+      }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+      const payload = await response.json();
+      assert.equal(response.status, 200, "the Worker must not reject a valid country-only plan");
+      assert.deepEqual(queries, ['type:user language:Java location:"España"']);
+      assert.deepEqual(payload.results.map((profile) => profile.url), ["https://github.com/madrid-java"]);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
   });
 
   await test("resolves a locality only to an exact provider result in the requested country", async () => {
@@ -127,15 +178,15 @@ async function main() {
     }
   });
 
-  await test("balances LinkedIn and GitHub representation and returns at most 20 results", () => {
+  await test("balances LinkedIn and GitHub representation and returns at most 30 results", () => {
     const lists = [
       Array.from({ length: 40 }, (_, i) => ({ source: "linkedin", position: i + 1 })),
       Array.from({ length: 40 }, (_, i) => ({ source: "github", position: i + 1 })),
     ];
     const chosen = takeBalanced(lists);
-    assert.equal(chosen.length, 20);
-    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 10);
-    assert.equal(chosen.filter((row) => row.source === "github").length, 10);
+    assert.equal(chosen.length, 30);
+    assert.equal(chosen.filter((row) => row.source === "linkedin").length, 15);
+    assert.equal(chosen.filter((row) => row.source === "github").length, 15);
   });
 
   await test("requires a confirmed free plan and enough remaining monthly searches before querying", async () => {
@@ -223,6 +274,23 @@ async function main() {
     assert.equal(response.headers.get("Cache-Control"), "no-store, max-age=0");
   });
 
+  await test("enforces actual streamed request sizes when Content-Length is absent", async () => {
+    const streamRequest = (path, size) => new Request(`https://radar-search.example${path}`, {
+      method: "POST",
+      headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" },
+      body: new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(" ".repeat(size))); controller.close(); } }),
+      duplex: "half",
+    });
+    const env = { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) } };
+    const analysis = await Worker.fetch(streamRequest("/api/analyze", 20_001), env);
+    assert.equal(analysis.status, 413);
+    assert.deepEqual(await analysis.json(), { error: "request_too_large" });
+
+    const profile = await Worker.fetch(streamRequest("/api/search", 12_001), env);
+    assert.equal(profile.status, 413);
+    assert.deepEqual(await profile.json(), { error: "request_too_large" });
+  });
+
   await test("rejects requests from other origins before consuming provider quota", async () => {
     const previousFetch = globalThis.fetch;
     let called = false;
@@ -284,11 +352,11 @@ async function main() {
       });
       const json = await response.json();
       assert.equal(response.status, 200);
-      assert.equal(json.results.length, 20);
-      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 10);
+      assert.equal(json.results.length, 30);
+      assert.equal(json.results.filter((row) => row.source === "linkedin").length, 20);
       assert.equal(json.results.filter((row) => row.source === "github").length, 10);
       assert.deepEqual(json.sourceDiagnostics.map(({ elapsedMs, queriesRun, engines, ...entry }) => entry), [
-        { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 20, code: null },
+        { source: "linkedin", status: "profiles_found", organicCount: 40, profileCount: 30, code: null },
         { source: "github", status: "profiles_found", organicCount: 25, profileCount: 10, code: null },
       ]);
       assert.ok(json.sourceDiagnostics.every((entry) => Number.isFinite(entry.elapsedMs) && entry.elapsedMs >= 0));
@@ -569,7 +637,7 @@ async function main() {
       return new Response(JSON.stringify({ login, name: login, bio: "Python developer", location: locations[login], public_repos: 4, html_url: `https://github.com/${login}` }), { status: 200 });
     };
     const plan = {
-      maxResults: 20,
+      maxResults: 30,
       location: "España, Santiago de Compostela, Palma de Mallorca",
       queries: [{ source: "github", query: 'type:user language:Python location:"Santiago de Compostela"', variants: [
         'type:user language:Python location:"Santiago de Compostela"',
@@ -617,7 +685,7 @@ async function main() {
     };
     try {
       const plan = {
-        maxResults: 20,
+        maxResults: 30,
         location: "Argentina, Buenos Aires",
         queries: [{ source: "github", query: 'type:user language:TypeScript location:"Buenos Aires"', profileEvidence: { required: [], alternatives: ["Playwright"], role: ["QA Engineer", "QA Automation Engineer"] } }],
       };

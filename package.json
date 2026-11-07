@@ -10,15 +10,20 @@
     "start:dev": "ng serve --base-href /",
     "test:e2e": "cypress run",
     "test:unit": "node scripts/test-unit.js",
-    "test:discovery": "node tests/talent-discovery.js && node tests/backend-worker.mjs",
+    "test:discovery": "node tests/talent-discovery.js && node tests/search-quality-benchmark.js && node tests/backend-worker.mjs",
     "start:test": "node tests/serve.js",
-    "start:angular": "node tests/serve.js --dist"
+    "start:angular": "node tests/serve.js --dist",
+    "check:production": "node scripts/production-health.mjs",
+    "test:quality": "node tests/search-quality-benchmark.js"
   },
   "devDependencies": {
     "@angular/build": "21.2.26",
     "@angular/cli": "21.2.26",
     "@angular/compiler-cli": "21.2.25",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/spa": "^1.0.0",
     "cypress": "16.1.1",
+    "tesseract.js": "^7.0.0",
     "typescript": "5.9.3"
   },
   "dependencies": {

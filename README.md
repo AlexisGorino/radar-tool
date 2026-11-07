@@ -38,8 +38,10 @@ operativa antes de habilitarse en GitHub Pages.
   perfil, además de decidir ubicación o búsqueda sin límite geográfico. Para
   buscar sin título hacen falta varias señales específicas.
 - **Control de lectura**: avisa si un PDF tiene páginas con poco texto, posible
-  orden mezclado o caracteres dañados. Un PDF sin texto legible no se aplica;
-  los escaneos aún requieren que se pegue una versión en texto.
+  orden mezclado o caracteres dañados y pide confirmar el texto leído antes de
+  analizarlo cuando algo no cierra. Los PDF escaneados se leen con OCR local
+  (Tesseract, español + inglés, hasta 20 páginas, con botón para cancelar): el
+  archivo no sale del navegador.
 - **Sinónimos de rol**: sugiere variantes del puesto (ES/EN) con un click,
   para no perder candidatos por diferencias de nomenclatura.
 - **Sugerencias extra con Gemini (opcional)**: cargando tu propia key de
@@ -60,7 +62,7 @@ operativa antes de habilitarse en GitHub Pages.
   publican ofertas, pero no perfiles, no sirven como fuente de candidatos por X-Ray.
 - **Listado público**: con el Worker configurado, consulta LinkedIn mediante
   hasta tres consultas de Google con enfoques distintos y GitHub mediante su
-  API pública. Devuelve hasta 20 perfiles para revisar; puede devolver menos o
+  API pública. Devuelve hasta 30 perfiles para revisar; puede devolver menos o
   ninguno. Comprueba que haya cupo gratuito para las tres consultas antes de
   iniciar. La ubicación y las
   señales se validan con información pública visible, no prueban disponibilidad

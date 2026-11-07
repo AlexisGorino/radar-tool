@@ -28,7 +28,14 @@ node tests/market-matrix.js # 18 roles y mercados representativos, sin red
 node tests/pdf-text.js      # preservación de líneas del PDF, validación y recomendaciones
 node tests/review-quality.js # JDs variadas, brief libre y controles de documento
 node tests/docx.js           # lectura local de Word y flujo de revisión
+node tests/search-quality-benchmark.js # precisión/recall por familia de puesto, sin red ni datos de candidatos
 ```
+
+## Chequeo de producción
+
+`npm run check:production` consulta la web publicada y el `/api/health` del
+Worker (sin consumir créditos de búsqueda). Corre a diario desde
+`.github/workflows/production-health.yml`.
 
 ## Cypress E2E
 
@@ -53,7 +60,7 @@ baseUrl=http://127.0.0.1:8767`.
 
 ## Shortlist pública (LinkedIn + GitHub)
 
-- El Worker acepta LinkedIn, GitHub o ambas fuentes y devuelve hasta 20 enlaces
+- El Worker acepta LinkedIn, GitHub o ambas fuentes y devuelve hasta 30 enlaces
   públicos en total; no garantiza completar ese máximo.
 - LinkedIn consulta hasta tres variantes de Google/SerpApi y consume hasta tres
   búsquedas por lista. El Worker comprueba antes que el plan gratuito tenga

@@ -1,9 +1,22 @@
 // Representative, anonymized JDs plus document and decision regressions.
 const assert = require("assert");
+const fs = require("fs");
 const Extractor = require("../js/extractor.js");
 const Generator = require("../js/generator.js");
 const PdfText = require("../js/pdf-text.js");
 const Review = require("../js/review.js");
+
+const javaAngularJD = fs.readFileSync(require("path").join(__dirname, "fixtures", "java-developer-angular-desirable-es.txt"), "utf8");
+const javaAngular = Extractor.analyzeJD(javaAngularJD);
+assert.deepStrictEqual(javaAngular.rol, ["Desarrollador Java"], "explicit required profile must beat the MODALIDAD template label");
+assert.match(javaAngular.quality.evidence.rol, /DEV JAVA/i, "role needs literal source evidence");
+assert.ok(javaAngular.atributos.includes("Java"), "Java appears as an explicit technical requirement");
+assert.ok(javaAngular.atributos.includes("Spring Boot") && !javaAngular.atributos.includes("Spring"), "a framework and its parent label must not become duplicate criteria");
+assert.ok(!javaAngular.atributos.includes("Angular"), "Angular in the client/title header must not override its desirable classification");
+assert.ok(javaAngular.atributosDeseables.includes("Angular"), "Angular is explicitly marked desirable");
+assert.match(javaAngular.quality.evidence.atributosDeseables.find((item) => item.term === "Angular").text, /deseable|valorará/i, "the evidence shown for Angular must contain its optional context");
+assert.ok(!javaAngular.atributosDeseables.some((term) => /^(?:años|experiencia|desarrollar|desarrollo|frameworks?|motores?|bases?|tecnolog[ií]as?)$/i.test(term)), "PDF fields and generic verbs must not be suggested as sourcing criteria");
+assert.ok(!javaAngular.atributosDeseables.includes("Spring Boot 3.x"), "a version suffix must not duplicate an already extracted framework criterion");
 
 const cases = [
   {

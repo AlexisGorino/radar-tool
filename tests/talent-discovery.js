@@ -3,11 +3,20 @@ const Discovery = require("../js/talent-discovery.js");
 const Generator = require("../js/generator.js");
 const Countries = require("../js/countries.js");
 
+
 let passed = 0;
+const pending = [];
 function test(name, run) {
-  run();
-  passed += 1;
-  console.log(`✓ ${name}`);
+  const result = run();
+  if (result && typeof result.then === "function") {
+    pending.push(result.then(() => {
+      passed += 1;
+      console.log(`✓ ${name}`);
+    }));
+  } else {
+    passed += 1;
+    console.log(`✓ ${name}`);
+  }
 }
 
 const canaryState = {
@@ -26,7 +35,7 @@ test("builds source-specific queries and preserves the exact Canary Islands scop
   assert.deepEqual(plan.queries.map((query) => query.source), ["linkedin"]);
   assert.deepEqual(plan.skippedSources, ["github"]);
   assert.equal(plan.skippedReasons.github, "requires_language_signal");
-  assert.equal(plan.maxResults, 20);
+  assert.equal(plan.maxResults, 30);
   assert.equal(plan.location, "España, Islas Canarias");
   assert.match(plan.queries[0].query, /Canarias/i);
   assert.match(plan.queries[0].query, /España|Spain/i);
@@ -568,7 +577,7 @@ test("treats multiple selected cities as alternatives while keeping their countr
   assert.deepEqual(rows.map((row) => row.url), ["https://linkedin.com/in/santiago-pm", "https://linkedin.com/in/palma-pm"]);
 });
 
-test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 20", () => {
+test("requires locality and country evidence, deduplicates profiles and caps the shortlist at 30", () => {
   const results = Array.from({ length: 55 }, (_, index) => ({
     source: "linkedin",
     url: `https://linkedin.com/in/profile-${index}${index === 1 ? "?trk=duplicate" : ""}`,
@@ -581,8 +590,8 @@ test("requires locality and country evidence, deduplicates profiles and caps the
   results.push({ source: "linkedin", url: "https://linkedin.com/in/country-only", title: "Paula Pérez - Telecom - LinkedIn", snippet: "FTTH España" });
   results.push({ source: "stackoverflow", url: "https://stackoverflow.com/users/42/ana", title: "Ana Persona - Telecom", snippet: "FTTH Islas Canarias España" });
   const normalized = Discovery.normalizeResults({ results }, canaryState);
-  assert.equal(normalized.length, 20);
-  assert.equal(new Set(normalized.map((row) => row.url)).size, 20);
+  assert.equal(normalized.length, 30);
+  assert.equal(new Set(normalized.map((row) => row.url)).size, 30);
   assert.ok(normalized.every((row) => !row.url.includes("/jobs/")));
   assert.ok(normalized.every((row) => ["linkedin", "github"].includes(row.source)));
 
@@ -596,10 +605,16 @@ test("requires locality and country evidence, deduplicates profiles and caps the
   assert.deepEqual(argentinaAbbreviation.map((row) => row.url), ["https://github.com/biancarosa"], "a public GitHub location with the correct ISO country code should survive normalization");
   assert.equal(Discovery.locationScopeError({ alcance: ["Santiago"] }).includes("país"), true);
   assert.equal(Discovery.locationScopeError({ alcance: ["Chile", "Santiago"] }).includes("Chile"), true);
+  assert.equal(Discovery.locationScopeError({ alcance: ["España"] }), "", "a country without locality is a valid nationwide scope");
+  const countryWide = Discovery.normalizeResults({ results: [
+    { source: "linkedin", url: "https://linkedin.com/in/java-spain", title: "Ana Pérez · Java Developer · Madrid, España", snippet: "Java · Spring Boot" },
+    { source: "linkedin", url: "https://linkedin.com/in/java-portugal", title: "João Silva · Java Developer · Lisboa, Portugal", snippet: "Java · Spring Boot" },
+  ] }, { rol: ["Java Developer"], imprescindibles: [], atributos: ["Java"], alcance: ["España"] });
+  assert.deepEqual(countryWide.map((row) => row.url), ["https://linkedin.com/in/java-spain"], "country-only shortlist accepts any city in that country and rejects neighboring countries");
 });
 
 test("search uses same-origin auth, does not send the JD, and reports provider errors clearly", async () => {
-  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 20, location: "Argentina" };
+  const payload = { queries: [{ source: "linkedin", query: "site:linkedin.com/in engineer Argentina" }], maxResults: 30, location: "Argentina" };
   let request;
   const found = await Discovery.search("https://radar.example/api/search", payload, canaryState, async (url, options) => {
     request = { url, options };
@@ -635,6 +650,10 @@ test("search uses same-origin auth, does not send the JD, and reports provider e
   await assert.rejects(
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 429, json: async () => ({ error: "provider_rate_limited" }) })),
     /buscador alcanzó su límite temporal/
+  );
+  await assert.rejects(
+    Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 400, json: async () => ({ error: "invalid_search_plan" }) })),
+    (error) => error.code === "invalid_search_plan" && /no pudo validar esta búsqueda/.test(error.message)
   );
   await assert.rejects(
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 502, json: async () => ({ error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_credentials_rejected" }] }) })),
@@ -706,4 +725,9 @@ test("search uses same-origin auth, does not send the JD, and reports provider e
   );
 });
 
-console.log(`\n${passed} talent-discovery tests passed.`);
+Promise.all(pending).then(() => {
+  console.log(`\n${passed} talent-discovery tests passed.`);
+}).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

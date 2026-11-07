@@ -868,7 +868,7 @@ test("a Rol responsibility verb doesn't survive even when it's the only match �
 });
 
 test("a corporate ficha's job CODE label doesn't win over the real title label further down", () => {
-  // Real JD shape (Mindata's own template): "Código de Puesto: <CODE>" is a
+  // Real JD shape (Acme's own template): "Código de Puesto: <CODE>" is a
   // job-code label, not a title — "Denominación Oficial:" right after it is.
   const jd =
     "Código de Puesto: MD-COM-IR-SR Denominación Oficial: Comercial Senior de Infraestructura y Redes " +
@@ -877,7 +877,7 @@ test("a corporate ficha's job CODE label doesn't win over the real title label f
 });
 
 test("a 3-segment ficha header (empresa - área - título) salvages just the title, not the whole header", () => {
-  const jd = "PUESTO - CLIENTE Mindata - Financiero - Tesorería Junior COD VACANTE rdeJpArDVEOb DEPARTAMENTO/ Administración";
+  const jd = "PUESTO - CLIENTE Acme - Financiero - Tesorería Junior COD VACANTE rdeJpArDVEOb DEPARTAMENTO/ Administración";
   assert.strictEqual(Extractor.guessRol(jd)[0], "Tesorería");
 });
 

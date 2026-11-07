@@ -95,9 +95,13 @@
     });
     const hasSAPModule = expanded.some((term) => /^SAP\s+.+/i.test(term));
     const hasSalesforceCloud = expanded.some((term) => /^Salesforce\s+.+Cloud$/i.test(term));
+    const hasSpecificSpring = expanded.some((term) => /^Spring\s+(?:Boot|Data|Security|Cloud)\b/i.test(term));
+    const hasSpringBootBase = expanded.some((term) => /^Spring\s+Boot$/i.test(term));
     return dedupe(expanded.filter((term) => {
       if (term.toLowerCase() === "sap" && hasSAPModule) return false;
       if (term.toLowerCase() === "salesforce" && hasSalesforceCloud) return false;
+      if (term.toLowerCase() === "spring" && hasSpecificSpring) return false;
+      if (hasSpringBootBase && /^Spring\s+Boot\s+\d/i.test(term)) return false;
       return true;
     }));
   }
@@ -138,12 +142,22 @@
           state = marker.optional;
         }
         const suffix = text.slice(index + term.length, index + term.length + 48);
-        const inlineOptional = /^[\s,;:—-]*(?:(?:es|resulta|sería|se considera|se valora(?: como)?|no es|no resulta)\s+)?(?:deseable|valorable|opcional|un plus|plus|no obligatorio)\b/i.test(suffix);
+        const inlineOptional = /^[\s,;:—-]*(?:(?:es|resulta|sería|se considera|se valora(?: como)?|no es|no resulta)\s+)?(?:como\s+)?(?:deseable|valorable|opcional|un plus|plus|no obligatorio)\b/i.test(suffix);
         return state || inlineOptional;
       });
       if (isOnlyOptional) optional.push(term);
     });
     return optional;
+  }
+
+  // Agency templates often place the client and a campaign label in
+  // "PUESTO - CLIENTE". Those words are not candidate skills, even when the
+  // same technology is mentioned again as desirable in the actual role line.
+  // Keep the explicit profile sentence so it can still drive role detection.
+  function skillEvidenceText(text) {
+    return text
+      .replace(/\bpuesto\s*[-–—:]\s*cliente\b[\s\S]{0,360}?(?=\b(?:el\s+)?perfil\s+requerido\s+es\b)/i, " ")
+      .replace(/\b(?:el\s+)?perfil\s+requerido\s+es\b[\s\S]{0,220}?(?=\b(?:cod(?:igo)?\s+vacante|departamento|ubicaci[oó]n|modalidad|horario|rate|conocimientos|requisitos)\b)/i, " ");
   }
 
   function stripTags(text) {
@@ -396,7 +410,8 @@
   }
 
   function looksLikeAdministrativeText(candidate) {
-    return /(?:\b(?:nombre|firma|fecha|puesto)\s*:|^puesto\s*[-–—:]\s*cliente\b|recibido y conforme|esta descripci[oó]n|^c[oó]digo\b|^descriptivo de funciones\b|^descripci[oó]n del puesto\b|^objetivo del puesto\b)/i.test(candidate);
+    return /^(?:modalidad|horario(?:\s+laboral)?|rate\s+salarial|ubicaci[oó]n(?:\s+candidato)?|departamento(?:\s*\/\s*[aá]rea)?|descripci[oó]n|conocimientos|skills\s+tecnol[oó]gicas)\b/i.test(candidate.trim())
+      || /(?:\b(?:nombre|firma|fecha|puesto)\s*:|^puesto\s*[-–—:]\s*cliente\b|recibido y conforme|esta descripci[oó]n|^c[oó]digo\b|^descriptivo de funciones\b|^descripci[oó]n del puesto\b|^objetivo del puesto\b)/i.test(candidate);
   }
 
   function guessRol(rawText) {
@@ -409,6 +424,14 @@
     // does not turn into an occupation by itself.
     const telecomEngineer = /\bingenier(?:o|a|os|as)(?:\s+de|\s+en)\s+telecomunicaciones\b/i.exec(text);
     if (telecomEngineer) return ["Ingeniero/a en Telecomunicaciones"];
+    const requiredProfile = /\b(?:el\s+)?perfil\s+requerido\s+es\s+(?:un[oa]?\s+)?([^.;\n]{3,90})/i.exec(text);
+    if (requiredProfile) {
+      let candidate = trimRolPhrase(requiredProfile[1]);
+      if (/^dev(?:eloper)?\b/i.test(candidate)) candidate = candidate.replace(/^dev(?:eloper)?\b/i, "Desarrollador").trim();
+      candidate = candidate.replace(/^Desarrollador\s+JAVA\b/i, "Desarrollador Java");
+      if (candidate && /\b(?:developer|engineer|manager|analyst|consultant|designer|architect|specialist|director|coordinator|lead|officer|executive|assistant|technician|recruiter|scientist|programmer|administrator|accountant|lawyer|teacher|nurse|doctor|operator|auditor|dev|desarrollador[oa]?|ingenier[oa]|gerente|analista|consultor[oa]?|diseñador[oa]?|arquitect[oa]|especialista|coordinador[oa]?|ejecutiv[oa]?|asistente|técnic[oa]|programador[oa]?|auditor[oa]?|contable|contador[oa]?|comercial|vendedor[oa]?|jef[ea])\b/i.test(candidate)
+        && !looksLikeTemplateNoise(candidate) && !looksLikeVagueRole(candidate)) return [candidate];
+    }
     const clientTemplateTitle = titleAfterClientTemplate(text);
     if (clientTemplateTitle) return [clientTemplateTitle];
     // This compound title is common in telecom field-service postings. Check
@@ -601,14 +624,17 @@
   // recruiter review as alternatives instead of silently making them required.
   const ACTION_SIGNAL_RE = /\b(?:manej(?:a|ar|ando|e|en|o|ó)|manejo de|utiliz(?:a|ar|ando)|us(?:a|ar|ando)|oper(?:a|ar|ando)|configur(?:a|ar|ando)|implement(?:a|ar|ando)|experiencia (?:práctica )?(?:en|con)|conocimiento de|trabaja(?:r|ndo)? con|use|uses|used|using|manage|manages|managed|managing|operate|operates|operated|operating|configure|configures|configured|configuring|implement|implements|implemented|implementing|work with|works with|worked with|working with|experience (?:in|with)|experienced (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|the|a|an)\s+)?([A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*(?:\s+[A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*){0,2})/gu;
   const ACTION_TASK_RE = /\b(?:experiencia (?:práctica )?(?:en|con)|conocimiento de|manej(?:a|ar|ando|e|en)|gestiona(?:r|ndo)?|lidera(?:r|ndo)?|coordina(?:r|ndo)?|realiza(?:r|ndo)?|ejecuta(?:r|ndo)?|analiza(?:r|ndo)?|atiende(?:r|ndo)?|vende(?:r|ndo)?|audita(?:r|ndo)?|administra(?:r|ndo)?|organiza(?:r|ndo)?|plans?|manage(?:s|d|ment|ing)?|lead(?:s|ing)?|coordinate(?:s|d|ing)?|perform(?:s|ed|ing)?|analy[sz]e(?:s|d|ing)?|handle(?:s|d|ing)?|experience (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|the|a|an)\s+)?([\p{L}\p{N}+#./-]+(?:(?!\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b)\s+[\p{L}\p{N}+#./-]+){0,2})(?=\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b|[,.;]|$)/giu;
-  const GENERIC_ACTION_SIGNALS = new Set(["herramienta", "herramientas", "sistema", "sistemas", "software", "plataforma", "plataformas", "tecnología", "tecnologias", "solución", "soluciones", "producto", "productos", "instalación", "instalaciones", "tema", "temas", "asunto", "asuntos", "área", "area", "áreas", "areas"]);
+  const GENERIC_ACTION_SIGNALS = new Set(["herramienta", "herramientas", "sistema", "sistemas", "software", "plataforma", "plataformas", "tecnología", "tecnologías", "tecnologia", "tecnologias", "solución", "soluciones", "producto", "productos", "instalación", "instalaciones", "tema", "temas", "asunto", "asuntos", "área", "area", "áreas", "areas", "año", "años", "experiencia", "puesto", "sector", "similar", "desarrollar", "desarrollo", "diseño", "diseno", "framework", "frameworks", "motor", "motores", "base", "bases", "indicar", "nivel", "capacidad"]);
 
   function extractActionSignals(text) {
     const found = [];
+    // A line break in a PDF table separates fields. Do not let a pattern join
+    // "Experiencia en años" to the next heading and invent a signal from it.
+    const searchableText = String(text || "").replace(/\r?\n/g, "\u0000");
     for (const pattern of [ACTION_SIGNAL_RE, ACTION_TASK_RE]) {
       pattern.lastIndex = 0;
       let match;
-      while ((match = pattern.exec(text)) !== null) {
+      while ((match = pattern.exec(searchableText)) !== null) {
         const term = match[1].trim().replace(/[.,;:]+$/, "");
         const normalized = term.toLowerCase();
         const isIndustry = Keywords.INDUSTRIES.some((industry) => industry.toLowerCase() === normalized);
@@ -629,7 +655,7 @@
     return text.length;
   }
 
-  function buildQuality(text, analyzed, sourceMeta) {
+  function buildQuality(text, analyzed, sourceMeta, signalText) {
     const warnings = [];
     const wordCount = (text.match(/[\p{L}\p{N}]+/gu) || []).length;
     if (wordCount < 35) warnings.push("El texto es muy breve para validar una descripción de puesto completa.");
@@ -664,8 +690,8 @@
 
     const evidence = {
       rol: analyzed.rol[0] ? analyzed.roleEvidence || evidenceFor(text, analyzed.rol[0]) : "",
-      atributos: analyzed.atributos.map((term) => ({ term, text: evidenceFor(text, term) })),
-      atributosDeseables: analyzed.atributosDeseables.map((term) => ({ term, text: evidenceFor(text, term) })),
+      atributos: analyzed.atributos.map((term) => ({ term, text: evidenceFor(signalText || text, term) })),
+      atributosDeseables: analyzed.atributosDeseables.map((term) => ({ term, text: evidenceFor(signalText || text, term) })),
       dominio: analyzed.dominio.map((term) => ({ term, text: evidenceFor(text, term) })),
       alcance: analyzed.alcance.map((term) => ({ term, text: evidenceFor(text, term) })),
     };
@@ -692,12 +718,13 @@
     }
 
     const rol = dedupe(guessRol(text));
-    const actionSignals = extractActionSignals(text);
+    const signalText = skillEvidenceText(text);
+    const actionSignals = extractActionSignals(signalText);
     const skillBank = dedupe([...Keywords.SKILLS, ...actionSignals]);
-    const knownSkillMatches = normalizeSpecialistSkillSignals(text,
-      findMatchesRanked(text, Keywords.SKILLS, undefined, optionalOnlySkills(text, Keywords.SKILLS), Keywords.GENERIC_SKILLS));
-    const allSkillMatches = normalizeSpecialistSkillSignals(text, [...knownSkillMatches, ...actionSignals]);
-    const optionalSet = new Set(optionalOnlySkills(text, skillBank).map((term) => term.toLowerCase()));
+    const knownSkillMatches = normalizeSpecialistSkillSignals(signalText,
+      findMatchesRanked(signalText, Keywords.SKILLS, undefined, optionalOnlySkills(signalText, Keywords.SKILLS), Keywords.GENERIC_SKILLS));
+    const allSkillMatches = normalizeSpecialistSkillSignals(signalText, [...knownSkillMatches, ...actionSignals]);
+    const optionalSet = new Set(optionalOnlySkills(signalText, skillBank).map((term) => term.toLowerCase()));
     const genericSet = new Set(Keywords.GENERIC_SKILLS.map((term) => term.toLowerCase()));
     const knownSkillSet = new Set(knownSkillMatches.map((term) => term.toLowerCase()));
     const unverifiedSignals = dedupe(actionSignals.filter((term) => !knownSkillSet.has(term.toLowerCase()) && !optionalSet.has(term.toLowerCase())));
@@ -765,7 +792,11 @@
     // A résumé never counts as a job posting, no matter how many generic
     // signals it also trips — see looksLikeResume above.
     analyzed.isJobPosting = !analyzed.isResume && countJobPostingSignals(text, analyzed) >= MIN_JOB_POSTING_SIGNALS;
-    analyzed.quality = buildQuality(text, analyzed, options && options.sourceMeta);
+    const explicitRoleEvidence = /\b(?:el\s+)?perfil\s+requerido\s+es\s+(?:un[oa]?\s+)?[^.;\n]{3,90}/i.exec(text);
+    if (explicitRoleEvidence && rol.length && /^(?:desarrollador|developer)\b/i.test(rol[0])) {
+      analyzed.roleEvidence = explicitRoleEvidence[0].replace(/\s+\b(?:cod(?:igo)?\s+vacante|departamento|ubicaci[oó]n|modalidad|horario|rate)\b[\s\S]*$/i, "").trim();
+    }
+    analyzed.quality = buildQuality(text, analyzed, options && options.sourceMeta, signalText);
     if (analyzed.fileCountrySuggestion) {
       analyzed.quality.warnings.push(`El nombre del archivo menciona ${analyzed.fileCountrySuggestion}, pero la JD no indica país. Confirmá si corresponde antes de buscar.`);
       analyzed.quality.level = "Revisión recomendada";

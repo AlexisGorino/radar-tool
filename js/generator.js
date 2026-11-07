@@ -184,6 +184,14 @@
     return "https://www.bing.com/search?q=" + encodeURIComponent(query);
   }
 
+  function duckDuckGoUrl(query) {
+    return "https://duckduckgo.com/?q=" + encodeURIComponent(query);
+  }
+
+  function braveUrl(query) {
+    return "https://search.brave.com/search?q=" + encodeURIComponent(query);
+  }
+
   // LinkedIn's own search box parses AND/OR/NOT/quotes natively (no X-Ray
   // needed) — this stays reliable even when Google/Bing stop indexing
   // linkedin.com/in pages, which is increasingly common.
@@ -423,6 +431,8 @@
     buildResumesQuery,
     googleUrl,
     bingUrl,
+    duckDuckGoUrl,
+    braveUrl,
     linkedinSearchUrl,
     buildLinkedinBoolean,
     buildLinkedinBooleanTiers,

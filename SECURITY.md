@@ -44,6 +44,20 @@ propio; sigue sin admitir orígenes externos.
 de `.docx`; RADAR lo inserta con `textContent`. La librería se sirve desde
 `js/vendor/` y no transmite el archivo a terceros.
 
+**OCR local de PDF escaneados.** Si un PDF no tiene capa de texto, RADAR lo
+reconoce con Tesseract (WebAssembly) dentro del navegador: motor, worker y
+modelos de idioma (español + inglés) se sirven desde `assets/pdf-ocr/`, el
+mismo origen, y el archivo no se sube a ningún lado. Límite de 20 páginas
+escaneadas por archivo y lectura cancelable. Cuando el PDF parece un CV, tiene
+muy poco texto o se leyó con dudas, RADAR muestra el texto extraído y pide
+confirmación antes de analizarlo (y por lo tanto antes de enviarlo al Worker).
+
+**Tamaño real del cuerpo en el Worker.** `readJsonLimited` corta la lectura al
+superar el máximo permitido aunque falte `Content-Length` (cuerpos en
+streaming); responde 413 sin procesar el resto. El análisis de JD prueba hasta
+tres modelos de Workers AI en cascada y, si ninguno devuelve una lectura
+válida, informa el fallo en lugar de inventar datos.
+
 **Tags HTML en el texto de la JD.** Si alguien pega una JD con `<script>` o
 cualquier otro tag embebido, `extractor.js` los descarta antes de intentar
 extraer el rol (`stripTags`). No es una medida de seguridad — `textContent`

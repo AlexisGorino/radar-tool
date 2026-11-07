@@ -27,34 +27,35 @@
 <main class="wrap">
 
   <section class="welcome" aria-labelledby="welcomeTitle">
-    <p class="welcome-kicker">BÚSQUEDA DE TALENTO</p>
-    <h2 id="welcomeTitle">Encontrá el perfil que necesitás.</h2>
-    <p class="welcome-copy guided-only">Puede ser una vacante completa o una idea de perfil. RADAR ordena lo que sabe y te pregunta lo que falte.</p>
-    <p class="welcome-copy expert-only">Editá los criterios directamente y elegí las rutas de búsqueda.</p>
+    <p class="welcome-kicker">TU MESA DE SOURCING</p>
+    <h2 id="welcomeTitle">Una búsqueda clara, de principio a fin.</h2>
+    <p class="welcome-copy guided-only">Si es tu primera búsqueda, empezá por acá. Pegá una JD o contá a quién necesitás; Radar propone criterios y te explica qué revisar. No hace falta saber Boolean.</p>
+    <p class="welcome-copy expert-only">Si ya tenés claro el perfil, cargá los criterios directamente. Radar prepara las consultas y ordena las señales públicas para que las revises.</p>
+    <div class="welcome-tools"><button id="workflowTourBtn" type="button">Recorrido de 3 pasos <span aria-hidden="true">→</span></button></div>
     <div class="experience-switch" role="group" aria-label="Elegí cómo querés trabajar">
       <button class="experience-option is-active" id="guidedModeBtn" type="button" data-experience-mode="guided" aria-pressed="true">
-        <span class="experience-option-title">Paso a paso</span>
-        <span class="experience-option-copy">Revisá cada criterio antes de buscar</span>
+        <span class="experience-option-title">Modo guiado</span>
+        <span class="experience-option-copy">Te acompaña y explica cada decisión</span>
       </button>
       <button class="experience-option" id="expertModeBtn" type="button" data-experience-mode="expert" aria-pressed="false">
-        <span class="experience-option-title">Edición directa</span>
-        <span class="experience-option-copy">Ajustá los filtros manualmente</span>
+        <span class="experience-option-title">Modo experto</span>
+        <span class="experience-option-copy">Editá filtros y rutas directamente</span>
       </button>
     </div>
-    <p class="experience-status" id="experienceModeHint" role="status" aria-live="polite">1. Describí · 2. Revisá · 3. Buscá</p>
+    <p class="experience-status" id="experienceModeHint" role="status" aria-live="polite">Pegá una JD o describí el perfil · revisá los criterios · elegí las fuentes.</p>
   </section>
 
   <section class="card">
-    <h2>1 · ¿A quién buscás?</h2>
-    <p class="hint guided-only">Pegá una JD o contanos el perfil con tus palabras.</p>
-    <p class="hint expert-only">Analizá una JD o completá los filtros directamente.</p>
+    <h2>1 · Describí el perfil</h2>
+    <p class="hint guided-only">Pegá la búsqueda, contala con tus palabras o adjuntá un archivo.</p>
+    <p class="hint expert-only">Pegá una búsqueda para leerla o completá los filtros directamente.</p>
 
-    <div class="intake-modes" role="group" aria-label="Qué vas a cargar">
-      <button class="intake-mode is-active" id="descriptionModeBtn" type="button" aria-pressed="true">Pegar una JD</button>
-      <button class="intake-mode" id="ideaModeBtn" type="button" aria-pressed="false">Describir un perfil</button>
+    <div class="intake-modes" role="group" aria-label="Elegí cómo empezar la búsqueda">
+      <button class="intake-mode is-active" id="descriptionModeBtn" type="button" aria-pressed="true"><span class="intake-mode-title">Tengo una descripción</span><span class="intake-mode-desc">Pegá una JD o adjuntá un archivo</span></button>
+      <button class="intake-mode" id="ideaModeBtn" type="button" aria-pressed="false"><span class="intake-mode-title">Quiero armar el perfil</span><span class="intake-mode-desc">Contanos a quién necesitás</span></button>
     </div>
-    <p class="intake-mode-hint" id="intakeModeHint">Pegala o adjuntá un archivo.</p>
-    <p class="hint">Al analizar, RADAR envía el texto a Cloudflare Workers AI (intenta quitar emails y teléfonos detectables). La IA sugiere una lectura; confirmá cargo, tareas y ubicación antes de buscar.</p>
+    <p class="intake-mode-hint" id="intakeModeHint">Los PDF escaneados también se leen en este dispositivo.</p>
+    <p class="hint intake-privacy-note">Antes de buscar, vas a poder revisar y corregir lo que Radar entendió.</p>
 
     <div id="dropzone" class="dropzone">
       <label class="input-caption" id="intakeCaption" for="jdInput">Descripción del puesto <span>Opcional</span></label>
@@ -63,7 +64,7 @@
     </div>
     <details class="profile-examples" id="profileExamples">
       <summary>Ver ejemplos por tipo de perfil</summary>
-      <p>Elegí uno para cargarlo y revisar cómo RADAR separa cargo, señales y ubicación.</p>
+      <p>Elegí uno para cargarlo y revisar cómo se separan cargo, señales y ubicación.</p>
       <div class="profile-example-list">
         <button type="button" data-profile-example="Busco QA de automatización con Playwright en Barcelona, España.">QA · Playwright</button>
         <button type="button" data-profile-example="Busco consultor SAP FI/CO con experiencia en S/4HANA en Ciudad de México, México.">ERP · SAP FI/CO</button>
@@ -72,41 +73,43 @@
       </div>
     </details>
     <div class="row-actions">
-      <button class="btn btn-dark" id="analyzeBtn" type="button">Analizar descripción</button>
-      <label class="file-label">
-        <span class="file-label-title">Adjuntar archivo</span>
-        <span class="file-label-hint">PDF, DOCX o TXT</span>
-        <input type="file" id="fileInput" accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <button class="btn btn-dark" id="analyzeBtn" type="button">Leer y proponer criterios</button>
+      <label class="file-label" for="fileInput">
+        <span class="file-label-icon" aria-hidden="true">↑</span>
+        <span class="file-label-copy"><span class="file-label-title">Adjuntar archivo</span><span class="file-label-hint" id="fileNameDisplay" aria-live="polite">PDF o Word hasta 8 MB · TXT hasta 500 KB</span></span>
+        <span class="file-label-action" aria-hidden="true">Elegir archivo</span>
+        <input type="file" id="fileInput" aria-label="Elegir archivo de descripción del puesto" accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
       </label>
+      <button class="btn btn-ghost hidden" id="cancelOcrBtn" type="button">Cancelar lectura</button>
       <button class="btn btn-ghost" id="clearAllBtn" type="button">Borrar todo</button>
     </div>
     <section class="jd-review hidden" id="jdReview" aria-live="polite" aria-labelledby="jdReviewTitle">
       <div class="jd-review-head">
-        <div><h3 id="jdReviewTitle">Revisá el perfil detectado</h3><p class="hint" id="jdReviewSummary"></p></div>
+        <div><p class="jd-review-step">REVISIÓN · TODAVÍA NO BUSCAMOS</p><h3 id="jdReviewTitle">Revisá el perfil</h3><p class="hint" id="jdReviewSummary"></p></div>
         <span class="jd-review-badge" id="jdReviewBadge"></span>
       </div>
       <div class="jd-review-grid" id="jdReviewGrid"></div>
       <div class="jd-review-questions" id="jdReviewQuestions"></div>
-      <p class="jd-review-help">Confirmá el cargo, los requisitos y la ubicación antes de seguir.</p>
+      <p class="jd-review-help"><strong>Qué hacer:</strong> corregí lo que no corresponda y elegí qué señales querés usar. Después, cargá el perfil para revisar todos los filtros antes de buscar.</p>
       <p class="jd-review-warning hidden" id="jdReviewWarning"></p>
       <div class="jd-review-actions">
-        <button class="btn btn-primary" id="applyJdBtn" type="button">Confirmar perfil y continuar</button>
-        <button class="btn btn-ghost" id="dismissJdBtn" type="button">Seguir editando la descripción</button>
-        <button class="btn btn-ghost hidden" id="aiAnalyzeJdBtn" type="button">✨ Mejorar análisis con Gemini</button>
+        <button class="btn btn-primary" id="applyJdBtn" type="button">Cargar perfil y revisar filtros</button>
+        <button class="btn btn-ghost" id="dismissJdBtn" type="button">Volver a la descripción</button>
+        <button class="btn btn-ghost hidden" id="aiAnalyzeJdBtn" type="button">Profundizar análisis con Gemini</button>
       </div>
-      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">Este análisis opcional se envía a Google Gemini con tu clave, además del análisis automático de RADAR.</p>
+      <p class="jd-review-ai-note hidden" id="jdReviewAiNote">Este análisis opcional se envía a Google Gemini con tu clave, además del análisis automático.</p>
       <p class="jd-review-ai-status" id="jdReviewAiStatus" role="status"></p>
     </section>
   </section>
 
   <section class="card">
-    <h2>2 · Revisá el perfil y el lugar</h2>
-    <p class="hint guided-only">Corregí lo que RADAR entendió. Agregá cada criterio con Enter.</p>
-    <p class="hint expert-only">Editá los criterios. Los cargos son alternativas; los obligatorios se exigen todos.</p>
+    <h2>2 · Revisá qué va a buscar Radar</h2>
+    <p class="hint guided-only">Los criterios ya están cargados. Podés corregirlos o agregar otros antes de buscar.</p>
+    <p class="hint expert-only">Ajustá los criterios y la ubicación antes de preparar la búsqueda.</p>
     <div class="criteria-key guided-only" aria-label="Cómo interpretar los criterios">
-      <span><b class="criteria-key-mark is-required">!</b> En un conocimiento, lo marca como obligatorio</span>
-      <span><b class="criteria-key-mark is-alternative">↔</b> En un obligatorio, lo vuelve flexible</span>
-      <span>Para ubicar bien: país + localidad</span>
+      <span>Indispensables: deben cumplirse todos</span>
+      <span>Conocimientos relacionados: alcanza con uno</span>
+      <span>La búsqueda puede cubrir un país entero o localidades puntuales</span>
     </div>
 
     <div class="radar-grid">
@@ -120,8 +123,12 @@
           <span class="synonyms-label">+ sinónimos:</span>
           <div class="synonyms-list" id="synonymsList"></div>
         </div>
+        <div class="synonyms-row hidden" id="personalSuggestionsRow">
+          <span class="synonyms-label">De tus búsquedas en este navegador:</span>
+          <div class="synonyms-list" id="personalSuggestionsList"></div>
+        </div>
         <div class="ai-suggest-row hidden" id="aiRoleSuggestRow">
-          <button class="btn btn-ghost btn-small" type="button" id="aiSuggestBtn">✨ Sugerir con IA</button>
+          <button class="btn btn-ghost btn-small" type="button" id="aiSuggestBtn">Sugerir términos</button>
           <span class="hint" id="aiSuggestHint"></span>
         </div>
       </div>
@@ -136,7 +143,7 @@
         <input id="requiredInput" type="text" class="field-input" data-field="imprescindibles" aria-label="Agregar requisito obligatorio" placeholder="Agregar solo un requisito excluyente…" maxlength="80">
         <div class="field-desc required-help">Usalos solo si realmente son excluyentes. Podés mover cada criterio con la flecha.</div>
         <div class="synonyms-row hidden" id="aiAtributosRow">
-          <span class="synonyms-label">+ sugeridos por IA:</span>
+          <span class="synonyms-label">+ sugerencias de perfil:</span>
           <div class="synonyms-list" id="aiAtributosList"></div>
         </div>
       </div>
@@ -150,10 +157,11 @@
           </select>
         </div>
         <label class="field-label location-locality-label" for="locationInput">Localidad, provincia o región</label>
-        <div class="field-desc">Agregá una o más zonas dentro de ese país.</div>
+        <div class="field-desc">Opcional: si no agregás una zona, buscamos en todo el país.</div>
         <div class="chips" id="chips-alcance"></div>
         <input id="locationInput" type="text" class="field-input" data-field="alcance" aria-label="Agregar localidad, provincia o región" placeholder="Ej.: Barcelona" maxlength="80">
-        <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Buscar sin restricción geográfica</label>
+        <label class="location-optout"><input type="checkbox" id="noLocationCheckbox"> Sin filtro de ubicación para búsquedas manuales</label>
+        <p class="field-desc location-scope-note">El listado automático necesita un país. Podés buscar en todo el país o acotar por ciudad/región.</p>
       </div>
       <details class="advanced-options" id="advancedCriteria">
         <summary>Más filtros <span>Sector, puntos extra y exclusiones</span></summary>
@@ -195,7 +203,7 @@
       </li>
       <li class="readiness-item" id="readinessLocation" data-state="pending">
         <span class="readiness-marker" aria-hidden="true"></span>
-        <span><strong>Ubicación</strong><small class="readiness-detail">Indicá localidad y país.</small></span>
+        <span><strong>Ubicación</strong><small class="readiness-detail">Elegí un país; la localidad es opcional.</small></span>
         <span class="readiness-status">Pendiente</span>
       </li>
       <li class="readiness-item" id="readinessJd" data-state="ready">
@@ -216,22 +224,45 @@
 
   <section class="results" id="results">
 
+    <section class="card result-secondary free-search-priority" id="resultXray" aria-labelledby="freeSearchTitle">
+      <div class="platform-head">
+        <div>
+          <span class="public-search-kicker">BÚSQUEDA LIBRE · SIN CRÉDITOS DE API</span>
+          <h2 id="freeSearchTitle">Encontrá perfiles con X-Ray</h2>
+    <p class="hint">Gratis y sin cupos de la app: elegí un buscador, abrí la consulta y revisá cada perfil en su fuente.</p>
+        </div>
+        <button class="btn btn-copy" data-copy="out-xray" type="button">Copiar consulta</button>
+      </div>
+      <div class="boolean-box" id="out-xray">—</div>
+      <div class="engine-buttons free-engine-buttons">
+        <a class="btn btn-engine btn-engine-primary" id="openGoogle" href="#" target="_blank" rel="noopener noreferrer">Abrir Google</a>
+        <a class="btn btn-engine" id="openBing" href="#" target="_blank" rel="noopener noreferrer">Abrir Bing</a>
+        <a class="btn btn-engine" id="openDuckDuckGo" href="#" target="_blank" rel="noopener noreferrer">Abrir DuckDuckGo</a>
+        <a class="btn btn-engine" id="openBrave" href="#" target="_blank" rel="noopener noreferrer">Abrir Brave</a>
+      </div>
+      <div class="engine-buttons" id="xrayTiers"></div>
+      <p class="platform-note" id="xrayNetworkLabel">Google · perfiles públicos</p>
+      <p class="platform-note" id="xrayNote"></p>
+      <p class="platform-note platform-note-warn">Los buscadores tienen sus propias reglas y pueden mostrar información antigua. Confirmá cada perfil en su sitio.</p>
+    </section>
+
     <section class="card public-search-setup" id="publicSearchSetup" aria-labelledby="publicSearchTitle">
       <div class="public-search-heading">
-        <div><span class="public-search-kicker">PRIMERA OPCIÓN</span><h2 id="publicSearchTitle">Lista de perfiles para revisar</h2></div>
-        <span class="public-search-cap">Hasta 20 · LinkedIn + GitHub</span>
+        <div><span class="public-search-kicker">RADAR BUSCA POR VOS · CON CUPO GRATUITO</span><h2 id="publicSearchTitle">Buscar perfiles automáticamente</h2></div>
+        <span class="public-search-cap">Hasta 30 · LinkedIn + GitHub</span>
       </div>
-      <p class="hint">Hasta 20 perfiles públicos que coincidan con el cargo y la localidad.</p>
+      <p class="hint">Elegí LinkedIn o GitHub y tocá “Buscar perfiles”. Recibís hasta 30 perfiles públicos para revisar; el cupo es limitado.</p>
       <details class="public-search-explainer">
         <summary>Fuentes y límites</summary>
-        <p>LinkedIn cruza hasta 3 consultas de Google: por cargo, por habilidades y sin sector. GitHub consulta perfiles técnicos públicos.</p>
-        <p>Puede haber menos de 20. Confirmá ubicación y experiencia en cada perfil antes de contactar.</p>
-        <p>LinkedIn usa hasta 3 créditos por lista. Bing y LinkedIn directo abren búsquedas manuales; no consumen cupo de RADAR. GitHub tiene un límite por hora.</p>
+        <p>LinkedIn busca perfiles públicos indexados por Google, Bing y Yahoo, con hasta 3 consultas complementarias. GitHub busca perfiles técnicos públicos cuando hay un lenguaje o tecnología que pueda contrastar.</p>
+        <p>La búsqueda inicial no se amplía sola. Si no aparecen perfiles, Radar te ofrece otra ruta y te informa si usa una consulta adicional antes de ejecutarla.</p>
+        <p>Puede haber menos de 30. Confirmá ubicación y experiencia en cada perfil antes de contactar.</p>
+        <p>La búsqueda inicial de LinkedIn usa hasta 3 créditos. Cada ampliación puede usar otro crédito y siempre requiere tu clic. Las búsquedas manuales no consumen el cupo de SerpApi; GitHub tiene un límite por hora.</p>
         <p><a href="https://serpapi.com/pricing" target="_blank" rel="noopener noreferrer">Límites de SerpApi</a> · <a href="https://www.bing.com/search" target="_blank" rel="noopener noreferrer">Abrir Bing</a></p>
       </details>
       <div class="public-search-sources" id="publicSearchSources" role="group" aria-label="Fuentes públicas a consultar"></div>
       <div class="public-search-action">
-        <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles</button>
+      <button class="btn btn-primary" id="findProfilesBtn" type="button" disabled>Buscar perfiles automáticamente</button>
         <button class="btn btn-ghost btn-small" id="checkProfilesConnectionBtn" type="button" disabled>Probar conexión</button>
         <span class="hint" id="publicSearchConfigNote">Servicio de búsqueda no configurado.</span>
       </div>
@@ -261,7 +292,7 @@
     </div>
 
     <section class="card network-options-card hidden" id="networkOptionsCard">
-      <h2>Otras formas de buscar</h2>
+      <h2>Buscá manualmente en otros portales</h2>
       <p class="hint">Además del listado, abrí consultas en otros portales y revisá sus resultados.</p>
       <div class="network-recommendations" id="networkRecommendations" aria-live="polite"></div>
       <details class="advanced-options advanced-networks" id="moreNetworks">
@@ -287,21 +318,6 @@
       <div class="boolean-box" id="out-linkedin">—</div>
       <div class="engine-buttons" id="linkedinTiers"></div>
       <p class="platform-note">“Sin título” busca por requisitos. En LinkedIn, aplicá también el filtro de ubicación.</p>
-    </div>
-
-    <div class="result-secondary" id="resultXray">
-      <div class="platform-head">
-        <div class="platform-name" id="xrayNetworkLabel">Google · perfiles públicos</div>
-        <button class="btn btn-copy" data-copy="out-xray" type="button">Copiar</button>
-      </div>
-      <div class="boolean-box" id="out-xray">—</div>
-      <div class="engine-buttons">
-        <a class="btn btn-engine btn-engine-primary" id="openGoogle" href="#" target="_blank" rel="noopener noreferrer">Abrir en Google</a>
-        <a class="btn btn-engine" id="openBing" href="#" target="_blank" rel="noopener noreferrer">Abrir en Bing</a>
-      </div>
-      <div class="engine-buttons" id="xrayTiers"></div>
-      <p class="platform-note" id="xrayNote"></p>
-      <p class="platform-note platform-note-warn">Estos buscadores pueden mostrar páginas ajenas o antiguas. Confirmá cada perfil en su sitio.</p>
     </div>
 
     <div class="result-secondary hidden" id="resultGithub">
@@ -331,6 +347,7 @@
     <summary>Privacidad y datos</summary>
     <ul>
       <li>La descripción se analiza en tu navegador y no se guarda en Mindata.</li>
+      <li>Los PDF escaneados se leen con OCR en tu dispositivo: el archivo no se sube a ningún servidor.</li>
       <li>El historial queda en este navegador. Mindata registra nombre, fecha, acción y portal, no la descripción.</li>
       <li>Al analizar, Cloudflare Workers AI recibe el texto; RADAR intenta quitar emails y teléfonos detectables. Si usás Gemini, Google también recibe el texto.</li>
       <li>Para buscar perfiles, SerpApi recibe una consulta resumida de cargo, señales y ubicación.</li>
@@ -365,11 +382,11 @@
     </div>
     <p class="hint">Si no tenés una descripción, elegí “Quiero explicar a quién busco” y escribí lo que sepas.</p>
     <dl class="help-dl">
-      <dt>Cargo</dt><dd>Usá el título que podría aparecer en el perfil. Podés dejarlo vacío si buscás por conocimientos.</dd>
-      <dt>Alternativas</dt><dd>Son tareas o conocimientos; alcanza con que coincida uno.</dd>
+      <dt>Cargo y equivalentes</dt><dd>Agregá nombres posibles para el mismo puesto. Alcanza con que coincida uno.</dd>
+      <dt>Conocimientos relacionados</dt><dd>Sumá habilidades, herramientas o tareas. No son excluyentes: sirven para encontrar perfiles afines.</dd>
       <dt>Imprescindibles</dt><dd>Agregá solo requisitos excluyentes: deben cumplirse todos.</dd>
-      <dt>Ubicación</dt><dd>Elegí país y localidad. Revisalos en los resultados.</dd>
-      <dt>Filtros extra</dt><dd>Los puntos extra suman; las exclusiones quitan términos concretos.</dd>
+      <dt>Ubicación</dt><dd>Elegí país para buscar en todo el territorio o agregá localidades para acotar.</dd>
+      <dt>Puntos extra y exclusiones</dt><dd>Los puntos extra ayudan a ordenar; las exclusiones quitan términos concretos.</dd>
     </dl>
     <p class="hint">Google X-Ray busca perfiles públicos que Google tiene indexados; puede omitir perfiles o mostrar datos viejos.</p>
     <p class="hint">La lista muestra coincidencias públicas, no confirma experiencia ni disponibilidad.</p>
@@ -438,18 +455,39 @@
     <button class="btn btn-primary" id="closeJdWarningBtnBottom" type="button">Entendido</button>
   </div>
 </aside>
-<aside class="side-panel hidden related-search-panel" id="relatedSearchPanel" role="dialog" aria-modal="true" aria-labelledby="relatedSearchPanelTitle">
-  <div class="side-panel-inner">
-    <div class="side-panel-head">
-      <h3 id="relatedSearchPanelTitle">Búsqueda ampliada</h3>
-      <button class="btn-close" id="closeRelatedSearchBtn" type="button" aria-label="Cerrar">×</button>
-    </div>
-    <p id="relatedSearchNoticeMessage" aria-live="polite"></p>
-    <p class="hint">Los perfiles afines son pistas para revisar; no significan que cumplan el cargo o la experiencia buscados.</p>
-    <button class="btn btn-primary" id="viewRelatedResultsBtn" type="button">Ver resultados</button>
-  </div>
-</aside>
 <div class="side-panel-backdrop hidden" id="sidePanelBackdrop"></div>
+
+<dialog class="pdf-review-dialog" id="pdfReviewDialog" aria-labelledby="pdfReviewTitle" aria-describedby="pdfReviewMessage">
+  <div class="pdf-review-card">
+    <p class="pdf-review-kicker">REVISIÓN DEL ARCHIVO</p>
+    <h2 id="pdfReviewTitle">¿Este es el documento que querés pasar por Radar?</h2>
+    <p id="pdfReviewMessage"></p>
+    <div class="pdf-review-extract-label">Así se leyó el PDF</div>
+    <pre id="pdfReviewExcerpt" class="pdf-review-excerpt"></pre>
+    <div class="pdf-review-actions">
+      <button class="btn btn-primary" id="confirmPdfReviewBtn" type="button">Sí, analizar esta búsqueda</button>
+      <button class="btn btn-ghost" id="editPdfReviewBtn" type="button">Editar el texto</button>
+      <button class="btn btn-ghost" id="replacePdfReviewBtn" type="button">Elegir otro archivo</button>
+    </div>
+    <p class="pdf-review-privacy">El texto se analiza solo después de que confirmes.</p>
+  </div>
+</dialog>
+
+<dialog class="workflow-tour-dialog" id="workflowTourDialog" aria-labelledby="workflowTourTitle" aria-describedby="workflowTourIntro">
+  <div class="workflow-tour-card">
+    <div class="workflow-tour-head">
+      <div><p class="pdf-review-kicker">RECORRIDO BREVE · 3 PASOS</p><h2 id="workflowTourTitle">De la descripción a la búsqueda</h2></div>
+      <button class="btn-close" id="closeWorkflowTourBtn" type="button" aria-label="Cerrar recorrido">×</button>
+    </div>
+    <p id="workflowTourIntro" class="workflow-tour-intro">No necesitás conocer Boolean ni tener una JD perfecta. Radar propone; vos revisás antes de buscar.</p>
+    <ol class="workflow-tour-steps">
+      <li><span class="workflow-tour-number">1</span><div><h3>Contá a quién buscás</h3><p>Pegá una descripción, escribí la idea con tus palabras o adjuntá un archivo. Los PDF escaneados se leen en tu dispositivo.</p><button class="btn btn-ghost btn-small" type="button" data-tour-target="#jdInput">Ir a la descripción</button></div></li>
+      <li><span class="workflow-tour-number">2</span><div><h3>Revisá los criterios</h3><p>Confirmá cargo, conocimientos indispensables, alternativas y ubicación. Si algo no es excluyente, dejalo como señal relacionada.</p><button class="btn btn-ghost btn-small" type="button" data-tour-target=".radar-grid">Ir a los criterios</button></div></li>
+      <li><span class="workflow-tour-number">3</span><div><h3>Elegí dónde buscar</h3><p>Prepará consultas para otros portales o pedí una lista de perfiles públicos. Las ampliaciones automáticas requieren tu decisión.</p><button class="btn btn-ghost btn-small" type="button" data-tour-target="#searchReadiness">Ir al inicio de búsqueda</button></div></li>
+    </ol>
+    <div class="workflow-tour-footer"><span>Podés volver a este recorrido cuando quieras.</span><button class="btn btn-primary" id="finishWorkflowTourBtn" type="button">Entendido</button></div>
+  </div>
+</dialog>
 
 <footer class="page-footer">
   <img src="assets/mindata-logo.png" alt="Mindata" class="footer-logo">

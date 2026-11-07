@@ -60,7 +60,7 @@ la cuenta.
   y lo indica como resultado parcial; si no puede comprobar el plan gratuito,
   no consulta al proveedor. GitHub no consume
   búsquedas SerpApi. Se seleccionan LinkedIn, GitHub o ambas fuentes. El Worker
-  devuelve hasta 20 enlaces por búsqueda (hasta 10 perfiles enriquecidos de
+  devuelve hasta 30 enlaces por búsqueda (hasta 10 perfiles enriquecidos de
   GitHub) y alterna fuentes antes de que el frontend ordene por señales visibles.
   Comprueba el cupo antes de iniciar consultas.
 - La ciudad/región más específica debe aparecer en el fragmento para que RADAR

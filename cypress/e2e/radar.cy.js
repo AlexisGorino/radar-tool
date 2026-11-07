@@ -1,3 +1,8 @@
+function primeAuthenticatedSession(win) {
+  win.localStorage.setItem("radar-auth-v1", "ok");
+  win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+}
+
 describe("RADAR talent search flow", () => {
   beforeEach(() => {
     // Keep automated QA from writing usage events to the real Mindata sheet.
@@ -5,8 +10,7 @@ describe("RADAR talent search flow", () => {
     cy.intercept("POST", "**/api/analyze", { statusCode: 503, body: { error: "ai_unavailable" } }).as("understandProfile");
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         win.localStorage.setItem("radar-experience-mode-v1", "guided");
       },
     });
@@ -17,13 +21,13 @@ describe("RADAR talent search flow", () => {
     cy.get("#welcomeTitle").should("be.visible");
     cy.get("#guidedModeBtn").should("have.attr", "aria-pressed", "true");
     cy.get("#jdInput").should("be.visible").and("have.attr", "aria-describedby", "intakeModeHint");
-    cy.get("#analyzeBtn").should("contain.text", "Analizar descripción");
+    cy.get("#analyzeBtn").should("contain.text", "Leer y proponer criterios");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get("#searchReadinessTitle").should("contain.text", "Antes de buscar");
     cy.get("#generateBtn").should("contain.text", "Preparar búsquedas");
 
     cy.get("#ideaModeBtn").click();
-    cy.get("#analyzeBtn").should("contain.text", "Analizar perfil");
+    cy.get("#analyzeBtn").should("contain.text", "Leer mi idea con Radar");
 
     cy.viewport(390, 844);
     cy.get(".generate-row").should("have.css", "flex-direction", "column");
@@ -40,8 +44,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -62,6 +65,9 @@ describe("RADAR talent search flow", () => {
     );
     cy.get("#analyzeBtn").click();
     cy.get("#jdReview").should("be.visible");
+    cy.get("#jdReviewTitle").should("contain.text", "Revisá el perfil");
+    cy.get(".jd-review-help").should("contain.text", "elegí qué señales querés usar")
+      .and("contain.text", "revisar todos los filtros antes de buscar");
     cy.get("#applyJdBtn").should("be.disabled");
     cy.contains("#jdReviewQuestions button", "Sí, es este perfil").click();
     cy.contains("#jdReviewQuestions button", "Sí, usar estas señales").click();
@@ -78,6 +84,25 @@ describe("RADAR talent search flow", () => {
     });
   });
 
+  it("reads a Java developer template without mistaking Angular or a form label for the role", () => {
+    cy.readFile("tests/fixtures/java-developer-angular-desirable-es.txt").then((jd) => {
+      cy.get("#jdInput").type(jd, { delay: 0 });
+    });
+    cy.get("#analyzeBtn").click();
+    cy.wait("@understandProfile");
+
+    cy.get(".jd-review-role-input").should("have.value", "Desarrollador Java");
+    cy.get("#jdReviewGrid .jd-review-field").eq(2)
+      .should("contain.text", "Java")
+      .and("contain.text", "Spring Boot")
+      .and("not.contain.text", "Angular")
+      .and("not.contain.text", "MODALIDAD");
+    cy.get("#jdReviewGrid .jd-review-field").eq(3)
+      .should("contain.text", "Angular")
+      .and("contain.text", "También suma");
+    cy.get("#jdReviewGrid").should("not.contain.text", "años Experiencia");
+  });
+
   it("turns an informal search idea into editable criteria and clarifies an ambiguous sector", () => {
     cy.get("#ideaModeBtn").click();
     cy.get("#jdInput").should("have.attr", "aria-label", "Idea de búsqueda escrita con tus palabras");
@@ -86,6 +111,8 @@ describe("RADAR talent search flow", () => {
     cy.get("#analyzeBtn").click();
 
     cy.get("#jdReview").should("be.visible");
+    cy.get("#jdReviewTitle").should("contain.text", "Revisá el perfil");
+    cy.get(".jd-review-help").should("contain.text", "cargá el perfil para revisar todos los filtros");
     cy.get(".jd-review-role-input").should("have.value", "desarrollador");
     cy.get("#jdReviewGrid").should("contain.text", "Amadeus");
     cy.contains("#jdReviewQuestions", "¿A qué te referís con “travel”?").should("be.visible");
@@ -130,13 +157,17 @@ describe("RADAR talent search flow", () => {
     cy.wait("@understandTelecomProfile");
 
     cy.get(".jd-review-role-input").should("have.value", "Ingeniero/a en Telecomunicaciones");
-    cy.get(".jd-review-model-understanding").should("contain.text", "diseño de redes de telecomunicaciones").and("contain.text", "ejemplos, no datos de la JD");
+    cy.get(".jd-review-model-understanding").should("contain.text", "diseño de redes de telecomunicaciones").and("contain.text", "La lectura asistida propone pistas");
     cy.get("#jdReviewQuestions").should("contain.text", "¿La lectura de RADAR representa el perfil?")
       .and("contain.text", "¿Qué nivel de experiencia buscamos?")
       .and("contain.text", "Experiencia previa sin años")
       .and("contain.text", "¿Qué significa “cercanos”?")
       .and("contain.text", "Santiago de Compostela o Palma de Mallorca");
-    cy.contains(".jd-review-model-functions button", "Sumar como señal").click();
+    cy.get(".jd-review-model-destination").should("contain.text", "Conocimientos del paso 2")
+      .and("contain.text", "no excluye perfiles");
+    cy.get(".jd-review-extra > summary").click();
+    cy.contains(".jd-review-model-functions button", "Incluir en conocimientos").click();
+    cy.contains(".jd-review-model-functions button", "Ya está incluida").should("be.disabled");
     cy.contains("#jdReviewQuestions button", "Sí, es este perfil").click();
     cy.contains("#jdReviewQuestions button", "Sí, es obligatorio").click();
     cy.get('[aria-label="Años mínimos de experiencia"]').type("1");
@@ -358,7 +389,7 @@ describe("RADAR talent search flow", () => {
   });
 
   it("keeps optional filters and extra portals out of the first view", () => {
-    cy.get("#welcomeTitle").should("contain.text", "Encontrá el perfil que necesitás.");
+    cy.get("#welcomeTitle").should("contain.text", "Una búsqueda clara, de principio a fin.");
     cy.get('label[for="jdInput"]').should("contain.text", "Descripción del puesto");
     cy.get('label[for="roleInput"]').should("contain.text", "Cargo principal o equivalentes");
     cy.get('label[for="signalsInput"]').should("contain.text", "Conocimientos o tareas");
@@ -386,10 +417,13 @@ describe("RADAR talent search flow", () => {
 
   it("offers a guided route and an expert route without changing the search criteria", () => {
     cy.get("#appShell").should("have.attr", "data-experience-mode", "guided");
-    cy.get("#experienceModeHint").should("contain.text", "Describí · 2. Revisá · 3. Buscá");
+    cy.get("#experienceModeHint").should("contain.text", "Pegá una JD o describí el perfil")
+      .and("contain.text", "revisá los criterios");
     cy.get("#expertModeBtn").click();
     cy.get("#appShell").should("have.attr", "data-experience-mode", "expert");
     cy.get("#expertModeBtn").should("have.attr", "aria-pressed", "true");
+    cy.get("#experienceModeHint").should("contain.text", "prepará las consultas")
+      .and("contain.text", "elegí qué rutas ejecutar");
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get('[data-field="rol"]').should("be.visible");
     cy.get('[data-field="deseables"]').should("not.be.visible");
@@ -400,6 +434,17 @@ describe("RADAR talent search flow", () => {
     cy.get("#advancedCriteria").should("not.have.attr", "open");
     cy.get("#jdInput").should("have.value", "QA con Playwright en Barcelona\n");
     cy.window().its("localStorage.radar-experience-mode-v1").should("equal", "guided");
+  });
+
+  it("opens a three-step tour and takes the recruiter to the chosen screen area", () => {
+    cy.get("#workflowTourBtn").click();
+    cy.get("#workflowTourDialog").should("be.visible");
+    cy.get("#workflowTourTitle").should("contain.text", "De la descripción a la búsqueda");
+    cy.get(".workflow-tour-steps li").should("have.length", 3);
+    cy.get("#workflowTourIntro").should("contain.text", "No necesitás conocer Boolean");
+    cy.get('[data-tour-target="#jdInput"]').click();
+    cy.get("#workflowTourDialog").should("not.be.visible");
+    cy.focused().should("have.attr", "id", "jdInput");
   });
 
   it("takes a junior recruiter from a plain-language QA brief to a relevant, location-matched shortlist", () => {
@@ -425,8 +470,7 @@ describe("RADAR talent search flow", () => {
     }).as("juniorRecruiterSearch");
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "Junior" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -467,8 +511,7 @@ describe("RADAR talent search flow", () => {
     }).as("expertSapSearch");
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "Expert" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -507,7 +550,7 @@ describe("RADAR talent search flow", () => {
         expect($shortlist[0].compareDocumentPosition($manualSearch[0]) & Node.DOCUMENT_POSITION_FOLLOWING).to.be.greaterThan(0);
       });
     });
-    cy.get("#publicSearchTitle").should("contain.text", "Lista de perfiles para revisar");
+    cy.get("#publicSearchTitle").should("contain.text", "Buscar perfiles automáticamente");
   });
 
   it("explains when recognizable profile links lack enough public evidence to qualify", () => {
@@ -522,8 +565,7 @@ describe("RADAR talent search flow", () => {
     }).as("incompleteEvidenceSearch");
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -543,9 +585,9 @@ describe("RADAR talent search flow", () => {
 
   it("updates the readiness checklist as the recruiter clarifies the profile", () => {
     cy.get("#readinessProfile").should("contain.text", "Incompleto");
-    cy.get("#readinessLocation").should("contain.text", "Falta ubicación");
+    cy.get("#readinessLocation").should("contain.text", "Falta país");
     cy.get("#readinessJd").should("contain.text", "Manual");
-    cy.get(".hint.guided-only").should("contain.text", "con Enter");
+    cy.get(".hint.guided-only").should("contain.text", "criterios ya están cargados");
 
     cy.get('[data-field="rol"]').type("Analista de datos{enter}");
     cy.get('[data-field="atributos"]').type("SQL{enter}");
@@ -572,8 +614,8 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
     cy.get("#publicSearchSetup").should("be.visible");
-    cy.get("#publicSearchSetup").should("contain.text", "Hasta 20 · LinkedIn + GitHub");
-    cy.get("#publicSearchSetup").should("contain.text", "el cargo y la localidad");
+    cy.get("#publicSearchSetup").should("contain.text", "Hasta 30 · LinkedIn + GitHub");
+    cy.get("#publicSearchSetup").should("contain.text", "el cupo es limitado");
     cy.get('#publicSearchSources input').should("have.length", 2);
     cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub");
   });
@@ -586,8 +628,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -620,8 +661,7 @@ describe("RADAR talent search flow", () => {
     cy.intercept("POST", "/mock-search", () => { paidSearchCalls += 1; });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -639,7 +679,7 @@ describe("RADAR talent search flow", () => {
   it("builds a public-profile shortlist, preserves the selected locality, and labels missing evidence", () => {
     cy.intercept("POST", "/mock-search", (request) => {
       expect(request.body.location).to.equal("España, Islas Canarias");
-      expect(request.body.maxResults).to.equal(20);
+      expect(request.body.maxResults).to.equal(30);
       expect(request.body.queries.map((query) => query.source)).to.include("linkedin");
       expect(request.body.queries.map((query) => query.source)).to.include("github");
       expect(request.body.queries.find((query) => query.source === "github").query).to.equal('type:user language:Python location:"Islas Canarias"');
@@ -672,8 +712,7 @@ describe("RADAR talent search flow", () => {
 
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -688,12 +727,10 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="github"]').check();
     cy.get("#findProfilesBtn").should("be.enabled").click();
-    cy.get("#relatedSearchPanel").should("be.visible");
-    cy.get("#viewRelatedResultsBtn").click();
-    cy.get(".public-profile-card").should("have.length", 20);
-    cy.get(".public-search-results-heading").should("contain.text", "20 perfiles con ubicación y señales visibles");
+    cy.get(".public-profile-card").should("have.length", 22);
+    cy.get(".public-search-results-heading").should("contain.text", "22 perfiles con ubicación y señales visibles");
     cy.get(".public-profile-rank").first().should("have.text", "01");
-    cy.get(".public-profile-rank").last().should("have.text", "20");
+    cy.get(".public-profile-rank").last().should("have.text", "22");
     cy.get(".public-profile-score").first().should("contain.text", "Requisito clave visible").and("not.contain.text", "/100");
     cy.get(".public-profile-details summary").first().click();
     cy.get(".public-profile-details[open]").should("contain.text", "Coincidencias");
@@ -703,7 +740,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card a").each(($link) => {
       expect(new URL($link.prop("href")).hostname).to.equal("www.linkedin.com");
     });
-    cy.get("#publicSearchStatus").should("contain.text", "Resultado parcial: 20 perfiles con ubicación confirmada. Se usaron menos consultas porque quedaba poco cupo gratuito.");
+    cy.get("#publicSearchStatus").should("contain.text", "Resultado parcial: 22 perfiles con ubicación confirmada. Se usaron menos consultas porque quedaba poco cupo gratuito.");
     cy.get("#publicSearchResults").should("contain.text", "Búsqueda en Canary Islands,Spain");
     cy.get("#publicSearchResults").should("contain.text", "No respondió GitHub");
     cy.get(".public-search-diagnostics").should("contain.text", "Google + Bing").and("contain.text", "cupo: 2 de 3 consultas").and("contain.text", "1.1 s");
@@ -711,6 +748,47 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-search-next-actions").should("contain.text", "Seguí con otras rutas");
     cy.get(".public-search-next-actions a").should("have.attr", "href", "#results");
     cy.get("#publicSearchSources input").should("have.length", 2);
+  });
+
+  it("searches across a selected country when no locality is added and returns matching profiles", () => {
+    cy.intercept("POST", "/mock-search", (request) => {
+      expect(request.body.location).to.equal("España");
+      expect(request.body.queries).to.have.length.greaterThan(0);
+      expect(request.body.queries.some((entry) => /España|Spain/i.test(entry.query))).to.equal(true);
+      request.reply({
+        statusCode: 200,
+        body: {
+          count: 1,
+          locationContext: { mode: "query_only", countryCode: "ES" },
+          sourceErrors: [],
+          sourceDiagnostics: [{ source: "linkedin", status: "profiles_found", organicCount: 1, profileCount: 1, queriesRun: 1, code: null }],
+          results: [{
+            source: "linkedin",
+            url: "https://linkedin.com/in/ana-java-madrid",
+            title: "Ana Pérez - Java Developer - LinkedIn",
+            snippet: "Java · Spring Boot · Madrid, España",
+            position: 1,
+          }],
+        },
+      });
+    }).as("countryWideSearch");
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        primeAuthenticatedSession(win);
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Java Developer{enter}");
+    cy.get('[data-field="atributos"]').type("Java{enter}");
+    cy.get("#countrySelect").select("España");
+    cy.get("#readinessLocation").should("contain.text", "País completo").and("contain.text", "todo el país: España");
+    cy.get("#generateBtn").click();
+    cy.get("#findProfilesBtn").should("be.enabled").click();
+    cy.wait("@countryWideSearch");
+    cy.get(".public-profile-card").should("have.length", 1).and("contain.text", "Ana Pérez");
+    cy.get("#publicSearchResults").should("contain.text", "País aplicado · ES");
   });
 
   it("shares only selected public profile links and keeps WhatsApp messages within the supported selection", () => {
@@ -730,8 +808,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
         cy.stub(win, "open").as("shareWindow");
@@ -745,8 +822,6 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get("#relatedSearchPanel").should("be.visible");
-    cy.get("#viewRelatedResultsBtn").click();
     cy.get(".public-profile-card").should("have.length", 9);
     cy.get("#shareProfilesWhatsappBtn").should("be.disabled");
     cy.get("#publicShareSelectAll").check();
@@ -787,8 +862,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -811,7 +885,65 @@ describe("RADAR talent search flow", () => {
       .should("contain.text", "Localidad y país visibles");
   });
 
-  it("automatically tries a related search after no exact match and keeps hard requirements and locality", () => {
+  it("offers a deliberate search expansion when fewer than eight profiles appear", () => {
+    cy.viewport(390, 844);
+    let searchRequests = 0;
+    cy.intercept("POST", "/mock-search", (request) => {
+      searchRequests += 1;
+      request.reply({
+      statusCode: 200,
+      body: {
+        count: 4,
+        sourceErrors: [],
+        results: Array.from({ length: 4 }, (_, index) => ({
+          source: "linkedin",
+          url: `https://www.linkedin.com/in/qa-candidate-${index + 1}`,
+          title: `QA Candidate ${index + 1} - QA Engineer - LinkedIn`,
+          snippet: "Playwright · España",
+          position: index + 1,
+        })),
+      },
+      });
+    });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        primeAuthenticatedSession(win);
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("QA Engineer{enter}");
+    cy.get('[data-field="atributos"]').type("Playwright{enter}");
+    cy.get('[data-field="alcance"]').type("España{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get(".public-profile-card").should("have.length", 4);
+    cy.get(".public-profile-list").then(($list) => {
+      expect($list[0].ownerDocument.defaultView.getComputedStyle($list[0]).gridTemplateColumns.split(" ")).to.have.length(1);
+    });
+    cy.get(".public-profile-evidence-chips").first().should("contain.text", "Playwright");
+    cy.get(".public-profile-feedback-choice[data-feedback-rating=useful]").first().click();
+    cy.get(".public-search-feedback-summary").should("contain.text", "1 de 4 revisados (25%) · 1 sirven");
+    cy.get(".public-search-feedback-top-ten").should("contain.text", "Dentro de los 10 primeros: 1 revisados · 1 sirven");
+    cy.get(".public-search-feedback-export").should("be.enabled");
+    cy.then(() => expect(searchRequests).to.equal(1));
+    cy.window().then((win) => {
+      const date = new win.Date().toISOString().slice(0, 10);
+      cy.get(".public-search-feedback-export").click();
+      cy.readFile(`cypress/downloads/radar-evaluacion-${date}.csv`, { timeout: 10000 })
+        .should("contain", "QA Engineer")
+        .and("contain", "qa-candidate-1")
+        .and("contain", "useful")
+        .and("contain", "orden_radar")
+        .and("contain", ';"1";"cargo";"https://www.linkedin.com/in/qa-candidate-1"');
+    });
+    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "¿Querés buscar más?");
+    cy.get("#broadenPublicSearchBtn").should("contain.text", "Probar títulos equivalentes");
+  });
+
+  it("offers a related search on demand and keeps hard requirements and locality", () => {
     const sentQueries = [];
     cy.intercept("POST", "/mock-search", (request) => {
       sentQueries.push(request.body.queries[0].query);
@@ -819,8 +951,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -834,17 +965,21 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get("#relatedSearchPanel").should("be.visible").and("contain.text", "No encontramos coincidencias exactas");
+    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "vos decidís si continuar");
+    cy.get("#broadenPublicSearchBtn").should("contain.text", "Buscar por habilidades y ubicación");
+    cy.then(() => {
+      expect(sentQueries).to.have.length(1);
+      expect(sentQueries[0]).to.match(/Jefe de Proyecto/i);
+    });
+    cy.get("#broadenPublicSearchBtn").click();
+    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Quita cargo y sector");
+    cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
     cy.then(() => {
       expect(sentQueries).to.have.length(2);
-      expect(sentQueries[0]).to.match(/Jefe de Proyecto/i);
       expect(sentQueries[1]).not.to.match(/Jefe de Proyecto|Project Manager/i);
       expect(sentQueries[1]).to.match(/Santiago de Compostela/i);
       expect(sentQueries[1]).to.match(/MS Project/i);
     });
-    cy.get("#viewRelatedResultsBtn").click();
-    cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Quita cargo y sector");
-    cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
     cy.get("#publicSearchSources").should("contain.text", "Perfiles técnicos con actividad pública");
     cy.get("#broadenPublicSearchBtn").click();
     cy.get(".public-search-next-questions").should("be.visible").and("contain.text", "¿Qué querés ajustar?");
@@ -853,20 +988,19 @@ describe("RADAR talent search flow", () => {
     cy.then(() => expect(sentQueries).to.have.length(3));
   });
 
-  it("reports when the automatic related search fails without presenting it as a completed search", () => {
+  it("reports a failed related search only after the recruiter chooses it", () => {
     let requestCount = 0;
     cy.intercept("POST", "/mock-search", (request) => {
       requestCount += 1;
       if (requestCount === 1) {
         request.reply({ statusCode: 200, body: { count: 0, results: [], sourceErrors: [] } });
       } else {
-        request.reply({ statusCode: 502, body: { error: "sources_unavailable", sourceErrors: [{ source: "linkedin", code: "provider_timeout" }] } });
+        request.reply({ statusCode: 200, body: { count: 0, results: [], sourceErrors: [{ source: "linkedin", code: "provider_timeout" }], sourceDiagnostics: [{ source: "linkedin", status: "error", errorCode: "provider_timeout" }] } });
       }
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -878,11 +1012,12 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get("#relatedSearchPanel").should("be.visible").and("contain.text", "LinkedIn").and("contain.text", "candidatos inventados");
-    cy.then(() => expect(requestCount).to.equal(2));
     cy.get("#publicSearchRefine").should("be.visible");
+    cy.then(() => expect(requestCount).to.equal(1));
+    cy.get("#broadenPublicSearchBtn").should("contain.text", "Buscar por habilidades y ubicación").click();
+    cy.then(() => expect(requestCount).to.equal(2));
     cy.get("#publicSearchStatus").should("contain.text", "Respuesta parcial").and("not.contain.text", "Búsqueda completada");
-    cy.get(".public-search-empty").should("be.visible");
+    cy.get("#publicSearchResults").should("contain.text", "LinkedIn");
   });
 
   it("shows verified leads as related when title or requested experience is not confirmed", () => {
@@ -910,8 +1045,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -926,10 +1060,13 @@ describe("RADAR talent search flow", () => {
     cy.get("#generateBtn").click();
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
-    cy.get("#relatedSearchPanel").should("be.visible").and("contain.text", "1 perfil afín");
+    cy.get("#publicSearchRefine").should("be.visible");
+    cy.then(() => expect(plans).to.have.length(1));
+    cy.get("#broadenPublicSearchBtn").click();
     cy.get("#publicSearchResults").should("contain.text", "Ana Lopez")
       .and("contain.text", "Perfil afín · validar cargo y experiencia")
       .and("contain.text", "Santiago de Compostela, España");
+    cy.get(".public-profile-group h3").should("contain.text", "Perfiles afines para revisar");
     cy.then(() => {
       expect(plans).to.have.length(2);
       expect(plans[1].queries[0].query).not.to.match(/Jefe de Proyecto/i);
@@ -971,8 +1108,7 @@ describe("RADAR talent search flow", () => {
     }).as("partialSearch");
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -988,8 +1124,6 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-search-diagnostics").should("contain.text", "El proveedor agotó el tiempo de espera");
     cy.get(".public-search-diagnostics").should("contain.text", "Sin resultados indexados");
     cy.wait("@partialSearch");
-    cy.get("#relatedSearchPanel").should("be.visible");
-    cy.get("#viewRelatedResultsBtn").click();
     cy.get(".public-search-retry").should("contain.text", "LinkedIn").click();
     cy.wait("@partialSearch").then(() => {
       expect(plans).to.have.length(2);
@@ -1007,8 +1141,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -1029,8 +1162,7 @@ describe("RADAR talent search flow", () => {
     cy.intercept("POST", "/mock-search", { statusCode: 429, body: { error: "rate_limited" } });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -1044,8 +1176,32 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-search-error").should("contain.text", "límite temporal");
     cy.get(".public-search-error").should("contain.text", "No se reintenta automáticamente para cuidar el cupo");
     cy.get(".public-search-fallback").should("contain.text", "no consume consultas de SerpApi");
+    cy.get(".public-search-fallback-links").should("have.attr", "aria-label", "Buscadores alternativos");
+    cy.get(".public-search-fallback-link").should("have.length.at.least", 2).and("be.visible");
     cy.get(".public-search-fallback a").should("have.length.at.least", 2);
     cy.get("#findProfilesBtn").should("be.enabled");
+  });
+
+  it("explains a rejected search plan and confirms that no search quota was used", () => {
+    cy.intercept("POST", "/mock-search", { statusCode: 400, body: { error: "invalid_search_plan" } });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        primeAuthenticatedSession(win);
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get("#findProfilesBtn").click();
+    cy.get(".public-search-error").should("contain.text", "La búsqueda necesita un ajuste")
+      .and("contain.text", "RADAR no pudo validar esta búsqueda")
+      .and("contain.text", "No se consumió cupo");
+    cy.get(".public-search-error").should("not.contain.text", "error (400)");
+    cy.get(".public-search-fallback-link").should("have.length.at.least", 2).and("be.visible");
   });
 
   it("explains how to continue when the free monthly search quota is exhausted", () => {
@@ -1055,8 +1211,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -1081,8 +1236,7 @@ describe("RADAR talent search flow", () => {
     }).as("failedPublicSearch");
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
         const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
         if (endpoint) endpoint.content = "/mock-search";
       },
@@ -1104,8 +1258,7 @@ describe("RADAR talent search flow", () => {
     cy.intercept("GET", "**/js/app.js?v=*", { forceNetworkError: true });
     cy.visit("/", {
       onBeforeLoad(win) {
-        win.localStorage.setItem("radar-auth-v1", "ok");
-        win.localStorage.setItem("radar-user-v1", JSON.stringify({ nombre: "QA", apellido: "RADAR" }));
+        primeAuthenticatedSession(win);
       },
     });
     cy.get("#radarBootError").should("be.visible").and("contain.text", "No pudimos iniciar");
@@ -1129,22 +1282,21 @@ describe("RADAR talent search flow", () => {
     cy.get("#out-universal").should("contain.text", "Rosario").and("not.contain.text", "retail");
   });
 
-  it("records only anonymous per-source outcome counts in local storage", () => {
+  it("does not save private search details as outcome telemetry", () => {
     cy.get('[data-field="rol"]').type("Analista de selección{enter}");
     cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
-    cy.contains("#outcomePanel button", "Encontré perfiles útiles").click();
+    cy.get("#generateBtn").click();
     cy.window().then((win) => {
-      const saved = JSON.parse(win.localStorage.getItem("radar-outcomes-v1"));
-      expect(saved).to.deep.equal({ linkedin: { relevant: 1, noisy: 0, empty: 0 } });
+      expect(win.localStorage.getItem("radar-outcomes-v1")).to.equal(null);
     });
   });
 
   it("separates required signals, alternatives, and desirables across search routes", () => {
     cy.get('[data-field="rol"]').type("QA Engineer{enter}");
     cy.get('[data-field="atributos"]').type("Selenium{enter}");
-    cy.get("#chips-atributos").contains("button", "!").click();
+    cy.get("#chips-atributos").contains("button", "Hacer indispensable").click();
     cy.get("#chips-imprescindibles").should("contain.text", "Selenium");
     cy.get('[data-field="atributos"]').type("Cypress{enter}");
     cy.get("#advancedCriteria").then(($details) => {
@@ -1226,5 +1378,17 @@ describe("RADAR talent search flow", () => {
     cy.get("#customSiteInput").type("talent.example.org");
     cy.get("#generateBtn").click();
     cy.get("#openGoogle").should("have.attr", "href").and("include", encodeURIComponent("site:talent.example.org"));
+  });
+
+  it("records only anonymous per-source outcome counts in local storage", () => {
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.contains("#outcomePanel button", "Encontré perfiles útiles").click();
+    cy.window().then((win) => {
+      const saved = JSON.parse(win.localStorage.getItem("radar-outcomes-v1"));
+      expect(saved).to.deep.equal({ linkedin: { relevant: 1, noisy: 0, empty: 0 } });
+    });
   });
 });

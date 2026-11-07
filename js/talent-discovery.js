@@ -18,7 +18,7 @@
   });
   const PUBLIC_SOURCE_IDS = Object.freeze(["linkedin", "github"]);
   const MAX_SOURCES = PUBLIC_SOURCE_IDS.length;
-  const MAX_RESULTS = 20;
+  const MAX_RESULTS = 30;
   const MAX_QUERY_LENGTH = 900;
   const SEARCH_TIMEOUT_MS = 35_000;
   const QA_REQUEST = /\b(?:qa|quality assurance|software test(?:ing|er)?|test automation|sdet)\b/;
@@ -509,7 +509,7 @@
   function locationScopeError(state) {
     const places = cleanTerms(state && state.alcance);
     if (!places.length) {
-      return "Agregá una localidad y el país en Alcance para que el listado no mezcle ubicaciones.";
+      return "Elegí un país. Podés dejar la localidad vacía para buscar en todo el país.";
     }
     if (places.some((place) => normalizeText(place) === "chile")) {
       return "Chile y sus regiones ya no forman parte del alcance geográfico de RADAR. Elegí otro país y su localidad.";
@@ -806,6 +806,11 @@
       if (error && error.name === "TimeoutError") {
         throw new Error("La búsqueda tardó demasiado en responder. Revisá la conexión y probá de nuevo.");
       }
+      if (!response.ok && response.status === 400) {
+        const error = new Error("RADAR no pudo validar esta búsqueda. Revisá el cargo, los conocimientos y el país seleccionado; luego volvé a prepararla.");
+        error.code = "invalid_search_plan";
+        throw error;
+      }
       if (!response.ok) throw new Error(`El servicio de búsqueda respondió con un error (${response.status}).`);
       throw new Error("El servicio devolvió una respuesta inválida. No se pudo mostrar la lista; probá de nuevo más tarde.");
     } finally {
@@ -821,6 +826,12 @@
       error.requestId = typeof payload.requestId === "string" ? payload.requestId : null;
       throw error;
     };
+    if (payload.error === "invalid_search_plan") {
+      const error = new Error("RADAR no pudo validar esta búsqueda. Revisá el cargo, los conocimientos y el país seleccionado; luego volvé a prepararla.");
+      error.code = "invalid_search_plan";
+      error.requestId = typeof payload.requestId === "string" ? payload.requestId : null;
+      throw error;
+    }
     if (payload.error === "free_quota_exhausted") throw new Error("Se agotó el cupo gratuito del mes. No se inició la búsqueda.");
     if (payload.error === "hourly_quota_exhausted") throw new Error("Se agotó el cupo horario. Esperá y volvé a probar.");
     if (payload.error === "rate_limited") throw new Error("Se alcanzó el límite temporal de RADAR. Probá en un minuto.");
@@ -841,7 +852,14 @@
     if (payload.error === "budget_unavailable") throw new Error("No se pudo verificar el cupo. La búsqueda no se inició.");
     if (response.status === 429) throw new Error("El proveedor limitó temporalmente esta búsqueda. Revisá el cupo horario o mensual y probá más tarde.");
     if (response.status === 503) throw new Error("Servicio de búsqueda no disponible. Revisá la configuración.");
-    if (!response.ok) throw new Error(`El proveedor de búsqueda respondió con un error (${response.status}).`);
+    if (!response.ok) {
+      if (response.status === 400) {
+        const error = new Error("RADAR no pudo validar esta búsqueda. Revisá el cargo, los conocimientos y el país seleccionado; luego volvé a prepararla.");
+        error.code = "invalid_search_plan";
+        throw error;
+      }
+      throw new Error(`El servicio de búsqueda respondió con un error (${response.status}).`);
+    }
     return {
       results: normalizeResults(payload, state),
       sourceErrors: Array.isArray(payload.sourceErrors) ? payload.sourceErrors : [],

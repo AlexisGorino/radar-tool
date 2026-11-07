@@ -1,0 +1,23 @@
+DESCRIPCIÓN DEL PUESTO DE TRABAJO
+PUESTO - CLIENTE
+Cliente Demo - Angular (Java)
+EL PERFIL REQUERIDO ES UN DEV JAVA con Angular como
+deseable
+COD VACANTE DEMO-001
+UBICACIÓN CANDIDATO España
+MODALIDAD (remoto, híbrido, presencial) Remoto
+DESCRIPCIÓN
+Búsqueda dentro de España - 100 % Remoto.
+Requisitos técnicos
+Experiencia demostrable como desarrollador/a de software, ingeniero/a de software o en una posición similar.
+Experiencia en el desarrollo de aplicaciones backend y el diseño de APIs REST.
+Dominio de Java 21 o superior, preferiblemente Java 25, y experiencia con Spring Boot 3.x o 4.x.
+Experiencia con frameworks y tecnologías del ecosistema Spring, como Spring Data JPA, Hibernate y Spring Security.
+Conocimientos de sistemas de mensajería y procesamiento de eventos, especialmente Apache Kafka.
+Experiencia con motores de búsqueda y análisis de datos, como Elasticsearch, y herramientas de visualización y monitorización, como Kibana.
+Conocimientos de sistemas de almacenamiento en memoria y caché, especialmente Redis.
+Experiencia con bases de datos relacionales, como PostgreSQL y Microsoft SQL Server.
+Experiencia con tecnologías de contenerización y orquestación, como Docker y Kubernetes.
+Conocimientos de integración continua y entrega continua (CI/CD), control de versiones con Git y automatización de builds con Maven o Gradle.
+Familiaridad con metodologías ágiles, como Scrum o Kanban.
+Se valorará la experiencia en desarrollo frontend con Angular moderno y TypeScript, así como en la integración de aplicaciones frontend con servicios backend.

@@ -1,0 +1,32 @@
+name: RADAR · salud de producción
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 12 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "js/**"
+      - "backend/**"
+      - "scripts/production-health.mjs"
+      - ".github/workflows/production-health.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  check-live-services:
+    name: Comprobar web y búsqueda
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+      - name: Revisar endpoints de producción
+        run: npm run check:production

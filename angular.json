@@ -19,7 +19,13 @@
             "tsConfig": "tsconfig.app.json",
             "assets": [
               { "glob": "**/*", "input": "assets", "output": "assets" },
-              { "glob": "**/*", "input": "js", "output": "js" }
+              { "glob": "**/*", "input": "js", "output": "js" },
+              { "glob": "tesseract.esm.min.js", "input": "node_modules/tesseract.js/dist", "output": "assets/pdf-ocr" },
+              { "glob": "worker.min.js", "input": "node_modules/tesseract.js/dist", "output": "assets/pdf-ocr" },
+              { "glob": "tesseract-core-lstm.wasm.js", "input": "node_modules/tesseract.js-core", "output": "assets/pdf-ocr" },
+              { "glob": "tesseract-core-lstm.wasm", "input": "node_modules/tesseract.js-core", "output": "assets/pdf-ocr" },
+              { "glob": "spa.traineddata.gz", "input": "node_modules/@tesseract.js-data/spa/4.0.0_best_int", "output": "assets/pdf-ocr" },
+              { "glob": "eng.traineddata.gz", "input": "node_modules/@tesseract.js-data/eng/4.0.0_best_int", "output": "assets/pdf-ocr" }
             ],
             "styles": ["src/styles.css"],
             "scripts": [],
