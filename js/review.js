@@ -30,7 +30,10 @@
 
   function profileIssue(result) {
     const roles = result.rol || [];
-    const skills = [...(result.imprescindibles || []), ...(result.atributos || []), ...(result.atributosDeseables || [])];
+    // The analysis object uses "atributosDeseables"; the chip state object
+    // (passed in once the recruiter is editing step 2) uses "deseables" for
+    // the same bucket — accept either so a desirable-only signal still counts.
+    const skills = [...(result.imprescindibles || []), ...(result.atributos || []), ...(result.atributosDeseables || result.deseables || [])];
     const domains = result.dominio || [];
     if (!roles.length && skills.length < 2) return "Sin título, agregá al menos dos habilidades, tareas o experiencias concretas.";
     if (!roles.length && !domains.length && skills.length < 3) return "Sin título, agregá el sector o una tercera señal específica para distinguir el perfil.";

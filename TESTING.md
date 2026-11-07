@@ -58,9 +58,9 @@ npm run start:angular
 En la otra terminal, ejecutar Cypress con `npm run test:e2e -- --config
 baseUrl=http://127.0.0.1:8767`.
 
-## Shortlist pública (LinkedIn + GitHub)
+## Shortlist pública (LinkedIn, Upwork, Fiverr + GitHub)
 
-- El Worker acepta LinkedIn, GitHub o ambas fuentes y devuelve hasta 30 enlaces
+- El Worker acepta LinkedIn, Upwork, Fiverr, GitHub o combinaciones y devuelve hasta 30 enlaces
   públicos en total; no garantiza completar ese máximo.
 - LinkedIn consulta hasta tres variantes de Google/SerpApi y consume hasta tres
   búsquedas por lista. El Worker comprueba antes que el plan gratuito tenga

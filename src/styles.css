@@ -543,6 +543,7 @@ select:focus-visible {
 .public-profile-title strong { color: #292927; font-size: 14px; }
 .public-profile-title span { overflow-wrap: anywhere; color: #52627b; font-size: 11px; line-height: 1.4; }
 .public-profile-score { display: grid; flex: 0 0 auto; gap: 2px; padding: 5px 8px; border: 1px solid #e8e7e1; border-radius: 6px; background: #f8f7f3; color: #383833; text-align: right; }
+.public-profile-score-percent { font-size: 20px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent, #63816a); }
 .public-profile-score strong { font-size: 12px; font-variant-numeric: tabular-nums; }
 .public-profile-score small { color: #686862; font-size: 9px; font-weight: 600; }
 .public-profile-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -550,6 +551,8 @@ select:focus-visible {
 .public-profile-meta .is-confirmed { background: #edf5ee; color: #355a3a; }
 .public-profile-meta .is-unverified { background: #f4f1e8; color: #66582b; }
 .public-profile-snippet { margin: 9px 0 6px; color: #3e4a5d; font-size: 11px; line-height: 1.5; }
+.public-profile-also-on { margin: 4px 0 0; font-size: 10.5px; color: #686862; }
+.public-profile-also-on a { color: var(--accent, #63816a); font-weight: 700; }
 .public-profile-evidence { margin: 6px 0 10px; color: #64728a; font-size: 10px; }
 .public-profile-details { margin: 8px 0 12px; }
 .public-profile-details summary { width: fit-content; color: #55554f; cursor: pointer; font-size: 10px; font-weight: 700; }

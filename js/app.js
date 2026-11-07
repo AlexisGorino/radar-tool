@@ -1949,6 +1949,45 @@
     publicSearchRefine.classList.add("hidden");
   }
 
+  function csvCell(value) {
+    const text = String(value ?? "");
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function exportPublicSearchCsv() {
+    if (!publicSearchRows.length) return;
+    const header = ["Nombre", "Título", "Fuente", "Match %", "Ubicación", "Señales visibles", "URL"];
+    const lines = [header.map(csvCell).join(",")];
+    publicSearchRows.forEach((row) => {
+      lines.push([
+        row.name || "",
+        row.title || "",
+        row.sourceLabel || "",
+        Number.isFinite(row.score) ? row.score : "",
+        row.locationStatus || "",
+        (row.visibleSignals || []).join(" | "),
+        row.url || "",
+      ].map(csvCell).join(","));
+    });
+    const blob = new Blob([`﻿${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `radar-perfiles-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function buildRoleSummary() {
+    const role = RadarTalentDiscovery.compactRoleFamily(state.rol, state.seniority)[0] || state.rol[0] || "";
+    const signals = state.imprescindibles.length ? state.imprescindibles.slice(0, 2) : state.atributos.slice(0, 3);
+    const location = state.alcance.at(-1) || "";
+    return [role, signals.join(", "), location].filter(Boolean).join(" · ") || "un perfil técnico";
+  }
+
+
   function renderPublicProfileResults(rows, sourceErrors, locationContext) {
     publicSearchResults.replaceChildren();
     const confirmedRows = rows.filter((row) => row.locationConfirmed && row.supportingSignalConfirmed);
@@ -2010,13 +2049,20 @@
       whatsappButton.className = "btn btn-ghost public-profile-share-button";
       whatsappButton.textContent = "Abrir WhatsApp";
       whatsappButton.disabled = true;
+      const exportButton = document.createElement("button");
+      exportButton.id = "exportProfilesCsvBtn";
+      exportButton.type = "button";
+      exportButton.className = "btn btn-ghost public-profile-share-button";
+      exportButton.textContent = "Exportar CSV";
+      exportButton.disabled = publicSearchRows.length === 0;
+      exportButton.addEventListener("click", () => exportPublicSearchCsv());
       const shareHint = document.createElement("span");
       shareHint.id = "publicShareHint";
       shareHint.className = "public-profile-share-hint";
       shareHint.textContent = confirmedRows.length
         ? "Solo se pueden compartir perfiles que muestran la ubicación elegida y señales del perfil. Revisá el borrador antes de enviarlo."
         : "Confirmá que el perfil reside en el país o localidad elegidos antes de preparar un mensaje.";
-      shareTools.append(selectAllLabel, selectedCount, emailButton, whatsappButton, shareHint);
+      shareTools.append(selectAllLabel, selectedCount, emailButton, whatsappButton, exportButton, shareHint);
       publicSearchResults.appendChild(shareTools);
       const feedbackTools = document.createElement("section");
       feedbackTools.className = "public-search-feedback-tools";
@@ -2100,6 +2146,9 @@
         title.append(name, headline);
         const score = document.createElement("span");
         score.className = "public-profile-score";
+        const scorePercent = document.createElement("span");
+        scorePercent.className = "public-profile-score-percent";
+        scorePercent.textContent = `${Number.isFinite(row.score) ? row.score : 0}%`;
         const evidenceLabel = document.createElement("strong");
         const hasRequired = row.requiredHits.length > 0;
         const hasRole = row.roleHits.length > 0;
@@ -2118,7 +2167,7 @@
                 : hasSkill ? "Conocimiento relacionado visible" : "Revisar relación";
         const evidenceNote = document.createElement("small");
         evidenceNote.textContent = "Señales del resultado público";
-        score.append(evidenceLabel, evidenceNote);
+        score.append(scorePercent, evidenceLabel, evidenceNote);
         const identity = document.createElement("div");
         identity.className = "public-profile-identity";
         identity.append(rank, title);
@@ -2212,6 +2261,21 @@
         const cardContent = [head, meta, snippet];
         if (signalChips.childElementCount) cardContent.push(signalChips);
         cardContent.push(details, rateGroup, link);
+        if ((row.alsoOn || []).length) {
+          const alsoOn = document.createElement("p");
+          alsoOn.className = "public-profile-also-on";
+          alsoOn.textContent = "También encontrado en: ";
+          row.alsoOn.forEach((other, otherIndex) => {
+            if (otherIndex > 0) alsoOn.append(" · ");
+            const otherLink = document.createElement("a");
+            otherLink.href = other.url;
+            otherLink.target = "_blank";
+            otherLink.rel = "noopener noreferrer";
+            otherLink.textContent = `${other.sourceLabel} ↗`;
+            alsoOn.appendChild(otherLink);
+          });
+          cardContent.push(alsoOn);
+        }
         item.append(...cardContent);
         list.appendChild(item);
         });
@@ -2551,6 +2615,40 @@
     return section;
   }
 
+  function normalizedNameKey(name) {
+    const clean = String(name || "")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+    // Require at least a first and last name: a bare first name is too common
+    // across unrelated people to safely merge two different public profiles.
+    return clean.split(" ").length >= 2 ? clean : "";
+  }
+
+  // Merges the same person's LinkedIn and GitHub hits into one card instead of
+  // two separate rows. Deliberately conservative: only merges an exact
+  // first+last name match where BOTH profiles already confirm the requested
+  // location, since a common name alone is not enough evidence it's one person.
+  function mergeCrossSourceDuplicates(rows) {
+    const byName = new Map();
+    rows.forEach((row) => {
+      const key = row.locationConfirmed ? normalizedNameKey(row.name) : "";
+      if (!key) return;
+      if (!byName.has(key)) byName.set(key, []);
+      byName.get(key).push(row);
+    });
+    const absorbed = new Set();
+    byName.forEach((group) => {
+      const bySource = new Map();
+      group.forEach((row) => { if (!bySource.has(row.source)) bySource.set(row.source, row); });
+      if (bySource.size < 2) return;
+      const ranked = [...bySource.values()].sort((a, b) => b.score - a.score);
+      const primary = ranked[0];
+      primary.alsoOn = ranked.slice(1).map((row) => ({ source: row.source, sourceLabel: row.sourceLabel, url: row.url }));
+      ranked.slice(1).forEach((row) => absorbed.add(row.url));
+    });
+    return rows.filter((row) => !absorbed.has(row.url));
+  }
+
   async function runPublicProfileSearch(strategy, sourceOverride) {
     const publicSearchEndpoint = getPublicSearchEndpoint();
     if (!publicSearchEndpoint) return;
@@ -2607,7 +2705,9 @@
         const previous = rowsByUrl.get(row.url);
         if (!previous || row.score > previous.score) rowsByUrl.set(row.url, row);
       });
-      publicSearchRows = [...rowsByUrl.values()].sort((a, b) => Number(a.discoveryRoute !== "exact") - Number(b.discoveryRoute !== "exact") || b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999)).slice(0, RadarTalentDiscovery.MAX_RESULTS);
+      publicSearchRows = mergeCrossSourceDuplicates([...rowsByUrl.values()])
+        .sort((a, b) => Number(a.discoveryRoute !== "exact") - Number(b.discoveryRoute !== "exact") || b.score - a.score || (a.providerPosition || 999) - (b.providerPosition || 999))
+        .slice(0, RadarTalentDiscovery.MAX_RESULTS);
       renderPublicProfileResults(publicSearchRows, response.sourceErrors, response.locationContext);
       const diagnostics = renderSourceDiagnostics(response.sourceDiagnostics);
       if (diagnostics) publicSearchResults.appendChild(diagnostics);
@@ -2618,17 +2718,22 @@
         publicSearchResults.appendChild(trace);
       }
       const count = publicSearchRows.length;
+      const recognizableProfiles = Array.isArray(response.sourceDiagnostics)
+        ? response.sourceDiagnostics.reduce((total, item) => (item && item.status === "profiles_found" ? total + (Number(item.profileCount) || 0) : total), 0)
+        : 0;
       const noMatchContext = count ? null : renderNoMatchContext(response.sourceDiagnostics);
-      if (noMatchContext) publicSearchResults.appendChild(noMatchContext);
+      if (noMatchContext) publicSearchResults.insertBefore(noMatchContext, publicSearchResults.firstChild);
       const quotaLimited = (response.sourceDiagnostics || []).some((item) => item.quotaLimited);
       const partial = response.sourceErrors.length > 0 || quotaLimited;
       const confirmedCount = publicSearchRows.filter((row) => row.locationConfirmed && row.supportingSignalConfirmed).length;
       const locationReviewCount = count - confirmedCount;
       publicSearchStatus.textContent = count
         ? `${partial ? "Resultado parcial" : "Listo"}: ${confirmedCount} ${confirmedCount === 1 ? "perfil" : "perfiles"} con ubicación confirmada${locationReviewCount ? ` y ${locationReviewCount === 1 ? "pista" : "pistas"} para revisar` : ""}${quotaLimited ? ". Se usaron menos consultas porque quedaba poco cupo gratuito" : ""}.`
-        : partial
-          ? "Respuesta parcial: no hubo perfiles verificables y algunas fuentes fallaron."
-          : "Búsqueda completada: sin perfiles verificables.";
+        : recognizableProfiles
+          ? `Encontramos ${recognizableProfiles} ${recognizableProfiles === 1 ? "perfil" : "perfiles"} públicos, pero ninguno confirmó requisitos y ubicación con el texto disponible. Mirá el detalle abajo.`
+          : partial
+            ? "Respuesta parcial: no hubo perfiles verificables y algunas fuentes fallaron."
+            : "Búsqueda completada: sin perfiles verificables.";
       if (count < 8 && strategy !== "market") {
         const nextStrategy = strategy === "precise"
           ? count === 0 ? "related" : "equivalent"

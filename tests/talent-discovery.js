@@ -130,9 +130,15 @@ test("GitHub searches every selected locality as a separate exact alternative", 
   };
   const plan = Discovery.buildPlan(state, ["github"], Generator);
   assert.equal(plan.queries.length, 1);
+  // The backend rejects the whole plan unless variants[0] is byte-identical
+  // to the top-level query (see backend/worker.mjs validatePlan) — this was
+  // silently broken in production for any search with 2+ localities before
+  // the locality order here was made to match buildGithubUserQuery's own
+  // "last alcance entry wins" pick.
+  assert.equal(plan.queries[0].variants[0], plan.queries[0].query);
   assert.deepEqual(plan.queries[0].variants, [
-    'type:user language:Python location:"Santiago de Compostela"',
     'type:user language:Python location:"Palma de Mallorca"',
+    'type:user language:Python location:"Santiago de Compostela"',
   ]);
   assert.equal(plan.location, "España, Santiago de Compostela, Palma de Mallorca");
 });

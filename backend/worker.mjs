@@ -1,11 +1,17 @@
 const SOURCES = Object.freeze({
   linkedin: { domain: "linkedin.com", path: /^\/(?:in|pub)\//i },
   github: { domain: "github.com", path: /^\/[^/]+\/?$/i },
+  upwork: { domain: "upwork.com", path: /^\/freelancers\/~/i },
+  fiverr: { domain: "fiverr.com", path: /^\/[^/]+\/?$/i },
   stackoverflow: { domain: "stackoverflow.com", path: /^\/users\/\d+\//i },
   xing: { domain: "xing.com", path: /^\/profile\//i },
   behance: { domain: "behance.net", path: /^\/[^/]+\/?$/i },
 });
-const PUBLIC_SOURCE_IDS = new Set(["linkedin", "github"]);
+const PUBLIC_SOURCE_IDS = new Set(["linkedin", "github", "upwork", "fiverr"]);
+// Sources searched via SerpApi Google X-Ray, sharing one free monthly quota.
+// GitHub is excluded: it queries GitHub's own free API, not SerpApi.
+const XRAY_SOURCE_IDS = new Set(["linkedin", "upwork", "fiverr"]);
+const XRAY_SITE_FILTERS = { linkedin: "site:linkedin.com/in", upwork: "site:upwork.com/freelancers", fiverr: "site:fiverr.com" };
 const MAX_SOURCES = PUBLIC_SOURCE_IDS.size;
 const MAX_RESULTS = 30;
 const MAX_QUERY_LENGTH = 900;
@@ -117,14 +123,14 @@ function validatePlan(body) {
     if (!entry || !PUBLIC_SOURCE_IDS.has(entry.source) || typeof entry.query !== "string") return false;
     const query = entry.query.trim();
     if (query.length < 5 || query.length > MAX_QUERY_LENGTH) return false;
-    if (entry.source === "linkedin") {
+    if (XRAY_SOURCE_IDS.has(entry.source)) {
       const variants = entry.variants === undefined ? [query] : entry.variants;
       if (!Array.isArray(variants) || variants.length < 1 || variants.length > MAX_LINKEDIN_VARIANTS
         || typeof variants[0] !== "string" || variants[0].trim() !== query) return false;
       const seenVariants = new Set();
       for (const variant of variants) {
         if (typeof variant !== "string" || variant.trim().length < 5 || variant.trim().length > MAX_QUERY_LENGTH
-          || !variant.toLowerCase().includes("site:linkedin.com/in") || seenVariants.has(variant.trim())) return false;
+          || !variant.toLowerCase().includes(XRAY_SITE_FILTERS[entry.source]) || seenVariants.has(variant.trim())) return false;
         seenVariants.add(variant.trim());
       }
     }
@@ -380,13 +386,13 @@ function profileHasExactLocation(result, rawLocation) {
   return hasAnyPhrase(countryNames) && (!requested.localities.length || hasAnyPhrase(localityNames));
 }
 
-async function lookupLinkedIn(queries, location, serpApiKey, providerAllowed) {
+async function lookupXraySource(source, queries, location, serpApiKey, providerAllowed) {
   const variants = Array.isArray(queries) ? queries : [queries];
   const engines = SEARCH_ENGINES.slice(0, variants.length);
   const outcomes = providerAllowed && serpApiKey
     ? await Promise.all(variants.map(async (query, index) => {
       const engine = engines[index] || SEARCH_ENGINES[0];
-      try { return { result: await lookup(query, location, "linkedin", serpApiKey, engine.id), engine }; }
+      try { return { result: await lookup(query, location, source, serpApiKey, engine.id), engine }; }
       catch (error) { return { error, engine }; }
     }))
     : [];
@@ -741,42 +747,55 @@ export default {
     if (!validatePlan(plan)) return json({ error: "invalid_search_plan" }, 400, responseOrigin);
     const searchStartedAt = Date.now();
 
-    const linkedinQueries = plan.queries.filter((entry) => entry.source === "linkedin");
+    const xrayQueries = plan.queries.filter((entry) => XRAY_SOURCE_IDS.has(entry.source));
     const githubQueries = plan.queries.filter((entry) => entry.source === "github");
     const sourceErrorsBeforeSearch = [];
-    let linkedinSearchAllowed = false;
-    let linkedinBudgetError = null;
-    if (linkedinQueries.length && env.SERPAPI_KEY) {
-      const searchesNeeded = linkedinQueries.reduce((total, entry) => total + (Array.isArray(entry.variants) ? entry.variants.length : 1), 0);
+    let xraySearchAllowed = false;
+    let xrayBudgetError = null;
+    if (xrayQueries.length && env.SERPAPI_KEY) {
+      const searchesNeeded = xrayQueries.reduce((total, entry) => total + (Array.isArray(entry.variants) ? entry.variants.length : 1), 0);
       const budget = await freeSearchCapacity(env.SERPAPI_KEY, searchesNeeded);
-      linkedinSearchAllowed = budget.allowed;
-      if (budget.allowed) plan.linkedinSearchCapacity = budget;
-      if (!budget.allowed) linkedinBudgetError = budget.reason;
-    } else if (linkedinQueries.length) {
-      linkedinBudgetError = "provider_credentials_rejected";
+      xraySearchAllowed = budget.allowed;
+      if (budget.allowed) plan.xraySearchCapacity = budget;
+      if (!budget.allowed) xrayBudgetError = budget.reason;
+    } else if (xrayQueries.length) {
+      xrayBudgetError = "provider_credentials_rejected";
     }
-    if (linkedinQueries.length && !linkedinSearchAllowed) {
-      sourceErrorsBeforeSearch.push({ source: "linkedin", code: linkedinBudgetError || "provider_credentials_rejected" });
+    if (xrayQueries.length && !xraySearchAllowed) {
+      xrayQueries.forEach((entry) => sourceErrorsBeforeSearch.push({ source: entry.source, code: xrayBudgetError || "provider_credentials_rejected" }));
     }
 
     // The free locations catalog validates/canonicalizes search origin once
     // per run. It never spends a paid search; `q` always retains the exact
     // locality even when the catalog cannot confirm it.
     const location = await resolveSearchLocation(plan.location);
+    // LinkedIn and Upwork share one SerpApi free-tier quota. Allot the shared
+    // remaining budget across their entries sequentially (not per-entry
+    // independently) so two X-Ray sources in one plan can never together
+    // spend more than what freeSearchCapacity actually approved.
+    let remainingXrayBudget = plan.xraySearchCapacity?.searchesAvailable ?? MAX_LINKEDIN_VARIANTS;
+    const xrayActiveEntries = [];
+    if (xraySearchAllowed) {
+      for (const entry of xrayQueries) {
+        const variants = entry.variants || [entry.query];
+        if (remainingXrayBudget <= 0) {
+          sourceErrorsBeforeSearch.push({ source: entry.source, code: "provider_rate_limited" });
+          continue;
+        }
+        const allotted = variants.slice(0, remainingXrayBudget);
+        remainingXrayBudget -= allotted.length;
+        xrayActiveEntries.push({ ...entry, providerAllowed: xraySearchAllowed, variants: allotted });
+      }
+    }
     // Query selected sources concurrently: sequential timeouts could leave a
     // four-source search waiting up to two minutes before reporting failure.
-    const activeQueries = [
-      ...(linkedinSearchAllowed
-        ? linkedinQueries.map((entry) => ({ ...entry, providerAllowed: linkedinSearchAllowed }))
-        : []),
-      ...githubQueries,
-    ];
+    const activeQueries = [...xrayActiveEntries, ...githubQueries];
     const settledSources = await Promise.all(activeQueries.map(async (entry) => {
       const sourceStartedAt = Date.now();
       try {
         const result = entry.source === "github"
           ? await lookupGithubVariants((entry.variants || [entry.query]).slice(0, MAX_GITHUB_VARIANTS), plan.location, env.GITHUB_TOKEN, entry.profileEvidence)
-          : await lookupLinkedIn((entry.variants || [entry.query]).slice(0, plan.linkedinSearchCapacity?.searchesAvailable || MAX_LINKEDIN_VARIANTS), location, env.SERPAPI_KEY, entry.providerAllowed);
+          : await lookupXraySource(entry.source, entry.variants || [entry.query], location, env.SERPAPI_KEY, entry.providerAllowed);
         return { source: entry.source, elapsedMs: Date.now() - sourceStartedAt, ...result };
       } catch (error) {
         return {
@@ -808,8 +827,8 @@ export default {
         elapsedMs: Number(item.elapsedMs) || 0,
         ...(item.queriesRun > 0 ? { queriesRun: item.queriesRun } : {}),
         ...(item.engines?.length ? { engines: item.engines } : {}),
-        ...(item.source === "linkedin" && plan.linkedinSearchCapacity?.searchesAvailable < plan.linkedinSearchCapacity?.searchesRequested
-          ? { queriesRequested: plan.linkedinSearchCapacity.searchesRequested, quotaLimited: true }
+        ...(XRAY_SOURCE_IDS.has(item.source) && plan.xraySearchCapacity?.searchesAvailable < plan.xraySearchCapacity?.searchesRequested
+          ? { queriesRequested: plan.xraySearchCapacity.searchesRequested, quotaLimited: true }
           : {}),
         ...(item.providerErrors ? { providerErrors: item.providerErrors } : {}),
       })),

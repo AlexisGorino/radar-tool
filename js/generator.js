@@ -250,6 +250,18 @@
   }
 
   function buildPublicLinkedinQuery(state, strategy) {
+    return buildXrayQuery("site:linkedin.com/in", state, strategy);
+  }
+
+  function buildPublicUpworkQuery(state, strategy) {
+    return buildXrayQuery("site:upwork.com/freelancers", state, strategy);
+  }
+
+  function buildPublicFiverrQuery(state, strategy) {
+    return buildXrayQuery("site:fiverr.com", state, strategy);
+  }
+
+  function buildXrayQuery(siteFilter, state, strategy) {
     const mode = strategy || "precise";
     // The equivalent route should swap in a compact, reviewed role family;
     // removing the occupation entirely turns ambiguous skills (for example
@@ -297,7 +309,7 @@
       }
     });
     (state.refinar || []).forEach((term) => blocks.push("-" + quoteIfPhrase(term)));
-    return "site:linkedin.com/in " + blocks.join(" ");
+    return siteFilter + " " + blocks.join(" ");
   }
 
   // Three progressively broader tries instead of one shot: if the specific
@@ -437,6 +449,8 @@
     buildLinkedinBoolean,
     buildLinkedinBooleanTiers,
     buildPublicLinkedinQuery,
+    buildPublicUpworkQuery,
+    buildPublicFiverrQuery,
     getTruncatedFields,
     detectGithubLanguage,
     stripAbbreviatedTitlePrefix,

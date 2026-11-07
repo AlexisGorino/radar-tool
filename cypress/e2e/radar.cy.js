@@ -614,10 +614,10 @@ describe("RADAR talent search flow", () => {
     cy.get('[data-field="alcance"]').type("Argentina{enter}");
     cy.get("#generateBtn").click();
     cy.get("#publicSearchSetup").should("be.visible");
-    cy.get("#publicSearchSetup").should("contain.text", "Hasta 30 · LinkedIn + GitHub");
+    cy.get("#publicSearchSetup").should("contain.text", "Hasta 30 · LinkedIn + Upwork + Fiverr + GitHub");
     cy.get("#publicSearchSetup").should("contain.text", "el cupo es limitado");
-    cy.get('#publicSearchSources input').should("have.length", 2);
-    cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub");
+    cy.get('#publicSearchSources input').should("have.length", 4);
+    cy.get("#publicSearchSources").should("contain.text", "LinkedIn").and("contain.text", "GitHub").and("contain.text", "Upwork").and("contain.text", "Fiverr");
   });
 
   it("explains when GitHub is not a useful source for a nontechnical profile", () => {
@@ -747,7 +747,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-search-trace").should("contain.text", "01234567-89ab-cdef-0123-456789abcdef");
     cy.get(".public-search-next-actions").should("contain.text", "Seguí con otras rutas");
     cy.get(".public-search-next-actions a").should("have.attr", "href", "#results");
-    cy.get("#publicSearchSources input").should("have.length", 2);
+    cy.get("#publicSearchSources input").should("have.length", 4);
   });
 
   it("searches across a selected country when no locality is added and returns matching profiles", () => {

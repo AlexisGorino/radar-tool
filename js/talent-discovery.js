@@ -12,11 +12,13 @@
   const SOURCES = Object.freeze({
     linkedin: { label: "LinkedIn", domain: "linkedin.com", path: /^\/(?:in|pub)\//i, description: "Perfiles profesionales públicos; algunos no aparecen indexados." },
     github: { label: "GitHub", domain: "github.com", path: /^\/[^/]+\/?$/i, description: "Perfiles técnicos con actividad pública en el lenguaje y la localidad indicados." },
+    upwork: { label: "Upwork", domain: "upwork.com", path: /^\/freelancers\/~/i, description: "Freelancers públicos para proyectos o contratos, no solo full-time." },
+    fiverr: { label: "Fiverr", domain: "fiverr.com", path: /^\/[^/]+\/?$/i, description: "Freelancers públicos para proyectos puntuales, no solo full-time." },
     stackoverflow: { label: "Stack Overflow", domain: "stackoverflow.com", path: /^\/users\/\d+\//i, description: "Respuestas técnicas públicas; útil en ingeniería." },
     xing: { label: "Xing", domain: "xing.com", path: /^\/profile\//i, description: "Más perfiles en Alemania, Austria y Suiza." },
     behance: { label: "Behance", domain: "behance.net", path: /^\/[^/]+\/?$/i, description: "Portfolios de diseño e ilustración." },
   });
-  const PUBLIC_SOURCE_IDS = Object.freeze(["linkedin", "github"]);
+  const PUBLIC_SOURCE_IDS = Object.freeze(["linkedin", "github", "upwork", "fiverr"]);
   const MAX_SOURCES = PUBLIC_SOURCE_IDS.length;
   const MAX_RESULTS = 30;
   const MAX_QUERY_LENGTH = 900;
@@ -262,6 +264,13 @@
     const skippedReasons = {};
     const plan = chosen.map((id) => {
       const source = SOURCES[id];
+      // LinkedIn and Upwork are both searched as Google X-Ray (site: filter
+      // over SerpApi), sharing the same free monthly quota server-side. Only
+      // the site: filter differs between them.
+      const isXraySource = id === "linkedin" || id === "upwork" || id === "fiverr";
+      const queryBuilder = id === "upwork" ? generator.buildPublicUpworkQuery
+        : id === "fiverr" ? generator.buildPublicFiverrQuery
+        : generator.buildPublicLinkedinQuery;
       // Project management vacancies use several standard title families in
       // LATAM and Spain. Expand only this well-defined family, while keeping
       // the JD's requirements and its most specific location in the query.
@@ -270,13 +279,13 @@
         : strategy === "related"
           ? { ...state, rol: [] }
         : { ...state, rol: compactRoleFamily(state.rol, state.seniority) };
-      if (strategy === "related" && id === "linkedin") {
+      if (strategy === "related" && isXraySource) {
         const hasRelatedSignal = cleanTerms(state.imprescindibles).length
           || cleanTerms(state.atributos).length
           || cleanTerms(state.deseables).length
           || cleanTerms(state.dominio).length
           || educationSignals(state).terms.length;
-        const query = hasRelatedSignal ? generator.buildPublicLinkedinQuery(queryState, strategy) : "";
+        const query = hasRelatedSignal ? queryBuilder(queryState, strategy) : "";
         if (!query || query.length > MAX_QUERY_LENGTH) {
           skippedSources.push(id);
           skippedReasons[id] = hasRelatedSignal ? "query_too_long" : "requires_related_signal";
@@ -304,13 +313,17 @@
         const countryNames = new Set(Object.keys(countries && countries.ALL_COUNTRIES || {}).map(normalizeText));
         const localities = cleanTerms(queryState.alcance).filter((place) => !countryNames.has(normalizeText(place)));
         const country = cleanTerms(queryState.alcance).find((place) => countryNames.has(normalizeText(place)));
+        // buildGithubUserQuery() picks its locality from the END of alcance
+        // (last-added wins), so the variants list must walk localities in
+        // that same reverse order — otherwise variants[0] names a different
+        // city than `query` itself, and the backend rejects the whole plan.
         const variants = localities.length > 1
-          ? localities.slice(0, 3).map((locality) => buildGithubUserQuery({ ...queryState, alcance: [country, locality].filter(Boolean) })).filter(Boolean)
+          ? [...localities].reverse().slice(0, 3).map((locality) => buildGithubUserQuery({ ...queryState, alcance: [country, locality].filter(Boolean) })).filter(Boolean)
           : [query];
         return { source: id, query, ...(variants.length > 1 ? { variants } : {}), label: source.label, profileEvidence };
       }
-      const query = generator.buildPublicLinkedinQuery(queryState, strategy);
-      if (id === "linkedin" && query && query.length <= MAX_QUERY_LENGTH) {
+      const query = queryBuilder(queryState, strategy);
+      if (isXraySource && query && query.length <= MAX_QUERY_LENGTH) {
         // Search from three complementary angles. Early-career PM candidates
         // often use PMO / coordinator titles instead of the vacancy title, so
         // reserve a query specifically for those adjacent title families.
@@ -355,7 +368,7 @@
                 : { ...state, rol: compactRoleFamily(state.rol, state.seniority) };
             }
           }
-          const candidateBase = generator.buildPublicLinkedinQuery(variantState, queryMode);
+          const candidateBase = queryBuilder(variantState, queryMode);
           const educationClause = educationTermsForVariant.length
             ? ` (${educationTermsForVariant.map((term) => `"${term.replace(/"/g, "")}"`).join(" OR ")})`
             : "";

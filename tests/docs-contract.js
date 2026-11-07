@@ -14,7 +14,7 @@ assert.ok(Number.isInteger(maxResults) && maxResults > 0, "Worker must define a 
 const sourceBlock = worker.match(/const PUBLIC_SOURCE_IDS = new Set\(\[([^\]]+)\]\)/)?.[1];
 assert.ok(sourceBlock, "Worker must define its public shortlist sources");
 const sources = [...sourceBlock.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]);
-assert.deepEqual(sources, ["linkedin", "github"], "Update this contract if shortlist sources change");
+assert.deepEqual(sources, ["linkedin", "github", "upwork", "fiverr"], "Update this contract if shortlist sources change");
 
 for (const [label, document] of [["README", readme], ["backend README", backendReadme], ["TESTING", testing]]) {
   assert.ok(document.includes(`hasta ${maxResults}`), `${label} must document the Worker limit of ${maxResults}`);

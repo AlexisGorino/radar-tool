@@ -64,6 +64,9 @@ async function main() {
     assert.equal(validProfileUrl("https://linkedin.com/in/person", "linkedin"), true);
     assert.equal(validProfileUrl("https://linkedin.com/jobs/view/123", "linkedin"), false);
     assert.equal(validProfileUrl("https://notlinkedin.com/in/person", "linkedin"), false);
+    assert.equal(validProfileUrl("https://upwork.com/freelancers/~0123abc", "upwork"), true);
+    assert.equal(validProfileUrl("https://upwork.com/jobs/~0123abc", "upwork"), false);
+    assert.equal(validProfileUrl("https://notupwork.com/freelancers/~0123abc", "upwork"), false);
     assert.equal(safeResult({ link: "https://stackoverflow.com/questions/1/q", title: "Bad" }, "stackoverflow"), null);
   });
 
@@ -519,6 +522,74 @@ async function main() {
       assert.equal(payload.sourceDiagnostics[0].queriesRequested, 3);
       assert.equal(payload.sourceDiagnostics[0].quotaLimited, true);
       assert.equal(payload.sourceDiagnostics[0].profileCount, 1);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("searches Upwork via SerpApi X-Ray using the shared free quota", async () => {
+    const previousFetch = globalThis.fetch;
+    let seenQuery = null;
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) {
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      seenQuery = url.searchParams.get("q");
+      return new Response(JSON.stringify({ organic_results: [{
+        title: "Freelance Data Engineer · Barcelona, Spain", link: "https://upwork.com/freelancers/~012abc", snippet: "Spark Airflow",
+      }] }), { status: 200 });
+    };
+    try {
+      const upworkPlan = { ...validPlan, queries: [{ source: "upwork", query: 'site:upwork.com/freelancers "Data Engineer" Spark Barcelona Spain' }] };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(upworkPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.match(seenQuery, /site:upwork\.com\/freelancers/);
+      assert.equal(payload.results[0].source, "upwork");
+      assert.equal(payload.results[0].url, "https://upwork.com/freelancers/~012abc");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("splits one shared SerpApi budget across LinkedIn and Upwork without overspending", async () => {
+    const previousFetch = globalThis.fetch;
+    let searchCallCount = 0;
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.pathname.endsWith("/account.json")) {
+        // Only 2 free searches left, but LinkedIn (2 variants) + Upwork (2 variants) would need 4.
+        return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 2, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      searchCallCount += 1;
+      return new Response(JSON.stringify({ organic_results: [] }), { status: 200 });
+    };
+    try {
+      const sharedBudgetPlan = {
+        ...validPlan,
+        queries: [
+          { source: "linkedin", query: 'site:linkedin.com/in "Data Engineer" Barcelona Spain', variants: ['site:linkedin.com/in "Data Engineer" Barcelona Spain', 'site:linkedin.com/in Data Engineer Barcelona Spain'] },
+          { source: "upwork", query: 'site:upwork.com/freelancers "Data Engineer" Barcelona Spain', variants: ['site:upwork.com/freelancers "Data Engineer" Barcelona Spain', 'site:upwork.com/freelancers Data Engineer Barcelona Spain'] },
+        ],
+      };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(sharedBudgetPlan),
+      }), {
+        ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret",
+        SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(searchCallCount, 2, "LinkedIn and Upwork together must never exceed the shared free quota");
+      assert.ok(payload.sourceErrors.some((error) => error.source === "upwork" && error.code === "provider_rate_limited"), "the entry that lost the budget race must report why it was skipped");
     } finally {
       globalThis.fetch = previousFetch;
     }

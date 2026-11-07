@@ -59,7 +59,7 @@ la cuenta.
   menos cupo mensual u horario, RADAR usa las consultas que todavía puede pagar
   y lo indica como resultado parcial; si no puede comprobar el plan gratuito,
   no consulta al proveedor. GitHub no consume
-  búsquedas SerpApi. Se seleccionan LinkedIn, GitHub o ambas fuentes. El Worker
+  búsquedas SerpApi. Se seleccionan LinkedIn, Upwork, Fiverr, GitHub o combinaciones (LinkedIn, Upwork y Fiverr comparten el cupo de SerpApi). El Worker
   devuelve hasta 30 enlaces por búsqueda (hasta 10 perfiles enriquecidos de
   GitHub) y alterna fuentes antes de que el frontend ordene por señales visibles.
   Comprueba el cupo antes de iniciar consultas.

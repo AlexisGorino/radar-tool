@@ -60,7 +60,7 @@ operativa antes de habilitarse en GitHub Pages.
   perfiles técnicos, Behance para diseño y Xing para mercados DACH. Son puntos
   de partida; cada red conserva sus filtros y límites propios. Los portales que
   publican ofertas, pero no perfiles, no sirven como fuente de candidatos por X-Ray.
-- **Listado público**: con el Worker configurado, consulta LinkedIn mediante
+- **Listado público**: con el Worker configurado, consulta LinkedIn, Upwork y Fiverr (comparten el cupo gratuito de SerpApi) mediante
   hasta tres consultas de Google con enfoques distintos y GitHub mediante su
   API pública. Devuelve hasta 30 perfiles para revisar; puede devolver menos o
   ninguno. Comprueba que haya cupo gratuito para las tres consultas antes de
