@@ -266,7 +266,24 @@
     { a: ["ingeniero agronomo","agronomo","tecnico agropecuario","asesor agronomico","ingeniero agropecuario","veterinario","veterinaria","productor agropecuario"], n: "Agro / Ingeniería Agronómica", d: "Asesora y gestiona la producción agrícola o ganadera: cultivos, suelos, sanidad y rendimientos.", s: ["Manejo de cultivos o hacienda","Agricultura de precisión","Normativa fitosanitaria","Licencia de conducir"], e: ["Ingeniero/a Agrónomo/a","Asesor Técnico Comercial Agro","Veterinario/a"], q: ["¿En qué zonas y cultivos trabajaste?","¿Qué superficie o cantidad de animales manejabas?"], f: ["Sin disponibilidad para viajar al campo"] },
   ].map((role) => ({ ...role, a: role.a.map(norm) }));
 
+  // Cargo concreto con el que se busca a la persona. En perfiles que son una categoría ("Salud", "Retail") el
+  // nombre no es un título real, así que se usa el primer equivalente.
+  const CATEGORY_ROLES = new Set(["Salud", "Construcción", "Mantenimiento", "Gastronomía", "Retail", "Contenido", "Banca", "Seguros",
+    "Inmobiliaria", "Agro", "Logística", "Compras", "Recursos Humanos", "Ingeniería Industrial", "Embedded", "Blockchain", "RPA", "ServiceNow", "Gerencia General"]);
+  ROLES.forEach((role) => {
+    const base = role.n.replace(/\s*\(.*\)\s*$/, "").split(" / ")[0];
+    role.title = CATEGORY_ROLES.has(base) ? role.e[0] : base;
+  });
+
   // Busca la entrada cuyo alias aparece en el texto; gana el alias más largo.
+  // Cada alias se compila una sola vez: find() corre en cada pregunta sobre cientos de alias.
+  const patternCache = new Map();
+  const cachedPattern = (alias) => {
+    let pattern = patternCache.get(alias);
+    if (!pattern) patternCache.set(alias, pattern = aliasPattern(alias));
+    return pattern;
+  };
+
   function find(list, text) {
     const haystack = ` ${fold(text)} `;
     let best = null;
@@ -274,7 +291,7 @@
     list.forEach((entry) => {
       entry.a.forEach((alias) => {
         if (alias.length <= bestLength) return;
-        if (aliasPattern(alias).test(haystack)) { best = entry; bestLength = alias.length; }
+        if (cachedPattern(alias).test(haystack)) { best = entry; bestLength = alias.length; }
       });
     });
     return best;
@@ -300,7 +317,7 @@
     const haystack = ` ${fold(text)} `;
     const found = [];
     TERMS.forEach((entry) => {
-      const hit = entry.a.map((alias) => ({ alias, at: haystack.search(aliasPattern(alias)) })).filter((m) => m.at >= 0);
+      const hit = entry.a.map((alias) => ({ alias, at: haystack.search(cachedPattern(alias)) })).filter((m) => m.at >= 0);
       if (hit.length) found.push({ entry, at: Math.min(...hit.map((m) => m.at)) });
     });
     return found.sort((x, y) => x.at - y.at).slice(0, limit).map((item) => item.entry);
@@ -310,7 +327,7 @@
   function findAll(list, text) {
     const haystack = ` ${fold(text)} `;
     return list
-      .map((entry) => ({ entry, at: Math.min(...entry.a.map((alias) => { const at = haystack.search(aliasPattern(alias)); return at < 0 ? Infinity : at; })) }))
+      .map((entry) => ({ entry, at: Math.min(...entry.a.map((alias) => { const at = haystack.search(cachedPattern(alias)); return at < 0 ? Infinity : at; })) }))
       .filter((item) => item.at !== Infinity)
       .sort((x, y) => x.at - y.at)
       .map((item) => item.entry);

@@ -17,7 +17,7 @@
   // on purpose to avoid false-positive country detection.
   const LATAM = {
     "Argentina": [
-      "argentina", "buenos aires", "caba", "capital federal", "ciudad autonoma de buenos aires", "cordoba", "córdoba", "rosario", "mendoza", "la plata",
+      "argentina", "buenos aires", "caba", "gba", "amba", "gran buenos aires", "conurbano bonaerense", "capital federal", "ciudad autonoma de buenos aires", "cordoba", "córdoba", "rosario", "mendoza", "la plata",
       "mar del plata", "santa fe", "san miguel de tucuman", "san miguel de tucumán", "tucuman", "tucumán", "entre rios", "entre ríos", "parana", "paraná",
       "chaco", "resistencia", "neuquen", "neuquén", "misiones", "posadas", "corrientes", "santiago del estero", "san juan", "san luis", "rio negro", "río negro",
       "bariloche", "general roca", "cipolletti", "viedma", "chubut", "comodoro rivadavia", "trelew", "santa cruz", "rio gallegos", "río gallegos",
@@ -199,7 +199,7 @@
   // the first word ("Ciudad de México", not "Ciudad De México").
   const TITLE_CASE_LOWERCASE_WORDS = new Set(["de", "del", "do", "la", "las", "los", "y", "en"]);
   // Known acronyms that are always written fully upper-case, never title-cased.
-  const TITLE_CASE_ACRONYMS = new Set(["caba", "cdmx"]);
+  const TITLE_CASE_ACRONYMS = new Set(["caba", "cdmx", "gba", "amba"]);
   function titleCase(term) {
     return term
       .split(" ")

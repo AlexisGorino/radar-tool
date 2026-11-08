@@ -107,4 +107,16 @@ Knowledge.ROLES.forEach((role) => ["d", "s", "e", "q", "f"].forEach((key) => ass
 });
 assert.equal(Knowledge.findAllTerms("Buscamos equilibrio entre trabajo y vida, un balance sano y un equipo unido").length, 0, "palabras corrientes no son términos técnicos");
 
+// Cortesías, comparaciones entre cargos y título principal de los perfiles-categoría.
+["gracias", "gracias a todos", "perfecto, dale"].forEach((q) => {
+  const r = Radarcito.answer(q, "", null);
+  assert.equal(r.ask, false, `"${q}" no debe ir a la IA`);
+  assert.match(r.text, /De nada/);
+});
+assert.match(Radarcito.answer("diferencia entre scrum master y product owner", "", null).list.join(" "), /Product Owner/);
+const nutritionist = Radarcito.answer("como busco un nutricionista", "", null);
+assert.equal(new Set(nutritionist.apply.terms).size, nutritionist.apply.terms.length, "sin títulos repetidos");
+assert.ok(!/Salud \(Médico,/.test(nutritionist.text), "el nombre del perfil no se corta en la barra interna del paréntesis");
+Knowledge.ROLES.forEach((role) => assert.ok(role.title && !/[()]/.test(role.title), `${role.n}: título principal inválido (${role.title})`));
+
 console.log("Radarcito: respuestas sobre la JD, honestidad ante datos ausentes, guía por paso y recorrido verificados.");

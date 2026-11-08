@@ -22,4 +22,14 @@ assert.deepEqual(rrhh.seniority, ["semi senior"]);
 assert.deepEqual(analyze("Jefe de Logística y Compras - Buenos Aires\nGestión de proveedores, stock y SAP MM. 5 años de experiencia.").rol, ["Jefe de Logística y Compras"]);
 assert.deepEqual(analyze("Paid Media Specialist - Meta Ads\nGoogle Ads, Meta Ads y analítica. 3 años de experiencia.").rol, ["Paid Media Specialist - Meta Ads"]);
 
+// La experiencia se lee en cualquier orden y en español, inglés y portugués.
+assert.deepEqual(analyze("Gerente de Ventas Retail - Monterrey, México\nResponsable de 12 tiendas. 6 años de experiencia. Presencial.").roleContext, ["Experiencia indicada: 6 años"]);
+assert.deepEqual(analyze("Desenvolvedor Backend Pleno - São Paulo, Brasil\nJava, Spring Boot. Experiência de 4 anos. Regime híbrido.").roleContext, ["Experiencia indicada: 4 anos"]);
+assert.match(analyze("Senior QA Engineer, Madrid, España. Cypress and Playwright. 5+ years of experience.").roleContext.join(" "), /5\+? ?years/);
+
+// "Zona norte GBA" ubica la búsqueda en Argentina.
+const admin = analyze("Asistente administrativo contable junior, zona norte GBA.\nFacturación, cobranzas, Tango y Excel.");
+assert.equal(admin.country, "Argentina");
+assert.ok(admin.alcance.includes("GBA"));
+
 console.log("Extractor regressions passed.");

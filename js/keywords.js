@@ -95,7 +95,7 @@
     "Liquidación de Sueldos", "Payroll", "BambooHR", "Greenhouse ATS", "Lever ATS",
     "SAP SuccessFactors", "SAP Ariba", "SAP Concur", "SAP EWM", "Oracle Fusion", "Oracle NetSuite",
     "Salesforce CPQ",
-    "Manejo de cartera", "Prospección comercial", "Cierre de ventas", "Compras estratégicas", "Abastecimiento",
+    "Manejo de cartera", "MEDDIC", "Outbound", "Prospección comercial", "Cierre de ventas", "Compras estratégicas", "Abastecimiento",
     "Gestión de proveedores", "Planificación de demanda", "Inventario", "Auditoría interna", "Cuentas por pagar",
     "Cuentas por cobrar", "Cierre contable", "Conciliaciones bancarias", "Facturación", "Impuestos",
     "Power BI", "Google Analytics 4", "GA4", "Meta Ads", "Google Ads", "HubSpot CRM", "Salesforce CRM",

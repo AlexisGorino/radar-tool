@@ -82,7 +82,7 @@
     const read = cleanRole((ctx.a.rol || [])[0]);
     if (read) return { name: read, guessed: null };
     const guessed = KB.findRole(ctx.text.slice(0, 300));
-    return { name: guessed ? guessed.n.split(" / ")[0] : "", guessed };
+    return { name: guessed ? guessed.title : "", guessed };
   }
 
   // Herramientas que el extractor no marcó pero la JD nombra en una frase con señal explícita.
@@ -301,16 +301,18 @@
   }
 
   // Atajo para la pantalla: los títulos equivalentes se cargan como alternativas del cargo (field "rol").
-  const titlesToApply = (role) => ({ field: "rol", terms: unique([role.n.split(" / ")[0], ...role.e]).slice(0, 4) });
+  const titlesToApply = (role) => ({ field: "rol", terms: unique([role.title, ...role.e]).slice(0, 4) });
 
   function roleCard(role) {
-    return reply(`${role.n}: ${role.d}`, [], [`¿Qué preguntas le hago a un ${role.n.split(" / ")[0]}?`, `¿Cómo hunteo un ${role.n.split(" / ")[0]}?`], {
+    return reply(`${role.n}: ${role.d}`, [], [`¿Qué preguntas le hago a un ${role.title}?`, `¿Cómo hunteo un ${role.title}?`], {
       list: bullets([`Suele saber: ${role.s.join(", ")}.`, `También se lo busca como: ${role.e.join(", ")}.`]),
     });
   }
 
   function knowledgeAnswer(ctx) {
     const { q } = ctx;
+    if (/^(gracias|muchas gracias|genial|perfecto|dale|ok|okey|listo|buenisimo|excelente)(\s|$|[!.,?])/.test(q)) return reply("¡De nada! Si querés, seguimos con otra pregunta o con la búsqueda.", [], ["¿Cómo hunteo este perfil?", "¿Qué me falta aclarar?"]);
+    if (/^(chau|adios|hasta luego|nos vemos)(\s|$|[!.,?])/.test(q)) return reply("¡Hasta luego! Cuando me necesites, estoy acá abajo.");
     if (/^(hola|buenas|buen dia|buenos dias|buenas tardes|hey|que tal)(\s|$|[!.,?])/.test(q)) return reply("¡Hola! Soy Radarcito. Preguntame por una JD, por un término técnico, por qué hace un perfil de cualquier área o cómo encontrarlo.", [], SUGGESTIONS.slice(0, 4));
     if (LOOKUP.jdTerms.test(q)) {
       if (!ctx.text) return null;
@@ -322,7 +324,8 @@
     if (LOOKUP.compare.test(q)) {
       const terms = KB.findAllTerms(q);
       const roles = KB.findAllRoles(q);
-      const pair = terms.length >= 2 ? terms.slice(0, 2).map((t) => `${t.n}: ${t.d}`) : roles.length >= 2 ? roles.slice(0, 2).map((r) => `${r.n}: ${r.d}`) : null;
+      // Si nombra dos cargos se comparan los cargos (Scrum Master vs Product Owner); si no, los términos (Docker vs Kubernetes).
+      const pair = roles.length >= 2 ? roles.slice(0, 2).map((r) => `${r.n}: ${r.d}`) : terms.length >= 2 ? terms.slice(0, 2).map((t) => `${t.n}: ${t.d}`) : null;
       if (pair) return reply("Te los explico por separado para que se vea la diferencia:", [], [], { list: pair });
     }
     if (LOOKUP.hunt.test(q)) {
@@ -330,7 +333,7 @@
       if (found) {
         const { role } = found;
         const technical = KB.isIt(role);
-        return reply(`Para encontrar ${role.n}, probá estos títulos: ${[role.n.split(" / ")[0], ...role.e].join(", ")}.`, [], ["¿Qué preguntas le hago?", "¿Qué señales de alerta tiene?"], {
+        return reply(`Para encontrar ${role.n}, probá estos títulos: ${unique([role.title, ...role.e]).join(", ")}.`, [], ["¿Qué preguntas le hago?", "¿Qué señales de alerta tiene?"], {
           apply: titlesToApply(role),
           list: bullets([
             `Combiná el título con 2 o 3 de estos conocimientos: ${role.s.slice(0, 4).join(", ")}.`,

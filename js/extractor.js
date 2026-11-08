@@ -710,7 +710,9 @@
   }
 
   function extractRoleContext(text) {
-    const experienceMatch = /\bexperiencia(?:\s+en\s+a[nñ]os)?\b[\s\S]{0,90}?((?:\+\s*)?\d+\s*(?:[-–—a]\s*\d+)?\s*(?:a[nñ]os?|years?))/i.exec(text);
+    // "Experiencia mínima 2 años" y también "6 años de experiencia", "5+ years of experience", "4 anos de experiência".
+    const experienceMatch = /\bexperi[eê]ncia(?:\s+en\s+a[nñ]os)?\b[\s\S]{0,90}?((?:\+\s*)?\d+\s*(?:[-–—a]\s*\d+)?\s*(?:a[nñ]os?|years?))/i.exec(text)
+      || /((?:\+\s*)?\d+\s*\+?\s*(?:[-–—a]\s*\d+\s*)?(?:a[nñ]os?|years?))\s+(?:de\s+|of\s+)?(?:experi[eê]ncia|experience)\b/i.exec(text);
     const educationMatch = /\b(?:grado|ingenier[ií]a|titulaci[oó]n|bachelor)\s+en\s+[^.]{6,180}/i.exec(text);
     const completedTelecomDegree = /\bingenier(?:o|a|os|as)(?:\s+de|\s+en)\s+telecomunicaciones\s+(?:o\s+afines?\s+)?(?:recibid[oa]s?|graduad[oa]s?|titulad[oa]s?)\b/i.test(text);
     const vagueExperience = /\b(?:algo|cierta|alguna)\s+(?:de\s+)?experiencia\b|\bun poco de experiencia\b|\bexperiencia\s+(?:b[aá]sica|inicial|previa)\b/i.test(text);
