@@ -212,7 +212,7 @@
   }
 
   function addMessage(role, text, extra = {}) {
-    const { quotes = [], followUps = [], list = [], aiQuestion = "", source = "" } = extra;
+    const { quotes = [], followUps = [], list = [], aiQuestion = "", source = "", apply = null } = extra;
     const row = make("div", `radarcito-msg radarcito-msg-${role}`);
     text.split(/\n{2,}/).forEach((paragraph) => row.appendChild(make("p", "", paragraph.trim())));
     if (list.length) row.appendChild(make("ul")).append(...list.map((item) => make("li", "", item)));
@@ -224,10 +224,30 @@
       chips.unshift(aiChip);
       row.appendChild(make("p", "radarcito-source", "Se envía solo tu pregunta y el cargo de la JD (sin correos ni teléfonos)."));
     }
+    if (apply && apply.terms.length) {
+      const applyChip = button(`Agregar a los criterios: ${apply.terms.join(", ")}`, "radarcito-chip radarcito-chip-ai", () => { applyChip.disabled = true; applyTerms(apply); });
+      chips.unshift(applyChip);
+    }
     if (chips.length) row.appendChild(make("div", "radarcito-chips", "")).append(...chips);
     log.appendChild(row);
     while (log.childElementCount > 40) log.firstElementChild.remove();
     log.scrollTop = log.scrollHeight;
+  }
+
+  // Carga los términos en el campo real de la pantalla, como si la persona los hubiera tipeado
+  // (Enter), así pasan por las mismas validaciones y deduplicación que cualquier otro cambio.
+  function applyTerms({ field, terms }) {
+    const input = document.querySelector(`.field-input[data-field="${field}"]`);
+    if (!input) { addMessage("bot", "No encontré el campo para agregarlos. Podés copiarlos a mano en el paso 2."); return; }
+    terms.forEach((term) => {
+      input.value = term;
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    });
+    input.value = "";
+    addMessage("bot", "Listo, los agregué como alternativas del cargo. Alcanza con que coincida una; podés quitar las que no quieras.");
+    setState("happy", 1500);
+    spot(`#chips-${field}`);
+    if (compact()) closePanel();
   }
 
   function askEndpoint() {
@@ -270,10 +290,14 @@
     }
   }
 
+  // Solo 4 sugerencias a la vez y sin repetir las ya preguntadas: así la conversación conserva el lugar.
+  const asked = new Set();
   function renderSuggestions() {
     const hasText = jdInput.value.trim().length > 0;
-    const labels = hasText ? RadarRadarcito.SUGGESTIONS : ["Probar con un ejemplo", "¿Qué hace un data engineer?", "¿Qué es Kubernetes?", "¿Cómo hunteo un contador?"];
-    suggestions.replaceChildren(...labels.map((label) => button(label, "radarcito-chip", () => (hasText ? ask(label) : label === labels[0] ? (loadExample(), greetAsk()) : ask(label)))));
+    const pool = hasText ? RadarRadarcito.SUGGESTIONS : ["¿Qué hace un data engineer?", "¿Qué es Kubernetes?", "¿Cómo hunteo un contador?", "¿Qué preguntas le hago a un vendedor?"];
+    const chips = pool.filter((label) => !asked.has(label)).slice(0, 4).map((label) => button(label, "radarcito-chip", () => ask(label)));
+    if (!hasText) chips.unshift(button("Probar con un ejemplo", "radarcito-chip", () => { loadExample(); greetAsk(); }));
+    suggestions.replaceChildren(...chips);
   }
 
   function greetAsk() {
@@ -289,12 +313,13 @@
   function ask(text) {
     const value = String(text || "").trim().slice(0, 200);
     if (!value) return;
+    asked.add(value);
     addMessage("user", value);
     setState("thinking");
     setTimeout(() => {
       const source = jdInput.value;
       const result = RadarRadarcito.answer(value, source, source.trim() ? analysisFor(source) : null);
-      addMessage("bot", result.text, { quotes: result.quotes, followUps: result.followUps, list: result.list, aiQuestion: result.ask ? value : "" });
+      addMessage("bot", result.text, { quotes: result.quotes, followUps: result.followUps, list: result.list, apply: result.apply, aiQuestion: result.ask ? value : "" });
       setState("talking", 1400);
     }, reduceMotion ? 0 : 450);
   }

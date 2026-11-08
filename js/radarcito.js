@@ -10,7 +10,7 @@
 
   const norm = (value) => String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const unique = (list) => [...new Set(list.filter(Boolean))];
-  const OPTIONAL_CUE = /(?:^|[^a-z])(?:valora|valorad|valorable|desead|deseable|plus|nice|aprecia|ideal|opcional|bonus|diferencial)/;
+  const OPTIONAL_CUE = /(?:^|[^a-z])(?:valora|valorad|valorable|desead|deseable|plus|nice|aprecia|ideal|opcional|bonus|diferencial|sumara puntos|suma puntos|a favor)/;
 
   const EXAMPLE_JD = [
     "Buscamos Senior QA Automation Engineer para sumarse a nuestro equipo en Barcelona, España.",
@@ -66,17 +66,47 @@
 
   // list: viñetas opcionales. ask: la base local no alcanzó, la UI puede ofrecer consultar a la IA.
   function reply(text, quotes = [], followUps = [], extra = {}) {
-    return { text, quotes, followUps, list: extra.list || [], ask: Boolean(extra.ask) };
+    return { text, quotes, followUps, list: extra.list || [], ask: Boolean(extra.ask), apply: extra.apply || null };
   }
 
   const missing = (what, advice) => reply(`No veo ${what} en la JD. ${advice}`, [], ["Resumime la JD", "¿Qué me falta aclarar?"]);
+
+  const REQUIRED_CUE = /(excluyent|indispensable|imprescindible|obligatori)/;
+  // Conceptos del glosario que no son herramientas: no se presentan como "conocimiento a tener".
+  const NOT_A_SKILL = new Set(["B2B / B2C", "KPI / OKR", "Backend", "Frontend", "Full stack", "Cloud / nube", "Back office", "Cuota y comisiones"]);
+  const cleanRole = (value) => String(value || "").replace(/^(?:un|una|el|la)(?:\/a)?\s+/i, "").trim();
+  const capitalize = (value) => value.replace(/(^|[.!?]\s+)([a-zñáéíóú])/g, (match, lead, letter) => lead + letter.toUpperCase());
+
+  // Cargo de la JD: el que leyó el extractor o, si no pudo, el perfil de la base que mejor encaja con el texto.
+  function jdRole(ctx) {
+    const read = cleanRole((ctx.a.rol || [])[0]);
+    if (read) return { name: read, guessed: null };
+    const guessed = KB.findRole(ctx.text.slice(0, 300));
+    return { name: guessed ? guessed.n.split(" / ")[0] : "", guessed };
+  }
+
+  // Herramientas que el extractor no marcó pero la JD nombra en una frase con señal explícita.
+  function cueTerms(ctx, known) {
+    const knownText = norm(known.join(" | "));
+    const extra = { must: [], optional: [] };
+    ctx.sentences.forEach((sentence) => {
+      const optional = OPTIONAL_CUE.test(sentence.n);
+      if (!optional && !REQUIRED_CUE.test(sentence.n)) return;
+      KB.termsIn(sentence.raw, 6).forEach((term) => {
+        const head = norm(term.n.split(/[\s/(]/)[0]);
+        const bucket = optional ? extra.optional : extra.must;
+        if (!NOT_A_SKILL.has(term.n) && !knownText.includes(head) && !bucket.includes(term.n)) bucket.push(term.n);
+      });
+    });
+    return extra;
+  }
 
   const INTENTS = [
     {
       test: /salari|sueldo|remunera|cuanto pagan|pagan|compensaci|banda|tarifa|brut|neto/,
       run(ctx) {
-        const quotes = pick(ctx, /(\$|usd|eur|€|£|ars|salari|sueldo|remunera|compensaci|banda salarial|brutos|netos)/, 2)
-          .filter((line) => /\d|salari|sueldo|remunera|compensaci/i.test(line));
+        // Importes (moneda junto a un número) o palabras de remuneración; "Ingresos Brutos" (un impuesto) no cuenta.
+        const quotes = pick(ctx, /(?:\$|usd|us\$|eur|€|£|ars|pesos|dolares|euros|mxn|cop)\s*\d|\d[\d.,]*\s*(?:k\b|mil\b|usd|eur|euros|dolares|pesos|ars|€|mxn)|salari|sueldo|remunera|compensaci|banda salarial|honorarios|comision|\bbono\b|tarifa por hora/, 2);
         return quotes.length
           ? reply("Sí, la JD habla de remuneración:", quotes, ["¿Qué beneficios ofrecen?", "¿Qué tipo de contrato es?"])
           : missing("ninguna referencia salarial", "Conviene confirmarla con quien te pidió la búsqueda antes de contactar candidatos.");
@@ -166,14 +196,18 @@
       run(ctx) {
         const required = new Set(ctx.a.imprescindibles || []);
         const roleText = norm((ctx.a.rol || []).join(" "));
-        const terms = unique([...required, ...(ctx.a.atributos || [])]).filter((term) => required.has(term) || !roleText.includes(norm(term)));
+        const terms = unique([...required, ...(ctx.a.atributos || [])]).filter((term) => required.has(term) || !roleText.includes(norm(term)) || KB.findTerm(term));
         const optional = [];
         const must = [];
         terms.forEach((term) => {
           const line = ctx.sentences.find((s) => s.n.includes(norm(term)));
           (!required.has(term) && line && OPTIONAL_CUE.test(line.n) ? optional : must).push(term);
         });
-        if (!terms.length) return missing("herramientas o conocimientos concretos", "Probá sumar una o dos tecnologías a mano en el paso 2.");
+        // El extractor omite herramientas que la JD sí nombra con una señal clara ("excluyente", "se valora").
+        const extra = cueTerms(ctx, [...terms, ...(ctx.a.rol || [])]);
+        must.push(...extra.must);
+        optional.push(...extra.optional);
+        if (!must.length && !optional.length) return missing("herramientas o conocimientos concretos", "Probá sumar una o dos tecnologías a mano en el paso 2.");
         const years = yearsIn(ctx);
         const parts = [`${must.length ? `Indispensables: ${must.join(", ")}.` : ""}`, optional.length ? `Suman si los tiene: ${optional.join(", ")}.` : "", years ? `Además piden ${years.label} de experiencia.` : ""];
         return reply(parts.filter(Boolean).join(" "), [], ["¿Qué nivel de seniority buscan?", "¿Qué idiomas piden?"]);
@@ -184,16 +218,24 @@
       run(ctx) {
         const a = ctx.a;
         const issues = [];
-        if (!(a.rol || []).length) issues.push("no hay un cargo claro");
+        const role = jdRole(ctx);
+        if (role.guessed) issues.push(`RADAR no identificó el cargo, pero por el texto parece «${role.guessed.n}»`);
+        else if (!role.name) issues.push("no hay un cargo claro");
         if (!(a.alcance || []).length || a.locationNeedsClarification) issues.push("la ubicación no está clara");
         if ((a.ambiguousLocations || []).length) issues.push("hay ciudades que pueden ser de más de un país");
         if (a.experienceNeedsClarification || (!yearsIn(ctx) && !seniorityIn(ctx).length)) issues.push("no queda claro el nivel de experiencia");
         if (a.educationNeedsClarification) issues.push("hay que confirmar si el título es obligatorio");
         if (a.sectorNeedsClarification) issues.push("hay un término de sector que puede leerse de dos maneras");
         if ((a.unverifiedSignals || []).length) issues.push(`RADAR no está seguro de si “${a.unverifiedSignals.slice(0, 3).join("”, “")}” filtra o solo suma`);
-        ((a.quality && a.quality.warnings) || []).slice(0, 2).forEach((warning) => issues.push(String(warning).replace(/\.$/, "").toLowerCase()));
+        ((a.quality && a.quality.warnings) || []).slice(0, 2).forEach((warning) => {
+          // Si ya sugerimos el cargo por el texto, el aviso genérico del extractor sería un duplicado.
+          if (!(role.guessed && /t[ií]tulo del puesto/i.test(warning))) issues.push(String(warning).trim());
+        });
         return issues.length
-          ? reply(`Antes de buscar yo aclararía: ${issues.join("; ")}.`, [], ["Resumime la JD", "¿Dónde conviene buscar?"])
+          ? reply("Antes de buscar yo aclararía:", [], ["Resumime la JD", "¿Dónde conviene buscar?"], {
+            list: issues.map((issue) => capitalize(issue)),
+            apply: role.guessed ? titlesToApply(role.guessed) : null,
+          })
           : reply("La JD se lee bastante clara: hay cargo, ubicación y señales concretas. Igual revisá los criterios en el paso 2.", [], ["¿Dónde conviene buscar?"]);
       },
     },
@@ -204,8 +246,9 @@
         const level = seniorityIn(ctx).join(" / ");
         const years = yearsIn(ctx);
         const roleText = norm((a.rol || []).join(" "));
-        const stack = unique([...(a.imprescindibles || []), ...(a.atributos || [])]).filter((term) => !roleText.includes(norm(term))).slice(0, 5);
-        const lead = (a.rol || [])[0] ? `Es una búsqueda de ${a.rol[0]}${level && !norm(a.rol[0]).includes(norm(level)) ? ` (${level})` : ""}` : "La JD no deja claro el cargo";
+        const stack = unique([...(a.imprescindibles || []), ...(a.atributos || [])]).filter((term) => !roleText.includes(norm(term)) || KB.findTerm(term)).slice(0, 5);
+        const role = jdRole(ctx);
+        const lead = role.name ? `Es una búsqueda de ${role.name}${level && !norm(role.name).includes(norm(level)) ? ` (${level})` : ""}` : "La JD no deja claro el cargo";
         const where = unique([...(a.alcance || []).slice(-2), ...(a.modality || [])]).join(", ");
         const bits = [`${lead}${where ? ` · ${where}` : ""}.`, stack.length ? `Pide ${stack.join(", ")}.` : "", years ? `Experiencia: ${years.label}.` : ""];
         return reply(bits.filter(Boolean).join(" "), [], ["¿Qué es excluyente?", "¿Qué me falta aclarar?"]);
@@ -257,6 +300,9 @@
     return fromJd ? { role: fromJd, fromJd: true } : null;
   }
 
+  // Atajo para la pantalla: los títulos equivalentes se cargan como alternativas del cargo (field "rol").
+  const titlesToApply = (role) => ({ field: "rol", terms: unique([role.n.split(" / ")[0], ...role.e]).slice(0, 4) });
+
   function roleCard(role) {
     return reply(`${role.n}: ${role.d}`, [], [`¿Qué preguntas le hago a un ${role.n.split(" / ")[0]}?`, `¿Cómo hunteo un ${role.n.split(" / ")[0]}?`], {
       list: bullets([`Suele saber: ${role.s.join(", ")}.`, `También se lo busca como: ${role.e.join(", ")}.`]),
@@ -285,6 +331,7 @@
         const { role } = found;
         const technical = KB.isIt(role);
         return reply(`Para encontrar ${role.n}, probá estos títulos: ${[role.n.split(" / ")[0], ...role.e].join(", ")}.`, [], ["¿Qué preguntas le hago?", "¿Qué señales de alerta tiene?"], {
+          apply: titlesToApply(role),
           list: bullets([
             `Combiná el título con 2 o 3 de estos conocimientos: ${role.s.slice(0, 4).join(", ")}.`,
             technical ? "Fuentes: GitHub (código público por país), LinkedIn con X-Ray y comunidades técnicas." : "Fuentes: LinkedIn con X-Ray, bolsas de trabajo locales y grupos profesionales.",
@@ -304,7 +351,7 @@
     }
     if (LOOKUP.equivalent.test(q)) {
       const found = roleFor(ctx);
-      if (found) return reply(`A un ${found.role.n} también se lo busca como: ${found.role.e.join(", ")}. Cargalos como alternativas del cargo en RADAR para no perder perfiles.`, [], [`¿Cómo hunteo un ${found.role.n.split(" / ")[0]}?`]);
+      if (found) return reply(`A un ${found.role.n} también se lo busca como: ${found.role.e.join(", ")}. Cargalos como alternativas del cargo en RADAR para no perder perfiles.`, [], [`¿Cómo hunteo un ${found.role.n.split(" / ")[0]}?`], { apply: titlesToApply(found.role) });
     }
     if (LOOKUP.signs.test(q)) {
       const found = roleFor(ctx);

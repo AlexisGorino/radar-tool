@@ -11,6 +11,11 @@
 
   const norm = (value) => String(value || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // El alias debe aparecer como palabra suelta. Un punto final ("...sistema Tango.") no lo invalida,
+  // pero uno interno sí, para no confundir ".net" o "node.js" con texto que los contiene.
+  const aliasPattern = (alias) => new RegExp(`(?:^|[^a-z0-9+#.])${escapeRegex(alias)}(?=$|[^a-z0-9+#.]|\\.(?:$|[^a-z0-9]))`);
+  // Las JD escriben "Desarrollador/a", "un/a" o "Ejecutivo(a)": se ignoran las marcas de género al comparar.
+  const fold = (value) => norm(value).replace(/\/(?:a|as|o|os|ora|ra|e)(?![a-z])/g, "").replace(/\((?:a|as|o|os)\)/g, "");
 
   const TERMS = [
     // --- Desarrollo
@@ -40,7 +45,9 @@
     ["ci/cd|cicd|ci cd|integracion continua|jenkins|github actions|gitlab ci", "CI/CD", "Automatización que prueba y publica el código cada vez que alguien lo cambia, sin pasos manuales.", "Herramientas típicas: Jenkins, GitHub Actions, GitLab CI."],
     ["docker|contenedores|containers", "Docker", "Empaqueta una aplicación con todo lo que necesita para que funcione igual en cualquier lado.", "Es casi un requisito en perfiles DevOps y backend modernos."],
     ["kubernetes|k8s", "Kubernetes", "Orquesta muchos contenedores Docker: los levanta, los reparte y los reemplaza si fallan.", "Perfil más senior que Docker; suele ir con Helm y alguna nube."],
-    ["terraform|iac|infraestructura como codigo|ansible", "Terraform / IaC", "Definir servidores y redes escribiendo código en lugar de hacer clics, para repetirlo sin errores.", "Terraform y Ansible son los más pedidos."],
+    ["terraform|iac|infraestructura como codigo", "Terraform / IaC", "Definir servidores y redes escribiendo código en lugar de hacer clics, para repetirlo sin errores.", "Terraform es el más pedido; suele ir junto con Ansible."],
+    ["ansible|puppet|chef", "Ansible", "Configura muchos servidores a la vez con archivos de instrucciones, sin entrar uno por uno.", "Complementa a Terraform: Terraform crea la infraestructura, Ansible la configura."],
+    ["argocd|argo cd|gitops|helm", "ArgoCD / GitOps / Helm", "Publicar en Kubernetes a partir de lo que dice el repositorio de código: lo que está en Git es lo que corre. Helm empaqueta las aplicaciones de Kubernetes.", "Señal de un perfil DevOps de nivel medio o alto."],
     ["aws|amazon web services", "AWS", "La nube de Amazon, la más usada del mundo (servidores, bases, almacenamiento, IA).", "Las certificaciones (Solutions Architect, Developer) son una buena señal."],
     ["azure", "Azure", "La nube de Microsoft; muy presente en empresas que ya usan Windows y Office 365.", "Certificaciones AZ-104, AZ-204 o AZ-305."],
     ["gcp|google cloud", "Google Cloud (GCP)", "La nube de Google; fuerte en datos, analítica e inteligencia artificial.", "Menos demanda que AWS/Azure, pero con perfiles más escasos."],
@@ -113,7 +120,12 @@
     ["iso 9001|iso 27001|iso 14001", "ISO 9001 / 27001", "Normas internacionales: 9001 calidad, 27001 seguridad de la información, 14001 ambiente.", ""],
     ["hse|ssma|seguridad e higiene|seguridad industrial", "HSE / SSMA", "Seguridad, salud ocupacional y medio ambiente en obras e industrias.", "Matrícula profesional y normas locales son clave."],
     ["autocad|revit|bim", "AutoCAD / Revit / BIM", "Herramientas de diseño técnico y modelado de obras y edificios.", ""],
-    ["compliance|cumplimiento|aml|lavado de activos", "Compliance", "Asegurar que la empresa cumple leyes y normas internas (por ejemplo, prevención de lavado de dinero).", ""],
+    ["excel|hojas de calculo|google sheets", "Excel / hojas de cálculo", "La planilla de cálculo que usan casi todas las áreas. \"Excel avanzado\" suele significar tablas dinámicas, fórmulas complejas y a veces macros.", "En perfiles financieros y administrativos, pedí ejemplos de qué automatizó o analizó con Excel."],
+    ["tango|tango gestion", "Tango", "Sistema de gestión y contabilidad muy usado por pymes de Argentina.", "Un contador o administrativo argentino con Tango se adapta rápido a otros sistemas contables."],
+    ["iva|ganancias|ingresos brutos|afip|arca|impuestos", "Impuestos (IVA, Ganancias, Ingresos Brutos)", "Las obligaciones fiscales de una empresa: IVA (sobre ventas), Ganancias (sobre resultados) e Ingresos Brutos (provincial). AFIP/ARCA es el organismo recaudador en Argentina.", "Liquidar impuestos es una tarea distinta de llevar la contabilidad: confirmá que el candidato hizo ambas si el puesto las pide."],
+    ["venta consultiva|prospeccion|cold calling|outbound", "Venta consultiva / prospección", "Venta consultiva: entender el problema del cliente antes de ofrecer. Prospección: buscar clientes nuevos activamente.", "Pedí números: cuántos contactos, reuniones y cierres lograba por mes."],
+    ["cuota|cuotas|quota|comisiones", "Cuota y comisiones", "La cuota es la meta de ventas del período; las comisiones son la parte variable del sueldo según cuánto se vende.", "Preguntá qué porcentaje de la cuota cumplió en los últimos años."],
+    ["compliance|aml|lavado de activos", "Compliance", "Asegurar que la empresa cumple leyes y normas internas (por ejemplo, prevención de lavado de dinero).", ""],
     ["customer success|atencion al cliente|customer service|soporte al cliente", "Customer Success / Atención", "Atender a los clientes y ayudarlos a sacar valor del producto. Customer Success es proactivo; Atención es reactiva.", ""],
     ["back office|backoffice|administrativo", "Back office", "Tareas administrativas internas que sostienen la operación: cargas, facturación, trámites.", ""],
   ].map(([aliases, name, what, cv]) => ({ a: aliases.split("|").map(norm), n: name, d: what, cv }));
@@ -167,13 +179,28 @@
 
   // Busca la entrada cuyo alias aparece en el texto; gana el alias más largo.
   function find(list, text) {
-    const haystack = ` ${norm(text)} `;
+    const haystack = ` ${fold(text)} `;
     let best = null;
     let bestLength = 0;
     list.forEach((entry) => {
       entry.a.forEach((alias) => {
         if (alias.length <= bestLength) return;
-        if (new RegExp(`(?:^|[^a-z0-9+#.])${escapeRegex(alias)}(?=$|[^a-z0-9+#.])`).test(haystack)) { best = entry; bestLength = alias.length; }
+        if (aliasPattern(alias).test(haystack)) { best = entry; bestLength = alias.length; }
+      });
+    });
+    return best;
+  }
+
+  // Respaldo cuando el cargo trae palabras de más ("Backend Java Developer"): vale un alias de 2 o más
+  // palabras si todas están en el texto, en cualquier orden. Gana el alias con más palabras.
+  function findRoleLoose(text) {
+    const tokens = new Set(fold(text).split(/[^a-z0-9+#.]+/).filter(Boolean));
+    let best = null;
+    let bestSize = 1;
+    ROLES.forEach((role) => {
+      role.a.forEach((alias) => {
+        const words = alias.split(" ").filter((word) => word.length > 2);
+        if (words.length > bestSize && words.every((word) => tokens.has(word))) { best = role; bestSize = words.length; }
       });
     });
     return best;
@@ -181,10 +208,10 @@
 
   // Todos los términos del glosario presentes en un texto, en orden de aparición.
   function termsIn(text, limit = 10) {
-    const haystack = ` ${norm(text)} `;
+    const haystack = ` ${fold(text)} `;
     const found = [];
     TERMS.forEach((entry) => {
-      const hit = entry.a.map((alias) => ({ alias, at: haystack.search(new RegExp(`(?:^|[^a-z0-9+#.])${escapeRegex(alias)}(?=$|[^a-z0-9+#.])`)) })).filter((m) => m.at >= 0);
+      const hit = entry.a.map((alias) => ({ alias, at: haystack.search(aliasPattern(alias)) })).filter((m) => m.at >= 0);
       if (hit.length) found.push({ entry, at: Math.min(...hit.map((m) => m.at)) });
     });
     return found.sort((x, y) => x.at - y.at).slice(0, limit).map((item) => item.entry);
@@ -192,9 +219,9 @@
 
   // Todas las entradas mencionadas (para comparar "X vs Y"), en orden de aparición.
   function findAll(list, text) {
-    const haystack = ` ${norm(text)} `;
+    const haystack = ` ${fold(text)} `;
     return list
-      .map((entry) => ({ entry, at: Math.min(...entry.a.map((alias) => { const at = haystack.search(new RegExp(`(?:^|[^a-z0-9+#.])${escapeRegex(alias)}(?=$|[^a-z0-9+#.])`)); return at < 0 ? Infinity : at; })) }))
+      .map((entry) => ({ entry, at: Math.min(...entry.a.map((alias) => { const at = haystack.search(aliasPattern(alias)); return at < 0 ? Infinity : at; })) }))
       .filter((item) => item.at !== Infinity)
       .sort((x, y) => x.at - y.at)
       .map((item) => item.entry);
@@ -210,7 +237,7 @@
     findAllTerms: (text) => findAll(TERMS, text),
     findAllRoles: (text) => findAll(ROLES, text),
     findTerm: (text) => find(TERMS, text),
-    findRole: (text) => find(ROLES, text),
+    findRole: (text) => find(ROLES, text) || findRoleLoose(text),
     termsIn,
   };
 });

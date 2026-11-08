@@ -46,6 +46,14 @@ assert.match(flat(ask("Explicame los términos técnicos de la JD")), /Playwrigh
 assert.match(flat(ask("¿Qué preguntas le hago al candidato?")), /proyecto concreto donde usaste Playwright/);
 assert.match(flat(ask("¿Cómo hunteo este perfil?")), /SDET/);
 
+// Hunting y equivalentes ofrecen cargar los títulos como alternativas del cargo.
+const hunt = ask("¿Cómo hunteo este perfil?");
+assert.equal(hunt.apply.field, "rol");
+assert.ok(hunt.apply.terms.includes("SDET") && hunt.apply.terms.length <= 4);
+assert.equal(new Set(hunt.apply.terms).size, hunt.apply.terms.length);
+assert.deepEqual(Radarcito.answer("equivalentes de analista contable", "", null).apply.terms.slice(0, 2), ["Contador", "Accountant"]);
+assert.equal(ask("¿Qué es Kubernetes?").apply, null, "Las definiciones no cargan nada en la pantalla");
+
 // Lo que la base no cubre ofrece consultar a la IA, y lo que sí cubre no.
 assert.equal(Radarcito.answer("¿Cuál es la capital de Francia?", "", null).ask, true);
 assert.equal(Radarcito.answer("¿Qué es zxqvbn?", "", null).ask, true);

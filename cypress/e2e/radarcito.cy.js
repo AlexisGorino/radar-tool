@@ -95,6 +95,16 @@ describe("Radarcito, la guía de RADAR", () => {
       cy.get("#radarcitoLog").should("contain.text", "París es la capital").and("contain.text", "Puede equivocarse");
     });
 
+    it("carga los títulos equivalentes en los criterios con un clic", () => {
+      cy.get("#radarcitoLauncher").click();
+      cy.get("#radarcitoAskTab").click();
+      ask("¿Cómo hunteo un QA automation engineer?");
+      cy.contains(".radarcito-chip-ai", "Agregar a los criterios").should("contain.text", "SDET").click();
+      cy.get("#chips-rol").should("contain.text", "SDET").and("contain.text", "Test Automation Engineer");
+      cy.get("#radarcitoLog").should("contain.text", "los agregué como alternativas del cargo");
+      cy.get("#chips-rol").should("have.class", "radarcito-spot");
+    });
+
     it("si la IA no responde, lo dice sin romper la conversación", () => {
       cy.intercept("POST", "**/api/ask", { statusCode: 502, body: { error: "ai_unavailable" } });
       cy.get("#radarcitoLauncher").click();
