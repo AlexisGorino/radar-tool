@@ -13,7 +13,7 @@ const suites = [
   ["JD review quality", "tests/review-quality.js"],
   ["DOCX intake", "tests/docx.js"],
   ["Search outcome feedback", "tests/outcome.js"],
-  ["Radarcito guide and JD answers", "tests/radarcito.js", "tests/radarcito-scenarios.js"],
+  ["Radarcito guide and JD answers", "tests/radarcito.js", "tests/radarcito-scenarios.js", "tests/radarcito-coverage.js"],
   ["Talent discovery and worker", "tests/talent-discovery.js", "tests/backend-worker.mjs"],
   ["Documentation and UI contracts", "tests/docs-contract.js", "tests/ui-contract.js"],
 ];

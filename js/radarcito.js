@@ -349,16 +349,16 @@
         const { role } = found;
         const required = unique([...(ctx.a.imprescindibles || []), ...(ctx.a.atributos || [])]).filter((term) => !norm((ctx.a.rol || []).join(" ")).includes(norm(term))).slice(0, 3);
         const own = found.fromJd ? required.map((term) => `Contame un proyecto concreto donde usaste ${term}: ¿qué problema resolviste?`) : [];
-        return reply(`Preguntas útiles para un ${role.n}:`, [], [`¿Qué señales de alerta tiene?`, "Resumime la JD"], { list: [...role.q, ...own] });
+        return reply(`Preguntas útiles para un perfil de ${role.title}:`, [], [`¿Qué señales de alerta tiene?`, "Resumime la JD"], { list: [...role.q, ...own] });
       }
     }
     if (LOOKUP.equivalent.test(q)) {
       const found = roleFor(ctx);
-      if (found) return reply(`A un ${found.role.n} también se lo busca como: ${found.role.e.join(", ")}. Cargalos como alternativas del cargo en RADAR para no perder perfiles.`, [], [`¿Cómo hunteo un ${found.role.n.split(" / ")[0]}?`], { apply: titlesToApply(found.role) });
+      if (found) return reply(`A un perfil de ${found.role.title} también se lo busca como: ${found.role.e.join(", ")}. Cargalos como alternativas del cargo en RADAR para no perder perfiles.`, [], [`¿Cómo hunteo un ${found.role.n.split(" / ")[0]}?`], { apply: titlesToApply(found.role) });
     }
     if (LOOKUP.signs.test(q)) {
       const found = roleFor(ctx);
-      if (found) return reply(`Para un ${found.role.n} fijate en:`, [], ["¿Qué preguntas le hago?"], { list: [...found.role.s.slice(0, 4).map((s) => `Buena señal: ${s}.`), ...found.role.f.map((f) => `Alerta: ${f}.`)] });
+      if (found) return reply(`Para un perfil de ${found.role.title} fijate en:`, [], ["¿Qué preguntas le hago?"], { list: [...found.role.s.slice(0, 4).map((s) => `Buena señal: ${s}.`), ...found.role.f.map((f) => `Alerta: ${f}.`)] });
     }
     if (LOOKUP.role.test(q) || LOOKUP.define.test(q)) {
       const term = KB.findTerm(q);
