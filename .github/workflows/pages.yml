@@ -15,6 +15,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       pages: read
@@ -27,6 +28,9 @@ jobs:
       - uses: actions/configure-pages@v5
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      # Un push a main no publica nada que no pase el chequeo de tipos y los tests.
+      - run: npm run check:angular
+      - run: npm run test:unit
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/radar-tool/browser
