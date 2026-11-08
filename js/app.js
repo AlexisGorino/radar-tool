@@ -3119,17 +3119,17 @@
       return a;
     };
     const steps = [];
+    if (nativeQuery) steps.push(step(String(steps.length + 1), "Abrí LinkedIn con tu búsqueda lista", "Se abre en otra pestaña con el cargo, los conocimientos y la ubicación ya cargados. Si pide iniciar sesión, entrá con tu cuenta.", link("Abrir en LinkedIn", RadarGenerator.linkedinSearchUrl(nativeQuery), true)));
+    if (xrayQuery) steps.push(step(String(steps.length + 1), "Probá también en Google", "Busca perfiles públicos de LinkedIn fuera de LinkedIn. Mirá los resultados que dicen «linkedin.com/in».", link("Buscar en Google", RadarGenerator.googleUrl(xrayQuery), false)));
     // Ampliar la búsqueda consume cupo gratuito, por eso lo decide la persona: acá queda a un clic.
     if (!publicSearchRefine.classList.contains("hidden")) {
       const widen = document.createElement("button");
       widen.type = "button";
-      widen.className = "btn btn-primary btn-small";
+      widen.className = "btn btn-ghost btn-small";
       widen.textContent = broadenPublicSearchBtn.textContent;
       widen.addEventListener("click", () => { huntGuideDialog.close(); broadenPublicSearchBtn.click(); });
-      steps.push(step("1", "Ampliá la búsqueda desde acá", "Busca de nuevo con otras formas de nombrar el cargo o solo por habilidades y ubicación. Usa un poco del cupo gratuito.", widen));
+      steps.push(step(String(steps.length + 1), "Ampliá la búsqueda desde acá", "Busca de nuevo con otras formas de nombrar el cargo o solo por habilidades y ubicación. Usa un poco del cupo gratuito.", widen));
     }
-    if (nativeQuery) steps.push(step(String(steps.length + 1), "Abrí LinkedIn con tu búsqueda lista", "Se abre en otra pestaña con el cargo, los conocimientos y la ubicación ya cargados. Si pide iniciar sesión, entrá con tu cuenta.", link("Abrir en LinkedIn", RadarGenerator.linkedinSearchUrl(nativeQuery), true)));
-    if (xrayQuery) steps.push(step(String(steps.length + 1), "Probá también en Google", "Busca perfiles públicos de LinkedIn fuera de LinkedIn. Mirá los resultados que dicen «linkedin.com/in».", link("Buscar en Google", RadarGenerator.googleUrl(xrayQuery), false)));
     const copyButton = document.createElement("button");
     copyButton.type = "button";
     copyButton.className = "btn btn-ghost btn-small";

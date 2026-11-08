@@ -181,7 +181,7 @@
     // "Analista en Rosario" y también "Analista - Rosario" / "Analista, Rosario"; en el segundo caso la
     // ciudad tiene que cerrar el título, para que "Paid Media - Meta Ads" no pierda "Meta Ads".
     const place = escaped.join("|");
-    LOCATION_TAIL_RE = new RegExp("(?:\\s+en\\s+(?:" + place + ")\\b|\\s*[-–—|,(]\\s*(?:" + place + ")(?=\\s*(?:[,)\\-–—|]|$))).*$", "i");
+    LOCATION_TAIL_RE = new RegExp("(?:\\s+en\\s+(?:" + place + ")\\b|\\s*[-–—|,(]\\s*(?:" + place + ")(?=\\s*(?:[,)(\\-–—|]|$))).*$", "i");
     return LOCATION_TAIL_RE;
   }
 
@@ -210,7 +210,7 @@
   function trimRolPhrase(raw) {
     let rol = raw.trim().replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "").replace(LEADING_SENIORITY_ABBREV_RE, "").trim();
     const stopWords =
-      /\s+(para|con|que\b|a nuestro|a nuestra|al equipo|a su equipo|with|semi[\s-]?s[eê]nior|s[eê]nior|junior|j[uú]nior|pleno|ssr|sr\.?|trainee|estagi[aá]ri[oa]|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
+      /\s+(para|con|que\b|a nuestro|a nuestra|al equipo|a su equipo|with|semi[\s-]?s[eê]nior|s[eê]nior|junior|j[uú]nior|pleno|ssr|sr\.?|jr\.?|trainee|turno|jornada|full[\s-]?time|part[\s-]?time|estagi[aá]ri[oa]|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
     rol = rol.replace(locationTailRegex(), "").trim();
     // "Marketing Manager (remoto, LATAM)": la modalidad entre paréntesis no es parte del título.

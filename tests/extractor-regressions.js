@@ -44,4 +44,9 @@ assert.deepEqual(analyze("Analista Contable\nEmpresa en pleno crecimiento. Tango
 assert.deepEqual(analyze("Ingeniero/a de Datos Semi Senior - Híbrido en Montevideo, Uruguay\nPython, SQL, Airflow y dbt. 3 años de experiencia.").rol, ["Ingeniero/a de Datos"]);
 assert.deepEqual(analyze("Chofer de reparto (zona sur GBA)\nLicencia profesional B1. 2 años de experiencia.").rol, ["Chofer de reparto"]);
 
+// Turno, "Jr" y la ciudad seguida de la modalidad entre paréntesis no forman parte del cargo.
+assert.deepEqual(analyze("Enfermero/a Universitario/a - Turno noche (Córdoba)\nMatrícula vigente. 2 años de experiencia en terapia intensiva.").rol, ["Enfermero/a Universitario/a"]);
+assert.deepEqual(analyze("Analista de Cuentas por Pagar Jr - Buenos Aires\nControl de facturas y SAP. Hasta 2 años de experiencia.").rol, ["Analista de Cuentas por Pagar"]);
+assert.deepEqual(analyze("SDR / Inside Sales - São Paulo (híbrido)\nProspecção outbound e HubSpot. 2 anos de experiência.").rol, ["SDR / Inside Sales"]);
+
 console.log("Extractor regressions passed.");
