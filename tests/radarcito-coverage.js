@@ -10,4 +10,8 @@ const roleMiss = roles.filter((r) => !K.findRole(r) && !INTENTIONAL_ROLE_MISSES.
 const termMiss = terms.filter((t) => !K.findTerm(t) && !INTENTIONAL_TERM_MISSES.has(t));
 assert.deepEqual(roleMiss, [], `cargos de uso común sin cobertura: ${roleMiss.join(", ")}`);
 assert.deepEqual(termMiss, [], `términos de uso común sin cobertura: ${termMiss.join(", ")}`);
+// Portugués (Brasil) y francés: los cargos más comunes que aparecen en JDs de la región.
+const multilingual = `desenvolvedor backend|desenvolvedor frontend|desenvolvedor full stack|desenvolvedor mobile|engenheiro de dados|engenheiro de software|engenheiro devops|analista de dados|analista de qualidade|analista de suporte|analista de rh|analista financeiro|analista de infraestrutura|analista de seguranca da informacao|cientista de dados|designer de produto|gerente de produto|gerente de projetos|gerente de vendas|arquiteto de software|recrutador|advogado|enfermeiro|engenheiro civil|representante comercial|motorista|assistente administrativo|developpeur backend|developpeur frontend|developpeur mobile|developpeur full stack|ingenieur logiciel|ingenieur devops|ingenieur cybersecurite|analyste de donnees|chef de projet|chef de produit|responsable rh|charge de recrutement|comptable|commercial|architecte logiciel|testeur|administrateur systeme`.split("|");
+const multilingualMiss = multilingual.filter((r) => !K.findRole(r));
+assert.deepEqual(multilingualMiss, [], `cargos en portugués/francés sin cobertura: ${multilingualMiss.join(", ")}`);
 console.log(`Radarcito: base con cobertura de ${roles.length} cargos y ${terms.length} términos de uso común.`);

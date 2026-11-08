@@ -281,9 +281,9 @@
 
   // ---------- conocimiento general (IT y no IT), sin necesidad de JD ----------
   const LOOKUP = {
-    define: /(que (es|son|significa|quiere decir)|significa|para que sirve|explicame|explicar|definicion|a que se refiere|de que se trata)/,
-    role: /(que hace|que hacen|perfil de|como es un|funciones de|responsabilidades de|en que consiste|que es un|que es una)/,
-    screening: /(pregunt|entrevist|screening|evaluo|evaluar|como filtro)/,
+    define: /(que (es|son|significa|quiere decir)|o que (e|significa)|c est quoi|que signifie|significa|para que sirve|explicame|explicar|definicion|a que se refiere|de que se trata)/,
+    role: /(que hace|que hacen|o que faz|que fait|perfil de|como es un|funciones de|responsabilidades de|en que consiste|que es un|que es una)/,
+    screening: /(pregunt|entrevist|perguntas|questions pour|screening|evaluo|evaluar|como filtro)/,
     equivalent: /(equivalente|titulos parecidos|otros nombres|como se llama tambien|sinonimo|tambien se llama|otros titulos|que otros)/,
     compare: /(diferencia|distinto|versus|\bvs\b|comparar)/,
     hunt: /(hunte|sourcing|como (lo |la |los |las )?busco|donde (lo |la |los |las )?(busco|encuentro)|boolean|como (lo |la )?encuentro|como consigo|conviene buscar)/,

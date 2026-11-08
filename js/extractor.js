@@ -210,11 +210,13 @@
   function trimRolPhrase(raw) {
     let rol = raw.trim().replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "").replace(LEADING_SENIORITY_ABBREV_RE, "").trim();
     const stopWords =
-      /\s+(para|con|que\b|a nuestro|a nuestra|al equipo|a su equipo|with|semi[\s-]?senior|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
+      /\s+(para|con|que\b|a nuestro|a nuestra|al equipo|a su equipo|with|semi[\s-]?s[eê]nior|s[eê]nior|junior|j[uú]nior|pleno|ssr|sr\.?|trainee|estagi[aá]ri[oa]|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
     rol = rol.replace(locationTailRegex(), "").trim();
     // "Marketing Manager (remoto, LATAM)": la modalidad entre paréntesis no es parte del título.
-    rol = rol.replace(/\s*\([^)]*\b(?:remot[oa]|remote|h[ií]brid[oa]|hybrid|presencial|onsite|latam|latinoam[eé]rica)\b[^)]*\)/gi, "").trim();
+    rol = rol.replace(/\s*\([^)]*\b(?:remot[oa]|remote|h[ií]brid[oa]|hybrid|presencial|onsite|latam|latinoam[eé]rica|zona|gba|amba|caba)\b[^)]*\)/gi, "").trim();
+    // "Desenvolvedor(a)": la marca de género entre paréntesis no existe en un perfil real.
+    rol = rol.replace(/\((?:a|o|as|os|e)\)/gi, "").replace(/\s+/g, " ").trim();
     rol = rol.replace(/^(?:(?:un[oa]?|el|la)\s+)+/i, "").trim();
     // a leading count ("1 PM Ciberseguridad") isn't part of the title
     rol = rol.replace(/^\d+\s+/, "").trim();
@@ -225,6 +227,8 @@
     }
     // drop a trailing connector word left over from the cut ("de", "en", "y"...)
     rol = rol.replace(/\s+(de|en|y|para|con)$/i, "").trim();
+    // el guion que separaba el título de la ubicación o la modalidad ("Technical Recruiter (IT) -")
+    rol = rol.replace(/\s*[-–—:|]+$/, "").trim();
     return rol;
   }
 
@@ -505,7 +509,7 @@
     const firstLine = text
       .split("\n")
       .map((l) => l.trim())
-      .find((l) => l.length > 3 && l.length < 60 && !looksLikeAdministrativeText(l) && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)) && !looksLikeVagueRole(trimRolPhrase(l)) && !looksLikeSkillOnlyLine(trimRolPhrase(l)));
+      .find((l) => l.length > 3 && (l.length < 60 || (l.length < 90 && /\s[-–—|]\s/.test(l))) && !looksLikeAdministrativeText(l) && !looksLikeTemplateNoise(l) && !isBareNonRole(trimRolPhrase(l)) && !looksLikeResponsibilityBullet(trimRolPhrase(l)) && !looksLikeVagueRole(trimRolPhrase(l)) && !looksLikeSkillOnlyLine(trimRolPhrase(l)));
     if (firstLine) return [trimRolPhrase(firstLine)];
 
     // PDF-extracted JDs rarely have real line breaks at all — pdf.js joins
@@ -766,14 +770,16 @@
     const companyLeaderPhrase = /(empresa|compañ[íi]a|compania|banco|organizaci[oó]n|firma|grupo|corporaci[oó]n)\s+l[íi]der/i;
     const structuredProject = structuredProjectTitle(text);
     // "Semi Senior" es un nivel propio: no debe sumar además "senior".
-    const withoutSemi = text.replace(/\bsemi[\s-]?senior\b/gi, " ");
+    const withoutSemi = text.replace(/\bsemi[\s-]?s[eê]nior\b/gi, " ");
     const seniorFound = findMatches(text, Keywords.SENIOR_WORDS).filter((w) => {
-      if (/^senior$/i.test(w) && !/\bsenior\b/i.test(withoutSemi)) return false;
+      if (/^senior$/i.test(w) && !Countries.containsWord(withoutSemi, "senior")) return false;
       if (Countries.containsWord(rolText, w)) return false;
       if (/^l[íi]der$/i.test(w) && companyLeaderPhrase.test(text)) return false;
       return true;
     });
     const juniorFound = findMatches(text, Keywords.JUNIOR_WORDS).filter((w) => !Countries.containsWord(rolText, w));
+    // "Pleno" (portugués) es el nivel medio; solo cuenta en el título, porque "empresa en pleno crecimiento" es español común.
+    if (/\bpleno\b/i.test(text.split("\n", 1)[0]) && !juniorFound.length) juniorFound.push("pleno");
     if (/\b(?:0\s*[-–—a]\s*2|hasta\s+2|entre\s+0\s+y\s+2)\s*(?:a[nñ]os?|years?)\b/i.test(text) && !juniorFound.length) juniorFound.push("junior");
     // A role level stated in the title is stronger evidence than unrelated
     // mentions in certification lists, reporting lines or company copy. For

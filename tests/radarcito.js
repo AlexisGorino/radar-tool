@@ -119,4 +119,11 @@ assert.equal(new Set(nutritionist.apply.terms).size, nutritionist.apply.terms.le
 assert.ok(!/Salud \(Médico,/.test(nutritionist.text), "el nombre del perfil no se corta en la barra interna del paréntesis");
 Knowledge.ROLES.forEach((role) => assert.ok(role.title && !/[()]/.test(role.title), `${role.n}: título principal inválido (${role.title})`));
 
+// Preguntas en portugués y francés se resuelven con la base, sin ir a la IA.
+[["o que faz um desenvolvedor backend?", /Backend Developer/], ["perguntas para um engenheiro de dados", /Data Engineer/], ["o que é kubernetes", /Kubernetes/], ["qu'est-ce que fait un chef de projet", /Project Manager/], ["c'est quoi docker", /Docker/]].forEach(([q, expected]) => {
+  const r = Radarcito.answer(q, "", null);
+  assert.equal(r.ask, false, `"${q}" no debe ir a la IA`);
+  assert.match(r.text, expected);
+});
+
 console.log("Radarcito: respuestas sobre la JD, honestidad ante datos ausentes, guía por paso y recorrido verificados.");

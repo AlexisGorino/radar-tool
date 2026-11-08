@@ -32,4 +32,16 @@ const admin = analyze("Asistente administrativo contable junior, zona norte GBA.
 assert.equal(admin.country, "Argentina");
 assert.ok(admin.alcance.includes("GBA"));
 
+// Portugués: "(a)" de género, nivel "Pleno" y guion final no forman parte del cargo.
+const br = analyze("Desenvolvedor(a) Backend Pleno - Remoto (Brasil)\nBuscamos pessoa com 4 anos de experiência em Java, Spring Boot e Kafka.");
+assert.deepEqual(br.rol, ["Desenvolvedor Backend"]);
+assert.deepEqual(br.seniority, ["pleno"]);
+assert.deepEqual(analyze("Technical Recruiter (IT) - Remoto desde México\nSourcing en LinkedIn y ATS. 3 años de experiencia.").rol, ["Technical Recruiter (IT)"]);
+// "en pleno crecimiento" no es un nivel.
+assert.deepEqual(analyze("Analista Contable\nEmpresa en pleno crecimiento. Tango y Excel. 3 años.").seniority, []);
+
+// Títulos de más de 60 caracteres con ubicación conservan el cargo completo; la zona entre paréntesis se descarta.
+assert.deepEqual(analyze("Ingeniero/a de Datos Semi Senior - Híbrido en Montevideo, Uruguay\nPython, SQL, Airflow y dbt. 3 años de experiencia.").rol, ["Ingeniero/a de Datos"]);
+assert.deepEqual(analyze("Chofer de reparto (zona sur GBA)\nLicencia profesional B1. 2 años de experiencia.").rol, ["Chofer de reparto"]);
+
 console.log("Extractor regressions passed.");

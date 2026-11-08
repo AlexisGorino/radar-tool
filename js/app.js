@@ -2345,7 +2345,12 @@
     nextLink.className = "btn btn-ghost btn-small";
     nextLink.href = "#results";
     nextLink.textContent = "Ver consultas y portales";
-    nextActions.append(nextTitle, nextCopy, nextLink);
+    const guideButton = document.createElement("button");
+    guideButton.type = "button";
+    guideButton.className = "btn btn-primary btn-small";
+    guideButton.textContent = "Guiame paso a paso";
+    guideButton.addEventListener("click", () => openHuntGuide(publicSearchRows.length));
+    nextActions.append(nextTitle, nextCopy, guideButton, nextLink);
     publicSearchResults.appendChild(nextActions);
     updatePublicShareControls();
   }
@@ -2679,6 +2684,7 @@
     }
     findProfilesBtn.disabled = true;
     findProfilesBtn.textContent = "Buscando perfiles…";
+    publicSearchStatus.dataset.busy = "true";
     broadenPublicSearchBtn.disabled = true;
     publicSearchRefine.classList.add("hidden");
     if (strategy === "precise" && !sourceOverride) {
@@ -2762,6 +2768,7 @@
         publicSearchRefine.classList.add("hidden");
       }
       if (!count && !partial && strategy === "market") renderFinalNoResultQuestions();
+      if (count < 3) openHuntGuide(count);
       if (strategy === "precise" && !sourceOverride && count > 0 && !publicSearchRows.some(exactRoleAndExperienceMatch)) {
         publicSearchStatus.textContent += " Las coincidencias son pistas afines; confirmá cargo y experiencia en cada perfil.";
       }
@@ -2772,6 +2779,7 @@
       renderPublicSearchError(error);
     } finally {
       if (sequence === publicSearchSequence) {
+        publicSearchStatus.dataset.busy = "false";
         findProfilesBtn.disabled = false;
         findProfilesBtn.textContent = "Buscar perfiles públicos";
         broadenPublicSearchBtn.disabled = false;
@@ -3075,6 +3083,68 @@
       window.setTimeout(() => target.focus({ preventScroll: true }), reduceMotion ? 0 : 180);
     });
   });
+  // Guía cuando la búsqueda automática trae pocos perfiles: cada paso es un clic con la búsqueda ya armada.
+  const huntGuideDialog = document.getElementById("huntGuideDialog");
+  const huntGuideSteps = document.getElementById("huntGuideSteps");
+  function openHuntGuide(count) {
+    const queryState = { ...state, rol: RadarTalentDiscovery.compactRoleFamily(state.rol, state.seniority) };
+    const tiers = RadarGenerator.buildLinkedinBooleanTiers(queryState);
+    const nativeQuery = tiers[0] ? tiers[0].query : "";
+    const xrayQuery = RadarGenerator.buildPublicLinkedinQuery(queryState, "precise");
+    if (!nativeQuery && !xrayQuery) return;
+    document.getElementById("huntGuideIntro").textContent = count
+      ? `Encontré ${count} ${count === 1 ? "perfil" : "perfiles"}. Para ver más, seguí estos pasos: es la misma búsqueda, hecha directo en cada sitio.`
+      : "Los buscadores públicos no devolvieron perfiles para esta búsqueda. Pasa seguido y no es un error tuyo: LinkedIn muestra las personas solo dentro de su propio buscador. Seguí estos pasos:";
+    const step = (number, title, text, action) => {
+      const item = document.createElement("li");
+      const badge = document.createElement("span");
+      badge.className = "workflow-tour-number";
+      badge.textContent = number;
+      const body = document.createElement("div");
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      const copy = document.createElement("p");
+      copy.textContent = text;
+      body.append(heading, copy, action);
+      item.append(badge, body);
+      return item;
+    };
+    const link = (label, href, primary) => {
+      const a = document.createElement("a");
+      a.className = `btn btn-small ${primary ? "btn-primary" : "btn-ghost"}`;
+      a.href = href;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = label;
+      return a;
+    };
+    const steps = [];
+    // Ampliar la búsqueda consume cupo gratuito, por eso lo decide la persona: acá queda a un clic.
+    if (!publicSearchRefine.classList.contains("hidden")) {
+      const widen = document.createElement("button");
+      widen.type = "button";
+      widen.className = "btn btn-primary btn-small";
+      widen.textContent = broadenPublicSearchBtn.textContent;
+      widen.addEventListener("click", () => { huntGuideDialog.close(); broadenPublicSearchBtn.click(); });
+      steps.push(step("1", "Ampliá la búsqueda desde acá", "Busca de nuevo con otras formas de nombrar el cargo o solo por habilidades y ubicación. Usa un poco del cupo gratuito.", widen));
+    }
+    if (nativeQuery) steps.push(step(String(steps.length + 1), "Abrí LinkedIn con tu búsqueda lista", "Se abre en otra pestaña con el cargo, los conocimientos y la ubicación ya cargados. Si pide iniciar sesión, entrá con tu cuenta.", link("Abrir en LinkedIn", RadarGenerator.linkedinSearchUrl(nativeQuery), true)));
+    if (xrayQuery) steps.push(step(String(steps.length + 1), "Probá también en Google", "Busca perfiles públicos de LinkedIn fuera de LinkedIn. Mirá los resultados que dicen «linkedin.com/in».", link("Buscar en Google", RadarGenerator.googleUrl(xrayQuery), false)));
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "btn btn-ghost btn-small";
+    copyButton.textContent = "Copiar la búsqueda";
+    copyButton.addEventListener("click", () => {
+      navigator.clipboard.writeText(nativeQuery || xrayQuery).then(() => { copyButton.textContent = "¡Copiada!"; }, () => { copyButton.textContent = "No se pudo copiar"; });
+      window.setTimeout(() => { copyButton.textContent = "Copiar la búsqueda"; }, 1600);
+    });
+    steps.push(step(String(steps.length + 1), "¿Querés usarla en otro lado?", "Copiala y pegala en el buscador de tu portal, de Recruiter o de la red que prefieras.", copyButton));
+    huntGuideSteps.replaceChildren(...steps);
+    if (!huntGuideDialog.open) huntGuideDialog.showModal();
+  }
+  const closeHuntGuide = () => huntGuideDialog.close();
+  document.getElementById("closeHuntGuideBtn").addEventListener("click", closeHuntGuide);
+  document.getElementById("finishHuntGuideBtn").addEventListener("click", closeHuntGuide);
   document.getElementById("feedbackBtn").addEventListener("click", (e) => openSidePanel(feedbackPanel, e.currentTarget));
   document.getElementById("closeHistoryBtn").addEventListener("click", closeSidePanels);
   document.getElementById("closeHelpBtn").addEventListener("click", closeSidePanels);

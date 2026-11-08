@@ -966,6 +966,7 @@ describe("RADAR talent search flow", () => {
     cy.get('#publicSearchSources input[value="linkedin"]').check();
     cy.get("#findProfilesBtn").click();
     cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "vos decidís si continuar");
+    cy.get("#closeHuntGuideBtn").click();
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Buscar por habilidades y ubicación");
     cy.then(() => {
       expect(sentQueries).to.have.length(1);
@@ -973,6 +974,7 @@ describe("RADAR talent search flow", () => {
     });
     cy.get("#broadenPublicSearchBtn").click();
     cy.get("#publicSearchRefine").should("be.visible").and("contain.text", "Quita cargo y sector");
+    cy.get("#closeHuntGuideBtn").click();
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Ampliar sin cargo ni sector");
     cy.then(() => {
       expect(sentQueries).to.have.length(2);
@@ -983,6 +985,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#publicSearchSources").should("contain.text", "Perfiles técnicos con actividad pública");
     cy.get("#broadenPublicSearchBtn").click();
     cy.get(".public-search-next-questions").should("be.visible").and("contain.text", "¿Qué querés ajustar?");
+    cy.get("#closeHuntGuideBtn").click();
     cy.get(".public-search-next-questions").contains("¿El cargo puede tener otro nombre?").click();
     cy.get('[data-field="rol"]').should("be.focused");
     cy.then(() => expect(sentQueries).to.have.length(3));
@@ -1014,6 +1017,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#findProfilesBtn").click();
     cy.get("#publicSearchRefine").should("be.visible");
     cy.then(() => expect(requestCount).to.equal(1));
+    cy.get("#closeHuntGuideBtn").click();
     cy.get("#broadenPublicSearchBtn").should("contain.text", "Buscar por habilidades y ubicación").click();
     cy.then(() => expect(requestCount).to.equal(2));
     cy.get("#publicSearchStatus").should("contain.text", "Respuesta parcial").and("not.contain.text", "Búsqueda completada");
@@ -1062,6 +1066,7 @@ describe("RADAR talent search flow", () => {
     cy.get("#findProfilesBtn").click();
     cy.get("#publicSearchRefine").should("be.visible");
     cy.then(() => expect(plans).to.have.length(1));
+    cy.get("#closeHuntGuideBtn").click();
     cy.get("#broadenPublicSearchBtn").click();
     cy.get("#publicSearchResults").should("contain.text", "Ana Lopez")
       .and("contain.text", "Perfil afín · validar cargo y experiencia")
@@ -1124,6 +1129,7 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-search-diagnostics").should("contain.text", "El proveedor agotó el tiempo de espera");
     cy.get(".public-search-diagnostics").should("contain.text", "Sin resultados indexados");
     cy.wait("@partialSearch");
+    cy.get("#closeHuntGuideBtn").click();
     cy.get(".public-search-retry").should("contain.text", "LinkedIn").click();
     cy.wait("@partialSearch").then(() => {
       expect(plans).to.have.length(2);
@@ -1132,6 +1138,32 @@ describe("RADAR talent search flow", () => {
     cy.get(".public-profile-card").should("have.length", 1);
     cy.get(".public-search-diagnostics").should("contain.text", "Google + Bing").and("contain.text", "Google agotó el tiempo de espera");
     cy.get("#publicSearchRefine").should("be.visible");
+  });
+
+  it("opens a step-by-step guide with ready-made links when few profiles come back", () => {
+    cy.intercept("POST", "/mock-search", { statusCode: 200, body: { count: 0, results: [], sourceErrors: [] } });
+    cy.visit("/", {
+      onBeforeLoad(win) {
+        primeAuthenticatedSession(win);
+        const endpoint = win.document.querySelector('meta[name="radar-search-endpoint"]');
+        if (endpoint) endpoint.content = "/mock-search";
+      },
+    });
+    cy.get('meta[name="radar-search-endpoint"]').invoke("attr", "content", "/mock-search");
+    cy.get('[data-field="rol"]').type("Analista de selección{enter}");
+    cy.get('[data-field="atributos"]').type("reclutamiento{enter}");
+    cy.get('[data-field="alcance"]').type("Argentina{enter}");
+    cy.get("#generateBtn").click();
+    cy.get('#publicSearchSources input[value="linkedin"]').check();
+    cy.get("#findProfilesBtn").click();
+    cy.get("#huntGuideDialog").should("have.attr", "open");
+    cy.get("#huntGuideSteps").should("contain.text", "Ampliá la búsqueda desde acá");
+    cy.get("#huntGuideSteps a").first().should("have.attr", "href").and("match", /^https:\/\/www\.linkedin\.com\/search\/results\/people\/\?keywords=/);
+    cy.get("#huntGuideSteps a").eq(1).should("have.attr", "href").and("match", /^https:\/\/www\.google\.com\/search\?q=/);
+    cy.get("#finishHuntGuideBtn").click();
+    cy.get("#huntGuideDialog").should("not.have.attr", "open");
+    cy.contains(".public-search-next-actions button", "Guiame paso a paso").click();
+    cy.get("#huntGuideDialog").should("have.attr", "open");
   });
 
   it("offers a broader search even when an earlier source failed", () => {

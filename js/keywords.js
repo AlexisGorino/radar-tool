@@ -123,7 +123,7 @@
   const GENERIC_SKILLS = ["Scrum", "Kanban", "Agile", "DevOps", "QA", "Testing", "ERP", "CRM", "Excel", "Excel avanzado", "Networking", "Confluence", "SharePoint", "PowerPoint", "Asana", "Monday.com"];
 
   const SENIOR_WORDS =["senior", "sr", "lead", "líder", "lider", "manager", "gerente", "head", "director", "principal"];
-  const JUNIOR_WORDS = ["junior", "jr", "trainee", "practicante", "ssr", "semi-senior", "semi senior", "pasante", "intern"];
+  const JUNIOR_WORDS = ["junior", "jr", "estagiário", "trainee", "practicante", "ssr", "semi-senior", "semi senior", "pasante", "intern"];
 
   /** Role -> extra synonyms to offer when the "sinónimos" toggle is on. */
   const ROLE_SYNONYMS = {

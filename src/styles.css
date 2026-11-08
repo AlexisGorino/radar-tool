@@ -1433,3 +1433,31 @@ textarea { font-size: 16px; }
 @keyframes rc-panel-in{from{opacity:0;transform:translateY(10px) scale(.97)}}
 @keyframes rc-nudge-in{from{opacity:0;transform:translateY(8px)}}
 @keyframes rc-spot{50%{outline-offset:10px;outline-color:rgba(231,19,34,.35)}}
+
+/* ---------- Vida e interacción (todo se apaga con "reducir movimiento") ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgb(35 19 18 / 16%); }
+  .btn:not(:disabled):active { transform: translateY(0) scale(.97); box-shadow: none; }
+  .radar-grid > .field { transition: transform .18s, box-shadow .18s, border-color .18s; }
+  .radar-grid > .field:hover, .radar-grid > .field:focus-within { transform: translateY(-3px); box-shadow: 0 10px 24px rgb(35 19 18 / 11%); }
+  .chip { transition: transform .15s, box-shadow .15s; }
+  .chip:hover { transform: translateY(-1px) scale(1.03); }
+  .public-profile-card, .public-search-next-actions, .public-search-next-questions { animation: radar-rise .42s cubic-bezier(.2, .8, .2, 1) both; }
+  .public-profile-list > :nth-child(2) { animation-delay: .06s; }
+  .public-profile-list > :nth-child(3) { animation-delay: .12s; }
+  .public-profile-list > :nth-child(4) { animation-delay: .18s; }
+  .public-profile-list > :nth-child(n+5) { animation-delay: .24s; }
+  .public-profile-card { transition: transform .18s, box-shadow .18s; }
+  .public-profile-card:hover { transform: translateY(-3px); box-shadow: 0 12px 26px rgb(35 19 18 / 14%); }
+  #findProfilesBtn:not(:disabled) { animation: radar-pulse 2.6s ease-in-out 1s 3; }
+  .workflow-tour-dialog[open] { animation: radar-pop .28s cubic-bezier(.2, .9, .3, 1.2); }
+  .workflow-tour-steps li { animation: radar-rise .4s cubic-bezier(.2, .8, .2, 1) both; }
+  .workflow-tour-steps li:nth-child(2) { animation-delay: .08s; }
+  .workflow-tour-steps li:nth-child(3) { animation-delay: .16s; }
+  .public-search-status[data-busy="true"]::after { content: ""; display: inline-block; width: 14px; height: 14px; margin-left: 8px; vertical-align: -2px; border: 2px solid #c3222e; border-right-color: transparent; border-radius: 50%; animation: radar-spin .8s linear infinite; }
+}
+@keyframes radar-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes radar-pop { from { opacity: 0; transform: scale(.94) translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes radar-pulse { 0%, 100% { box-shadow: 0 3px 10px rgb(207 38 53 / 16%); } 50% { box-shadow: 0 0 0 7px rgb(207 38 53 / 16%); } }
+@keyframes radar-spin { to { transform: rotate(360deg); } }
+.hunt-guide-dialog .btn-small { text-decoration: none; display: inline-flex; align-items: center; }
