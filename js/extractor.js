@@ -190,7 +190,7 @@
   // fallback path, which passes a whole raw line through without ever going
   // through that capture group.
   const LEADING_VERB_RE =
-    /^(?:buscamos|se busca|se necesita|necesitamos|estamos buscando|queremos incorporar|queremos sumar|busca incorporar|busco|necesito|quiero|busca)\s+(?:un[ao]?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un[ao]?\s+)?(?:\d+\s+)?/i;
+    /^(?:buscamos|se busca|se necesita|se requiere|se solicita|se precisa|requerimos|necesitamos|estamos buscando|queremos incorporar|queremos sumar|busca incorporar|busco|necesito|quiero|busca)\s+(?:un(?:[ao]|\/a)?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un(?:[ao]|\/a)?\s+)?(?:\d+\s+)?/i;
 
   // A JD names its own opening ("Sr. Backend Developer", "Ssr. QA Analyst")
   // with the internal seniority shorthand, but almost nobody spells their
@@ -217,7 +217,7 @@
     rol = rol.replace(/\s*\([^)]*\b(?:remot[oa]|remote|h[ií]brid[oa]|hybrid|presencial|onsite|latam|latinoam[eé]rica|zona|gba|amba|caba)\b[^)]*\)/gi, "").trim();
     // "Desenvolvedor(a)": la marca de género entre paréntesis no existe en un perfil real.
     rol = rol.replace(/\((?:a|o|as|os|e)\)/gi, "").replace(/\s+/g, " ").trim();
-    rol = rol.replace(/^(?:(?:un[oa]?|el|la)\s+)+/i, "").trim();
+    rol = rol.replace(/^(?:(?:un(?:[oa]|\/a)?|el|la)\s+)+/i, "").trim();
     // a leading count ("1 PM Ciberseguridad") isn't part of the title
     rol = rol.replace(/^\d+\s+/, "").trim();
     if (rol.length > 60) {
@@ -228,7 +228,7 @@
     // drop a trailing connector word left over from the cut ("de", "en", "y"...)
     rol = rol.replace(/\s+(de|en|y|para|con)$/i, "").trim();
     // el guion que separaba el título de la ubicación o la modalidad ("Technical Recruiter (IT) -")
-    rol = rol.replace(/\s*[-–—:|]+$/, "").trim();
+    rol = rol.replace(/\s*[-–—:|!?]+$/, "").replace(/^[¡¿]+/, "").trim();
     return rol;
   }
 
@@ -465,10 +465,10 @@
       // "código de/del puesto" — a corporate JD's internal job CODE label ("Código de
       // Puesto: MD-COM-IR-SR"), not the title; "denominación (oficial)" is the label
       // that template actually uses for the real title, right after the code.
-      /(?<!a )(?:(?<!c[oó]digo de )(?<!c[oó]digo del )puesto|posici[oó]n|cargo|rol|vacante|denominaci[oó]n(?:\s+oficial)?)\s*[:\-]\s*([^.\n]{3,90})/gi,
+      /(?<!a )(?<!sobre el )(?<!del )(?:(?<!c[oó]digo de )(?<!c[oó]digo del )puesto|posici[oó]n|job\s+title|position|cargo|rol|vacante|denominaci[oó]n(?:\s+oficial)?)\s*[:\-]\s*([^.\n]{3,90})/gi,
       // Spanish: "buscamos un X", "se busca X", "empresa X busca Y", "queremos incorporar X",
       // "busco X" / "necesito X" / "quiero X" (recruiter typing for themselves, first person)...
-      /(?:buscamos|se busca|se necesita|necesitamos|estamos buscando|queremos incorporar|queremos sumar|busca incorporar|busco|necesito|quiero|busca)\s+(?:un[ao]?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un[ao]?\s+)?(?:\d+\s+)?([^.\n,]{3,90})/gi,
+      /(?:buscamos|se busca|se necesita|se requiere|se solicita|se precisa|requerimos|necesitamos|estamos buscando|queremos incorporar|queremos sumar|busca incorporar|busco|necesito|quiero|busca)\s+(?:un(?:[ao]|\/a)?\s+)?(?:incorporar\s+)?(?:a\s+)?(?:un(?:[ao]|\/a)?\s+)?(?:\d+\s+)?((?:\.NET|[^.\n,]){3,90})/gi,
       // English: "looking for a X", "seeking X", "hiring a X"
       /(?:looking for|seeking|hiring)\s+(?:an?\s+)?([^.\n,]{3,90})/gi,
       // English: "X Developer with Y" / "X Engineer needed for..." — role phrase leads the sentence
@@ -633,7 +633,7 @@
   // recruiter review as alternatives instead of silently making them required.
   const ACTION_SIGNAL_RE = /\b(?:manej(?:a|ar|ando|e|en|o|ó)|manejo de|utiliz(?:a|ar|ando)|us(?:a|ar|ando)|oper(?:a|ar|ando)|configur(?:a|ar|ando)|implement(?:a|ar|ando)|experiencia (?:práctica )?(?:en|con)|conocimiento de|trabaja(?:r|ndo)? con|use|uses|used|using|manage|manages|managed|managing|operate|operates|operated|operating|configure|configures|configured|configuring|implement|implements|implemented|implementing|work with|works with|worked with|working with|experience (?:in|with)|experienced (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|un|una|unos|unas|the|a|an)\s+)?([A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*(?:\s+[A-ZÀ-ÖØ-Þ][\p{L}\p{N}+#./-]*){0,2})/gu;
   const ACTION_TASK_RE = /\b(?:experiencia (?:práctica )?(?:en|con)|conocimiento de|manej(?:a|ar|ando|e|en)|gestiona(?:r|ndo)?|lidera(?:r|ndo)?|coordina(?:r|ndo)?|realiza(?:r|ndo)?|ejecuta(?:r|ndo)?|analiza(?:r|ndo)?|atiende(?:r|ndo)?|vende(?:r|ndo)?|audita(?:r|ndo)?|administra(?:r|ndo)?|organiza(?:r|ndo)?|plans?|manage(?:s|d|ment|ing)?|lead(?:s|ing)?|coordinate(?:s|d|ing)?|perform(?:s|ed|ing)?|analy[sz]e(?:s|d|ing)?|handle(?:s|d|ing)?|experience (?:in|with)|knowledge of)\s+(?:(?:el|la|los|las|un|una|unos|unas|the|a|an)\s+)?([\p{L}\p{N}+#./-]+(?:(?!\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b)\s+[\p{L}\p{N}+#./-]+){0,2})(?=\s+(?:y|o|con|usando|utilizando|mediante|para|en|que|del|de|al|manejando|using|with|for|and|or|while|es|is|resulta|sería)\b|[,.;]|$)/giu;
-  const GENERIC_ACTION_SIGNALS = new Set(["herramienta", "herramientas", "sistema", "sistemas", "software", "plataforma", "plataformas", "tecnología", "tecnologías", "tecnologia", "tecnologias", "solución", "soluciones", "producto", "productos", "instalación", "instalaciones", "tema", "temas", "asunto", "asuntos", "área", "area", "áreas", "areas", "año", "años", "experiencia", "puesto", "sector", "similar", "desarrollar", "desarrollo", "diseño", "diseno", "framework", "frameworks", "motor", "motores", "base", "bases", "indicar", "nivel", "capacidad", "seguimiento", "iniciativa", "iniciativas", "objetivo", "objetivos", "mejora", "mejoras"]);
+  const GENERIC_ACTION_SIGNALS = new Set(["herramienta", "herramientas", "sistema", "sistemas", "software", "plataforma", "plataformas", "tecnología", "tecnologías", "tecnologia", "tecnologias", "solución", "soluciones", "producto", "productos", "instalación", "instalaciones", "tema", "temas", "asunto", "asuntos", "área", "area", "áreas", "areas", "año", "años", "experiencia", "puesto", "sector", "similar", "desarrollar", "desarrollo", "diseño", "diseno", "framework", "frameworks", "motor", "motores", "base", "bases", "indicar", "nivel", "capacidad", "seguimiento", "iniciativa", "iniciativas", "objetivo", "objetivos", "mejora", "mejoras", "equipo", "equipos", "personas", "persona", "gente", "colaboradores", "analistas", "reportes"]);
 
   // Safety net beyond the explicit article list in ACTION_SIGNAL_RE/ACTION_TASK_RE:
   // any leftover leading connector word (article, possessive, demonstrative)
@@ -650,7 +650,7 @@
       pattern.lastIndex = 0;
       let match;
       while ((match = pattern.exec(searchableText)) !== null) {
-        const term = match[1].trim().replace(LEADING_CONNECTOR_RE, "").replace(/[.,;:]+$/, "");
+        const term = match[1].trim().split(/\.\s+/)[0].replace(LEADING_CONNECTOR_RE, "").replace(/[.,;:]+$/, "");
         const normalized = term.toLowerCase();
         const isIndustry = Keywords.INDUSTRIES.some((industry) => industry.toLowerCase() === normalized);
         if (!term || GENERIC_ACTION_SIGNALS.has(normalized) || isIndustry || /^(?:sector|industria|industry|rubro)\s/i.test(term)) continue;

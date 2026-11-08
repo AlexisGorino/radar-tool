@@ -49,4 +49,16 @@ assert.deepEqual(analyze("Enfermero/a Universitario/a - Turno noche (Córdoba)\n
 assert.deepEqual(analyze("Analista de Cuentas por Pagar Jr - Buenos Aires\nControl de facturas y SAP. Hasta 2 años de experiencia.").rol, ["Analista de Cuentas por Pagar"]);
 assert.deepEqual(analyze("SDR / Inside Sales - São Paulo (híbrido)\nProspecção outbound e HubSpot. 2 anos de experiência.").rol, ["SDR / Inside Sales"]);
 
+// "un/a", ".NET", "Se requiere" y "Sobre el rol:" no rompen el cargo; "Vas" no es un condado de Hungría.
+const dotnet = analyze("¡Estamos buscando un/a Desarrollador/a .NET Semi Senior!\nSobre el rol:\nVas a sumarte a un equipo ágil del sector bancario.\nRequisitos:\n- 3+ años de experiencia con C# y SQL Server\nModalidad híbrida en Vicente López.");
+assert.deepEqual(dotnet.rol, ["Desarrollador/a .NET"]);
+assert.equal(dotnet.country, "Argentina");
+assert.deepEqual(analyze("Se requiere Contador/a Público/a para estudio contable en Mar del Plata.\nIVA, Ganancias y Tango. 4 años de experiencia.").rol, ["Contador/a Público/a"]);
+// "Job Title:" es una etiqueta de cargo, y la frase siguiente al punto no se pega a la señal.
+const titled = analyze("Job Title: Senior Data Analyst\nLocation: Mexico City (Hybrid)\nRequirements: 5+ years in analytics, strong SQL and experience with BigQuery. English C1.");
+assert.deepEqual(titled.rol, ["Senior Data Analyst"]);
+assert.ok(![...titled.atributos, ...titled.atributosDeseables].some((term) => /English/i.test(term)), "el idioma no se mezcla con la herramienta");
+// Liderar "equipos" no es una habilidad.
+assert.ok(!analyze("Líder de Soporte Técnico - Quito, Ecuador\nGestionar un equipo de 8 analistas, ServiceNow. 2 años liderando equipos. Inglés avanzado.").atributosDeseables.includes("equipo"));
+
 console.log("Extractor regressions passed.");

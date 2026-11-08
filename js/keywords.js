@@ -49,6 +49,11 @@
     // Finanzas / contabilidad
     "NIIF", "IFRS", "Excel", "Excel avanzado", "Contabilidad", "Auditoria", "Auditoría",
     "Tesoreria", "Tesorería", "Presupuestos", "Costos", "US GAAP", "SEPA", "Kyriba", "Cash Management", "Tango", "Bejerman", "QuickBooks", "NetSuite", "Facturación electrónica", "Conciliaciones bancarias",
+    // Más herramientas de datos, infraestructura, contabilidad regional, e-learning y diseño
+    "ITIL", "ArgoCD", "EKS", "WCAG", "Design Systems", "UX Research", "Azure DevOps", "Hibernate", "SQL Server", "PL/SQL",
+    "Pentaho", "Talend", "Informatica", "SSIS", "Qlik", "MicroStrategy", "Cognos", "Zabbix", "Veeam", "Citrix",
+    "Colppy", "Xubio", "Contabilium", "Alegra", "Siigo", "DIAN", "SUNAT", "CFDI", "Moodle", "SCORM", "Articulate",
+    "Trello", "ClickUp", "Miro", "Canva", "Autoelevador",
     // Legal
     "Compliance", "Derecho Laboral", "Propiedad Intelectual", "Contratos",
     // IA / Machine Learning (más allá de "Machine Learning" / "Data Science")

@@ -251,7 +251,7 @@
     return re.test(normalizedText);
   }
 
-  const AMBIGUOUS_LOCALITIES = new Set(["salta", "salto", "santander", "meta", "formosa", "armenia", "lima", "santiago", "santa fe", "cordoba", "córdoba", "morelos", "guerrero", "hidalgo", "colima", "durango", "sonora", "zacatecas", "nayarit", "campeche", "tabasco", "puebla", "tlaxcala", "queretaro", "querétaro", "chiapas", "veracruz", "michoacan", "michoacán", "oaxaca", "chihuahua", "jalisco", "sinaloa", "tamaulipas", "coahuila", "sucre", "amazonas", "cauca", "caldas", "arauca", "apure", "barinas", "lara", "merida", "mérida", "miranda", "monagas", "trujillo", "carabobo", "aragua", "cojedes", "para", "pará", "nice", "reunion", "réunion"]);
+  const AMBIGUOUS_LOCALITIES = new Set(["salta", "salto", "santander", "meta", "formosa", "armenia", "lima", "santiago", "santa fe", "cordoba", "córdoba", "morelos", "guerrero", "hidalgo", "colima", "durango", "sonora", "zacatecas", "nayarit", "campeche", "tabasco", "puebla", "tlaxcala", "queretaro", "querétaro", "chiapas", "veracruz", "michoacan", "michoacán", "oaxaca", "chihuahua", "jalisco", "sinaloa", "tamaulipas", "coahuila", "sucre", "amazonas", "cauca", "caldas", "arauca", "apure", "barinas", "lara", "merida", "mérida", "miranda", "monagas", "trujillo", "carabobo", "aragua", "cojedes", "para", "pará", "vas", "nice", "reunion", "réunion"]);
   function hasLocationContext(text, index, term) {
     // "Nice to have" / "Nice-to-have" no es la ciudad de Niza.
     if (/^[\s-]*to[\s-]*have/i.test(text.slice(index + term.length, index + term.length + 12))) return false;
