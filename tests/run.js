@@ -41,12 +41,17 @@ test("informal sourcing notes separate a generic role, an unknown named tool and
 });
 
 test("informal non-IT notes separate the activity from its named system", () => {
-  const result = Extractor.analyzeJD("Busco un Analista Contable con experiencia en conciliaciones usando Bejerman en Córdoba, Argentina.");
+  const result = Extractor.analyzeJD("Busco un Analista Contable con experiencia en conciliaciones usando Holistor en Córdoba, Argentina.");
   assert.deepStrictEqual(result.rol, ["Analista Contable"]);
   assert.ok(result.unverifiedSignals.includes("conciliaciones"), `activity should remain reviewable, got ${result.unverifiedSignals}`);
-  assert.ok(result.unverifiedSignals.includes("Bejerman"), `system should remain reviewable, got ${result.unverifiedSignals}`);
-  assert.ok(!result.unverifiedSignals.includes("conciliaciones usando Bejerman"), "activity and tool must not be merged into one signal");
+  assert.ok(result.unverifiedSignals.includes("Holistor"), `system should remain reviewable, got ${result.unverifiedSignals}`);
+  assert.ok(!result.unverifiedSignals.includes("conciliaciones usando Holistor"), "activity and tool must not be merged into one signal");
   assert.ok(result.alcance.includes("Córdoba") && result.alcance.includes("Argentina"));
+});
+
+test("accounting systems used in Argentina are recognized as skills", () => {
+  const result = Extractor.analyzeJD("Analista Contable con Tango y Bejerman en Córdoba, Argentina.");
+  assert.ok(["Tango", "Bejerman"].every((skill) => result.atributos.includes(skill)), `got ${result.atributos}`);
 });
 
 test("telecom graduate request keeps the real profile, Spanish city alternatives and clarification needs", () => {

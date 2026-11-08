@@ -2,11 +2,11 @@
 // The provider adapter is deliberately separate so API keys never reach this file.
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("./countries.js"));
+    module.exports = factory(require("./countries.js"), require("./radarcito-knowledge.js"));
   } else {
-    root.RadarTalentDiscovery = factory(root.RadarCountries);
+    root.RadarTalentDiscovery = factory(root.RadarCountries, root.RadarRadarcitoKnowledge);
   }
-})(typeof self !== "undefined" ? self : this, function (countries) {
+})(typeof self !== "undefined" ? self : this, function (countries, knowledge) {
   "use strict";
 
   const SOURCES = Object.freeze({
@@ -92,6 +92,24 @@
       .slice(0, 8);
   }
 
+  // Para los cargos que no tienen una familia fija arriba (Backend, DevOps, Data, Contador...), los títulos
+  // equivalentes salen de la base de perfiles: sin ellos la búsqueda exige el título literal de la JD, que casi
+  // nadie escribe igual en su perfil.
+  function withKnownTitles(titles) {
+    // Los cargos con ruta adyacente propia (QA, soporte, data analyst...) ya traen sus equivalentes curados.
+    if (!knowledge || !titles.length || ADJACENT_ROLE_FAMILIES.some((family) => family.match.test(roleFamilyText(titles)))) return titles;
+    const profile = knowledge.findRole(titles.join(" "));
+    if (!profile) return titles;
+    const seen = new Set(titles.map(normalizeText));
+    profile.e.forEach((term) => {
+      if (!seen.has(normalizeText(term)) && titles.length < 6) {
+        titles.push(term);
+        seen.add(normalizeText(term));
+      }
+    });
+    return titles;
+  }
+
   function expandRoleFamily(roles, seniority) {
     // Vacancy copy often uses Spanish inclusive gender notation ("jefe/a")
     // and article prefixes ("un/a"). Those forms are useful for the review
@@ -139,7 +157,7 @@
       });
       return original;
     }
-    if (!projectManagement) return original;
+    if (!projectManagement) return withKnownTitles(original);
     const juniorContext = normalizeText([...(Array.isArray(seniority) ? seniority : []), ...original].join(" "));
     const junior = /\b(?:junior|jr|trainee|pasante|practicante|intern)\b/.test(juniorContext);
     const aliases = junior
@@ -610,6 +628,13 @@
     return { identityStatus: "Nombre sugerido por el índice; validá el enlace", identityAlignment: "unknown" };
   }
 
+  // "Arquitecto Cloud" también aparece como "Arquitecta Cloud" en un perfil: el cargo se compara en ambos géneros.
+  function genderVariants(term) {
+    const feminine = term.replace(/(\p{L}+?)(or|o)(?![\p{L}])/giu, (_, stem, end) => stem + (end.toLowerCase() === "or" ? "ora" : "a"));
+    const masculine = term.replace(/(\p{L}+?)(ora|a)(?![\p{L}])/giu, (_, stem, end) => stem + (end.toLowerCase() === "ora" ? "or" : "o"));
+    return [term, feminine, masculine];
+  }
+
   function termEvidence(text, state) {
     const searchable = normalizeText(text);
     const required = cleanTerms(state.imprescindibles);
@@ -624,8 +649,9 @@
     // boundaries so punctuation and accents remain flexible without matching
     // unrelated words.
     const hits = (terms) => terms.filter((term) => hasPhrase(searchable, term));
-    const roleHits = hits(role);
-    const adjacentRoleHits = hits(adjacentRoles);
+    const hitsAnyGender = (terms) => terms.filter((term) => genderVariants(term).some((variant) => hasPhrase(searchable, variant)));
+    const roleHits = hitsAnyGender(role);
+    const adjacentRoleHits = hitsAnyGender(adjacentRoles);
     const requiredHits = hits(required);
     const alternativeHits = hits(alternatives);
     const locationHits = hits(location);
@@ -887,6 +913,7 @@
           quotaLimited: item.quotaLimited === true,
           elapsedMs: Math.max(0, Number(item.elapsedMs) || 0),
           code: typeof item.code === "string" ? item.code : null,
+          rejectedSample: Array.isArray(item.rejectedSample) ? item.rejectedSample.filter((entry) => typeof entry === "string").slice(0, 4).map((entry) => entry.slice(0, 80)) : [],
           engines: Array.isArray(item.engines) ? item.engines.filter((engine) => ["Google", "Bing", "Yahoo"].includes(engine)) : [],
           providerErrors: Array.isArray(item.providerErrors) ? item.providerErrors
             .filter((entry) => entry && ["Google", "Bing", "Yahoo"].includes(entry.provider))

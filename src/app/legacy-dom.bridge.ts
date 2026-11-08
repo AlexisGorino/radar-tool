@@ -14,9 +14,9 @@ const LEGACY_SCRIPTS = [
   'js/ai.js',
   'js/tracking.js',
   'js/outcome.js',
+  'js/radarcito-knowledge.js',
   'js/talent-discovery.js',
   'js/app.js',
-  'js/radarcito-knowledge.js',
   'js/radarcito.js',
   'js/radarcito-ui.js'
 ] as const;

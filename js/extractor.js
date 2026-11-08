@@ -178,7 +178,10 @@
     const escaped = Array.from(new Set(terms.map((t) => t.toLowerCase())))
       .sort((a, b) => b.length - a.length)
       .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-    LOCATION_TAIL_RE = new RegExp("\\s+en\\s+(?:" + escaped.join("|") + ")\\b.*$", "i");
+    // "Analista en Rosario" y también "Analista - Rosario" / "Analista, Rosario"; en el segundo caso la
+    // ciudad tiene que cerrar el título, para que "Paid Media - Meta Ads" no pierda "Meta Ads".
+    const place = escaped.join("|");
+    LOCATION_TAIL_RE = new RegExp("(?:\\s+en\\s+(?:" + place + ")\\b|\\s*[-–—|,(]\\s*(?:" + place + ")(?=\\s*(?:[,)\\-–—|]|$))).*$", "i");
     return LOCATION_TAIL_RE;
   }
 
@@ -207,9 +210,11 @@
   function trimRolPhrase(raw) {
     let rol = raw.trim().replace(LEADING_VERB_RE, "").replace(LEADING_SUPPORT_TIER_RE, "").replace(LEADING_SENIORITY_ABBREV_RE, "").trim();
     const stopWords =
-      /\s+(para|con|que\b|a nuestro|a nuestra|al equipo|a su equipo|with|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
+      /\s+(para|con|que\b|a nuestro|a nuestra|al equipo|a su equipo|with|semi[\s-]?senior|senior|junior|ssr|sr\.?|trainee|responsable de|a cargo de|que tenga|que cuente|de al menos|needed|required|based in|located in|remoto|remota|remote|h[íi]brid[oa]|hybrid|presencial|onsite)\b[\s\S]*/i;
     rol = rol.replace(stopWords, "").trim();
     rol = rol.replace(locationTailRegex(), "").trim();
+    // "Marketing Manager (remoto, LATAM)": la modalidad entre paréntesis no es parte del título.
+    rol = rol.replace(/\s*\([^)]*\b(?:remot[oa]|remote|h[ií]brid[oa]|hybrid|presencial|onsite|latam|latinoam[eé]rica)\b[^)]*\)/gi, "").trim();
     rol = rol.replace(/^(?:(?:un[oa]?|el|la)\s+)+/i, "").trim();
     // a leading count ("1 PM Ciberseguridad") isn't part of the title
     rol = rol.replace(/^\d+\s+/, "").trim();
@@ -758,7 +763,10 @@
     // "empresa/banco/compañía líder" describes the company, not the candidate's seniority
     const companyLeaderPhrase = /(empresa|compañ[íi]a|compania|banco|organizaci[oó]n|firma|grupo|corporaci[oó]n)\s+l[íi]der/i;
     const structuredProject = structuredProjectTitle(text);
+    // "Semi Senior" es un nivel propio: no debe sumar además "senior".
+    const withoutSemi = text.replace(/\bsemi[\s-]?senior\b/gi, " ");
     const seniorFound = findMatches(text, Keywords.SENIOR_WORDS).filter((w) => {
+      if (/^senior$/i.test(w) && !/\bsenior\b/i.test(withoutSemi)) return false;
       if (Countries.containsWord(rolText, w)) return false;
       if (/^l[íi]der$/i.test(w) && companyLeaderPhrase.test(text)) return false;
       return true;

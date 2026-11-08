@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const suites = [
   ["Core behavior", "tests/run.js"],
-  ["Job description extraction", "tests/jd-bank.js"],
+  ["Job description extraction", "tests/jd-bank.js", "tests/extractor-regressions.js"],
   ["Countries and locations", "tests/locations.js"],
   ["AI integration", "tests/ai.js"],
   ["Usage tracking", "tests/tracking.js"],

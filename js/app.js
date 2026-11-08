@@ -2383,7 +2383,13 @@
       let detail = "No hubo diagnóstico disponible.";
       if (item.status === "error") detail = errorMessages[item.code] || "No se pudo completar la consulta.";
       else if (item.status === "profiles_found") detail = `${item.profileCount} enlaces de perfil reconocibles de ${item.organicCount} resultados; la pertinencia se revisa aparte.`;
-      else if (item.status === "no_public_profiles") detail = `Hubo ${item.organicCount} resultados, pero ninguno era un perfil reconocible.`;
+      else if (item.status === "no_public_profiles") {
+        // Los buscadores públicos casi no devuelven perfiles de LinkedIn para consultas por cargo: contestan con ofertas u otras páginas.
+        const offTopic = (item.rejectedSample || []).some((entry) => /jobs|empleo|trabajo|indeed|computrabajo|glassdoor|getonbrd|bumeran/i.test(entry));
+        detail = offTopic
+          ? `Hubo ${item.organicCount} resultados, pero eran ofertas de empleo u otras páginas, no perfiles. Los buscadores públicos muestran pocos perfiles para búsquedas por cargo: copiá la consulta y usala directo en LinkedIn.`
+          : `Hubo ${item.organicCount} resultados, pero ninguno era un perfil reconocible.`;
+      }
       else if (item.status === "no_indexed_results") detail = "Sin resultados indexados para estos términos.";
       const engines = Array.isArray(item.engines) && item.engines.length ? ` · ${item.engines.join(" + ")}` : "";
       const queriesRun = Number(item.queriesRun) > 1 ? ` · ${item.queriesRun} consultas` : "";

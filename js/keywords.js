@@ -32,7 +32,7 @@
     "Fortinet", "Palo Alto Networks", "Check Point", "Juniper", "Aruba", "Meraki", "SD-WAN", "MPLS",
     "QA", "Testing", "Automation", "Selenium", "Cypress",
     "Machine Learning", "Data Science", "Power BI", "Tableau", "ETL", "Spark",
-    "Kafka", "Airflow", "dbt", "Snowflake", "Databricks", "Redshift", "BigQuery",
+    "Kafka", "GraphQL", "Elasticsearch", "RabbitMQ", "Nginx", "Shopify", "WordPress", "Zapier", "Google Tag Manager", "Airflow", "dbt", "Snowflake", "Databricks", "Redshift", "BigQuery",
     "Looker", "Airbyte", "Prefect", "Flink", "Data Warehouse", "Data Lake",
     "Figma", "UX", "UI",
     "ISO 27001", "NIST", "GDPR", "NIS2", "DORA", "PCI-DSS", "CISM", "CISSP", "CISA", "CRISC",
@@ -48,7 +48,7 @@
     "LinkedIn Recruiter", "Onboarding",
     // Finanzas / contabilidad
     "NIIF", "IFRS", "Excel", "Excel avanzado", "Contabilidad", "Auditoria", "Auditoría",
-    "Tesoreria", "Tesorería", "Presupuestos", "Costos", "US GAAP", "SEPA", "Kyriba", "Cash Management",
+    "Tesoreria", "Tesorería", "Presupuestos", "Costos", "US GAAP", "SEPA", "Kyriba", "Cash Management", "Tango", "Bejerman", "QuickBooks", "NetSuite", "Facturación electrónica", "Conciliaciones bancarias",
     // Legal
     "Compliance", "Derecho Laboral", "Propiedad Intelectual", "Contratos",
     // IA / Machine Learning (más allá de "Machine Learning" / "Data Science")

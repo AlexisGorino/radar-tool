@@ -361,7 +361,23 @@ async function lookup(query, location, source, apiKey, engineId = "google") {
     organicCount: organicResults.length,
     profileCount: profileResults.length,
     engine: engine.label,
+    rejectedSample: rejectedLinkSample(organicResults, source),
   };
+}
+
+// Dominio y primer tramo de la ruta de los resultados que no son perfiles (nunca la URL completa): permite
+// explicar por qué una búsqueda con resultados no devolvió ningún perfil sin exponer datos de nadie.
+function rejectedLinkSample(organicResults, source) {
+  const seen = new Set();
+  for (const item of organicResults) {
+    if (validProfileUrl(item?.link, source)) continue;
+    try {
+      const url = new URL(item.link);
+      seen.add(`${url.hostname.replace(/^www./, "")}/${url.pathname.split("/")[1] || ""}`.slice(0, 80));
+    } catch { /* enlace ilegible: se omite */ }
+    if (seen.size >= 4) break;
+  }
+  return [...seen];
 }
 
 function profileHasExactLocation(result, rawLocation) {
@@ -424,6 +440,7 @@ async function lookupXraySource(source, queries, location, serpApiKey, providerA
     results,
     organicCount: engineResults.reduce((total, result) => total + (result.organicCount || 0), 0),
     profileCount: results.length,
+    rejectedSample: [...new Set(engineResults.flatMap((result) => result.rejectedSample || []))].slice(0, 4),
     queriesRun: outcomes.length,
     engines: [...new Set(outcomes.map((outcome) => outcome.engine.label))],
     ...(providerErrors.length ? { providerErrors } : {}),
@@ -895,6 +912,7 @@ export default {
         code: item.error || item.providerErrors?.[0]?.code || null,
         elapsedMs: Number(item.elapsedMs) || 0,
         ...(item.queriesRun > 0 ? { queriesRun: item.queriesRun } : {}),
+        ...(!item.profileCount && item.rejectedSample?.length ? { rejectedSample: item.rejectedSample } : {}),
         ...(item.engines?.length ? { engines: item.engines } : {}),
         ...(XRAY_SOURCE_IDS.has(item.source) && plan.xraySearchCapacity?.searchesAvailable < plan.xraySearchCapacity?.searchesRequested
           ? { queriesRequested: plan.xraySearchCapacity.searchesRequested, quotaLimited: true }

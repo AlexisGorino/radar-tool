@@ -85,4 +85,26 @@ Radarcito.TOUR.filter((step) => step.target && step.target.startsWith("#")).forE
   assert.match(template, new RegExp(`id="${step.target.slice(1)}"`), `El recorrido apunta a ${step.target}, que no existe`);
 });
 
+// Integridad de la base: ningún alias repetido entre entradas y todos los perfiles completos.
+[Knowledge.TERMS, Knowledge.ROLES].forEach((list) => {
+  const aliasOwners = new Map();
+  list.forEach((entry) => entry.a.forEach((alias) => {
+    assert.ok(!aliasOwners.has(alias) || aliasOwners.get(alias) === entry.n, `alias "${alias}" repetido en "${entry.n}" y "${aliasOwners.get(alias)}"`);
+    aliasOwners.set(alias, entry.n);
+  }));
+});
+Knowledge.ROLES.forEach((role) => ["d", "s", "e", "q", "f"].forEach((key) => assert.ok(role[key] && role[key].length, `${role.n} sin "${key}"`)));
+
+// Perfiles y términos ampliados: se reconocen por su nombre de uso común, sin falsos positivos de palabras corrientes.
+[
+  ["¿Qué hace un DBA?", /Bases de Datos/], ["¿Cómo hunteo un chofer de camión?", /Chofer/], ["¿Qué hace un pentester?", /SOC|Pentester/],
+  ["¿Qué hace un community manager?", /Contenido|Comunicación/], ["¿Qué es Bejerman?", /Bejerman/], ["¿Qué es un PLC?", /PLC/],
+  ["¿Qué hace un jefe de obra?", /Construcción/], ["¿Qué es GraphQL?", /GraphQL/],
+].forEach(([question, expected]) => {
+  const reply = Radarcito.answer(question, "", null);
+  assert.equal(reply.ask, false, `"${question}" no debería derivar a la IA`);
+  assert.match(`${reply.text} ${reply.list.join(" ")}`, expected, `"${question}"`);
+});
+assert.equal(Knowledge.findAllTerms("Buscamos equilibrio entre trabajo y vida, un balance sano y un equipo unido").length, 0, "palabras corrientes no son términos técnicos");
+
 console.log("Radarcito: respuestas sobre la JD, honestidad ante datos ausentes, guía por paso y recorrido verificados.");

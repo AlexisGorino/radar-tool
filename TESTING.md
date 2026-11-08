@@ -21,6 +21,7 @@ Para investigar un área puntual, siguen disponibles los scripts individuales:
 ```
 node tests/run.js        # tests unitarios: extractor, generator, seguridad
 node tests/jd-bank.js    # tests de regresión con JDs reales
+node tests/extractor-regressions.js  # fallos del extractor hallados con JDs de áreas variadas
 node tests/locations.js  # detección de provincias/estados/regiones, sin falsos positivos
 node tests/ai.js         # prompt y parseo de ai.js (sin red real)
 node tests/tracking.js   # payload y manejo de localStorage de tracking.js (sin red real)

@@ -640,6 +640,7 @@ test("search uses same-origin auth, does not send the JD, and reports provider e
   assert.equal(found.sourceDiagnostics[0].queriesRequested, 3);
   assert.equal(found.sourceDiagnostics[0].quotaLimited, true);
   assert.deepEqual(found.sourceDiagnostics[0].engines, ["Google", "Yahoo"]);
+  assert.deepEqual(found.sourceDiagnostics[0].rejectedSample, [], "sin muestra de descartados se normaliza a lista vacía");
   assert.deepEqual(found.sourceDiagnostics[0].providerErrors, [{ provider: "Yahoo", code: "provider_rate_limited" }]);
   assert.equal(request.url, "https://radar.example/api/search");
   assert.equal(request.options.credentials, "same-origin");
@@ -729,6 +730,25 @@ test("search uses same-origin auth, does not send the JD, and reports provider e
     Discovery.search("https://radar.example/api/search", payload, canaryState, async () => ({ ok: false, status: 503, json: async () => { throw new SyntaxError("upstream html"); } })),
     /error \(503\)/
   );
+});
+
+test("roles without a fixed family search their known equivalent titles, not only the literal one", () => {
+  const state = { rol: ["Backend Developer"], seniority: [], atributos: ["Python", "Django"], imprescindibles: [], deseables: [], dominio: [], alcance: ["Argentina", "Buenos Aires"], refinar: [] };
+  const plan = Discovery.buildPlan(state, ["linkedin", "github"], Generator);
+  const linkedin = plan.queries.find((entry) => entry.source === "linkedin");
+  assert.match(linkedin.query, /"Software Engineer"/, "LinkedIn also looks for the equivalent title");
+  const github = plan.queries.find((entry) => entry.source === "github");
+  assert.ok(github.profileEvidence.role.includes("Software Engineer"), "GitHub bios can match an equivalent title");
+  // Un cargo con ruta curada propia conserva su lógica (no se mezcla con la base de perfiles).
+  assert.deepEqual(Discovery.adjacentRoleTerms(["Data Analyst"], [], []).slice(0, 2), ["BI Analyst", "Reporting Analyst"]);
+});
+
+test("role evidence matches the title in either grammatical gender", () => {
+  const state = { rol: ["ARQUITECTO CLOUD"], seniority: [], atributos: ["AWS"], imprescindibles: [], dominio: [], alcance: [], roleContext: [] };
+  assert.deepEqual(Discovery.termEvidence("Ana Torres - Arquitecta Cloud - LinkedIn", state).roleHits, ["ARQUITECTO CLOUD"]);
+  const feminine = { ...state, rol: ["Ingeniera de Software"] };
+  assert.deepEqual(Discovery.termEvidence("Pedro - Ingeniero de Software", feminine).roleHits, ["Ingeniera de Software"]);
+  assert.deepEqual(Discovery.termEvidence("Pedro - Contador Público", state).roleHits, [], "otro cargo no coincide");
 });
 
 Promise.all(pending).then(() => {

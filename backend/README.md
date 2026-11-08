@@ -105,3 +105,7 @@ de uso y la verificación de origen del resto de las rutas.
   el adaptador de SerpApi. Yahoo también se integra por SerpApi. Ambas llamadas
   consumen el cupo gratuito existente; no son APIs oficiales de LinkedIn, Bing
   ni Yahoo.
+
+Cuando una fuente devuelve resultados pero ningún perfil, el diagnóstico incluye `rejectedSample`: hasta cuatro
+`dominio/primer-tramo` de los enlaces descartados (nunca la URL completa). Sirve para distinguir "el buscador
+respondió con ofertas de empleo" de un fallo propio.
