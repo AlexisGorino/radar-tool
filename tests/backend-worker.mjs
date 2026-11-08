@@ -632,6 +632,70 @@ async function main() {
     }
   });
 
+  await test("adds Exa people results to LinkedIn, keeps the key server-side and works without SerpApi quota", async () => {
+    const previousFetch = globalThis.fetch;
+    const exaBodies = [];
+    let exaKey = "";
+    let serpCalls = 0;
+    globalThis.fetch = async (rawUrl, init = {}) => {
+      const url = new URL(rawUrl);
+      if (url.hostname === "api.exa.ai") {
+        exaKey = new Headers(init.headers).get("x-api-key");
+        exaBodies.push(JSON.parse(init.body));
+        return new Response(JSON.stringify({ results: [
+          { title: "Ana Perez - Backend Developer - Rosario", url: "https://www.linkedin.com/in/ana-perez", highlights: ["Java, Spring Boot. Rosario, Argentina"] },
+          { title: "Oferta de empleo", url: "https://www.linkedin.com/jobs/view/123" },
+        ] }), { status: 200 });
+      }
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      if (url.pathname.endsWith("/account.json")) return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 0, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      serpCalls += 1;
+      return new Response(JSON.stringify({ organic_results: [] }), { status: 200 });
+    };
+    try {
+      const plan = { maxResults: 30, location: "Argentina, Rosario", queries: [{ source: "linkedin", query: 'site:linkedin.com/in ("Backend Developer" OR "Software Engineer") (Java OR "Spring Boot") Rosario Argentina' }] };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(plan),
+      }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret", EXA_API_KEY: "exa-secret", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.equal(serpCalls, 0, "sin cupo de SerpApi no se consulta Google");
+      assert.equal(exaKey, "exa-secret");
+      assert.equal(exaBodies[0].category, "people");
+      assert.deepEqual(exaBodies[0].includeDomains, ["linkedin.com"]);
+      assert.equal(exaBodies[0].query, "Backend Developer Software Engineer Java Spring Boot Rosario Argentina");
+      assert.deepEqual(payload.results.map((row) => row.url), ["https://www.linkedin.com/in/ana-perez"]);
+      assert.deepEqual(payload.sourceDiagnostics[0].engines, ["Exa"]);
+      assert.deepEqual(payload.sourceErrors, []);
+      assert.ok(!JSON.stringify(payload).includes("exa-secret"));
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  await test("a failing Exa call does not hide the Google results", async () => {
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = async (rawUrl) => {
+      const url = new URL(rawUrl);
+      if (url.hostname === "api.exa.ai") return new Response("{}", { status: 429 });
+      if (url.pathname.endsWith("/account.json")) return new Response(JSON.stringify({ account_status: "Active", plan_monthly_price: 0, plan_searches_left: 250, this_hour_searches: 0, account_rate_limit_per_hour: 50 }), { status: 200 });
+      if (url.pathname.endsWith("/locations.json")) return new Response("[]", { status: 200 });
+      return new Response(JSON.stringify({ organic_results: [{ title: "QA Engineer", link: "https://linkedin.com/in/qa-google", snippet: "Playwright" }] }), { status: 200 });
+    };
+    try {
+      const plan = { maxResults: 30, location: "España, Barcelona", queries: [{ source: "linkedin", query: 'site:linkedin.com/in "QA Engineer" Barcelona Spain' }] };
+      const response = await Worker.fetch(new Request("https://radar-search.example/api/search", {
+        method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body: JSON.stringify(plan),
+      }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SERPAPI_KEY: "server-secret", EXA_API_KEY: "exa-secret", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+      const payload = await response.json();
+      assert.equal(response.status, 200);
+      assert.deepEqual(payload.results.map((row) => row.url), ["https://linkedin.com/in/qa-google"]);
+      assert.deepEqual(payload.sourceDiagnostics[0].providerErrors, [{ provider: "Exa", code: "provider_rate_limited" }]);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
   await test("fails closed without a rate-limit binding or provider secret", async () => {
     const linkedinOnlyPlan = { ...validPlan, queries: validPlan.queries.filter((entry) => entry.source === "linkedin") };
     const base = new Request("https://radar-search.example/api/search", {

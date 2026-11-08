@@ -367,6 +367,51 @@ async function lookup(query, location, source, apiKey, engineId = "google") {
   };
 }
 
+// Exa indexa perfiles de personas con búsqueda semántica: devuelve perfiles de LinkedIn aun cuando Google solo
+// responde con ofertas. Es opcional (EXA_API_KEY) y no consume el cupo de SerpApi.
+const EXA_TIMEOUT_MS = 12_000;
+const EXA_ENGINE = Object.freeze({ id: "exa", label: "Exa" });
+
+// Las consultas X-Ray llevan operadores de Google; Exa entiende mejor las palabras sueltas.
+function naturalQuery(query) {
+  return String(query || "").replace(/site:\S+/gi, " ").replace(/[()"]/g, " ").replace(/\b(?:OR|AND|NOT)\b/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
+async function lookupExa(query, location, source, apiKey) {
+  const response = await fetch("https://api.exa.ai/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+    body: JSON.stringify({
+      query: naturalQuery(query),
+      category: "people",
+      numResults: 25,
+      includeDomains: [SOURCES[source].domain],
+      ...(location.countryCode ? { userLocation: { country: location.countryCode } } : {}),
+      contents: { highlights: { maxCharacters: 500 } },
+    }),
+    signal: AbortSignal.timeout(EXA_TIMEOUT_MS),
+  });
+  if (response.status === 429) throw new Error("provider_rate_limited");
+  if (response.status === 401 || response.status === 402 || response.status === 403) throw new Error("provider_credentials_rejected");
+  if (response.status === 400) throw new Error("provider_request_rejected");
+  if (!response.ok) throw new Error("provider_unavailable");
+  const data = await response.json().catch(() => { throw new Error("provider_unavailable"); });
+  const found = Array.isArray(data.results) ? data.results : [];
+  const results = found.map((item, index) => safeResult({
+    link: item?.url,
+    title: item?.title,
+    snippet: Array.isArray(item?.highlights) ? item.highlights.join(" ") : item?.text,
+    position: index + 1,
+  }, source)).filter(Boolean);
+  return {
+    results: results.slice(0, MAX_RESULTS),
+    organicCount: found.length,
+    profileCount: results.length,
+    engine: EXA_ENGINE.label,
+    rejectedSample: rejectedLinkSample(found.map((item) => ({ link: item?.url })), source),
+  };
+}
+
 // Dominio y primer tramo de la ruta de los resultados que no son perfiles (nunca la URL completa): permite
 // explicar por qué una búsqueda con resultados no devolvió ningún perfil sin exponer datos de nadie.
 function rejectedLinkSample(organicResults, source) {
@@ -408,7 +453,7 @@ function profileHasExactLocation(result, rawLocation) {
   return hasAnyPhrase(countryNames) && (!requested.localities.length || hasAnyPhrase(localityNames));
 }
 
-async function lookupXraySource(source, queries, location, serpApiKey, providerAllowed) {
+async function lookupXraySource(source, queries, location, serpApiKey, providerAllowed, exaKey) {
   const variants = Array.isArray(queries) ? queries : [queries];
   const engines = SEARCH_ENGINES.slice(0, variants.length);
   const outcomes = providerAllowed && serpApiKey
@@ -418,6 +463,10 @@ async function lookupXraySource(source, queries, location, serpApiKey, providerA
       catch (error) { return { error, engine }; }
     }))
     : [];
+  if (exaKey && source === "linkedin") {
+    try { outcomes.push({ result: await lookupExa(variants[0], location, source, exaKey), engine: EXA_ENGINE }); }
+    catch (error) { outcomes.push({ error, engine: EXA_ENGINE }); }
+  }
   const providerErrors = [];
   outcomes.filter((outcome) => outcome.error).forEach(({ error, engine }) => {
     providerErrors.push({ provider: engine.label, code: safeProviderErrorCode(error) });
@@ -790,14 +839,15 @@ export default {
       const budget = env.SERPAPI_KEY
         ? await freeSearchCapacity(env.SERPAPI_KEY, MAX_LINKEDIN_VARIANTS)
         : { allowed: false, reason: "not_configured" };
-      const ready = budget.allowed;
+      const exaReady = Boolean(env.EXA_API_KEY);
+      const ready = budget.allowed || exaReady;
       return json({
         ready,
         error: ready ? null : budget.reason,
         usesSearchCredit: false,
         searchesPerLinkedin: MAX_LINKEDIN_VARIANTS,
-        searchesAvailable: ready ? budget.searchesAvailable : 0,
-        engines: SEARCH_ENGINES.map((engine) => engine.label),
+        searchesAvailable: budget.allowed ? budget.searchesAvailable : 0,
+        engines: [...SEARCH_ENGINES.map((engine) => engine.label), ...(exaReady ? [EXA_ENGINE.label] : [])],
       }, ready ? 200 : 503, responseOrigin);
     }
 
@@ -854,8 +904,9 @@ export default {
     } else if (xrayQueries.length) {
       xrayBudgetError = "provider_credentials_rejected";
     }
+    const exaCoversLinkedin = (entry) => Boolean(env.EXA_API_KEY) && entry.source === "linkedin";
     if (xrayQueries.length && !xraySearchAllowed) {
-      xrayQueries.forEach((entry) => sourceErrorsBeforeSearch.push({ source: entry.source, code: xrayBudgetError || "provider_credentials_rejected" }));
+      xrayQueries.filter((entry) => !exaCoversLinkedin(entry)).forEach((entry) => sourceErrorsBeforeSearch.push({ source: entry.source, code: xrayBudgetError || "provider_credentials_rejected" }));
     }
 
     // The free locations catalog validates/canonicalizes search origin once
@@ -868,11 +919,15 @@ export default {
     // spend more than what freeSearchCapacity actually approved.
     let remainingXrayBudget = plan.xraySearchCapacity?.searchesAvailable ?? MAX_LINKEDIN_VARIANTS;
     const xrayActiveEntries = [];
+    if (!xraySearchAllowed) {
+      xrayQueries.filter(exaCoversLinkedin).forEach((entry) => xrayActiveEntries.push({ ...entry, providerAllowed: false, variants: (entry.variants || [entry.query]).slice(0, 1) }));
+    }
     if (xraySearchAllowed) {
       for (const entry of xrayQueries) {
         const variants = entry.variants || [entry.query];
         if (remainingXrayBudget <= 0) {
-          sourceErrorsBeforeSearch.push({ source: entry.source, code: "provider_rate_limited" });
+          if (exaCoversLinkedin(entry)) xrayActiveEntries.push({ ...entry, providerAllowed: false, variants: variants.slice(0, 1) });
+          else sourceErrorsBeforeSearch.push({ source: entry.source, code: "provider_rate_limited" });
           continue;
         }
         const allotted = variants.slice(0, remainingXrayBudget);
@@ -888,7 +943,7 @@ export default {
       try {
         const result = entry.source === "github"
           ? await lookupGithubVariants((entry.variants || [entry.query]).slice(0, MAX_GITHUB_VARIANTS), plan.location, env.GITHUB_TOKEN, entry.profileEvidence)
-          : await lookupXraySource(entry.source, entry.variants || [entry.query], location, env.SERPAPI_KEY, entry.providerAllowed);
+          : await lookupXraySource(entry.source, entry.variants || [entry.query], location, env.SERPAPI_KEY, entry.providerAllowed, env.EXA_API_KEY);
         return { source: entry.source, elapsedMs: Date.now() - sourceStartedAt, ...result };
       } catch (error) {
         return {

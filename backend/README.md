@@ -34,6 +34,10 @@ de uso y la verificación de origen del resto de las rutas.
    desplegar desde `backend/` con `npx wrangler deploy`.
 4. Cargar la clave sin imprimirla en consola ni guardarla en Git:
    `npx wrangler secret put SERPAPI_KEY`.
+   Opcional: `EXA_API_KEY` (misma forma) suma a Exa como segundo motor de LinkedIn.
+   Exa busca personas por significado y devuelve perfiles aun cuando Google solo
+   responde con ofertas; no consume el cupo de SerpApi y, si falla o no está
+   configurada, la búsqueda sigue con los demás motores.
 5. Verificar `ALLOWED_ORIGIN` en `wrangler.toml` y cambiar el `namespace_id` de
    rate limiting por un entero libre en la cuenta Cloudflare. El Worker limita
    diez solicitudes por IP por minuto para no bloquear tan rápido a equipos que
