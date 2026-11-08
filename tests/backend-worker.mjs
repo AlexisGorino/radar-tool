@@ -768,8 +768,13 @@ async function main() {
       });
       const payload = await response.json();
       assert.equal(response.status, 200);
-      assert.deepEqual(payload.results.map((row) => row.url), ["https://github.com/qa-playwright"]);
-      assert.equal(payload.sourceDiagnostics[0].profileCount, 1);
+      // El perfil que nombra el cargo y la tecnología va primero; el otro, que solo coincide por lenguaje y
+      // ubicación, se conserva marcado como evidencia limitada.
+      assert.deepEqual(payload.results.map((row) => row.url), ["https://github.com/qa-playwright", "https://github.com/unrelated-python"]);
+      assert.equal(payload.results[0].limitedEvidence, undefined);
+      assert.equal(payload.results[1].limitedEvidence, true);
+      assert.match(payload.results[1].snippet, /^Evidencia limitada/);
+      assert.equal(payload.sourceDiagnostics[0].profileCount, 2);
     } finally {
       globalThis.fetch = previousFetch;
     }

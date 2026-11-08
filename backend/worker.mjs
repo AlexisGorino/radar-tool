@@ -30,6 +30,8 @@ const MAX_ASK_QUESTION_CHARS = 300;
 const MAX_ASK_CONTEXT_CHARS = 3_000;
 const MAX_ASK_ANSWER_CHARS = 1_500;
 const MAX_GITHUB_PROFILES = 10;
+const MAX_GITHUB_LIMITED = 5;
+const GITHUB_LIMITED_EVIDENCE_NOTE = "Evidencia limitada: coincide por lenguaje y ubicación";
 const LOCATION_LOOKUP_TIMEOUT_MS = 4_000;
 const SEARCH_TIMEOUT_MS = 30_000;
 const GITHUB_TIMEOUT_MS = 8_000;
@@ -652,16 +654,21 @@ async function lookupGithubUsers(query, rawLocation, token, profileEvidence = {}
     if (!profile || !exactGithubLocation(profile.location, rawLocation)) return null;
     const bio = String(profile.bio || "");
     if (requiredSignals.some((term) => !containsProfileTerm(bio, term))) return null;
-    if (alternativeSignals.length && !alternativeSignals.some((term) => containsProfileTerm(bio, term))) return null;
-    if (roleSignals.length && !roleSignals.some((term) => containsProfileTerm(bio, term))) return null;
+    // La bio de GitHub suele estar vacía: un perfil con ubicación exacta y repositorios en el lenguaje pedido
+    // se conserva igual, pero marcado como evidencia limitada y detrás de los que sí nombran el cargo o la tecnología.
+    const bioConfirmsRole = !roleSignals.length || roleSignals.some((term) => containsProfileTerm(bio, term));
+    const bioConfirmsSkill = !alternativeSignals.length || alternativeSignals.some((term) => containsProfileTerm(bio, term));
+    const limitedEvidence = !(bioConfirmsRole && bioConfirmsSkill);
     const title = `${String(profile.name || profile.login).slice(0, 100)} - ${String(profile.bio || "GitHub").slice(0, 120)}`;
     const location = String(profile.location || "").slice(0, 180);
     const bioSnippet = bio.slice(0, 500);
     const repositories = Math.max(0, Number(profile.public_repos) || 0);
-    const snippet = [bioSnippet, location, language ? `Lenguaje de repositorios: ${language}` : "", repositories ? `${repositories} repositorios públicos` : ""].filter(Boolean).join(" · ").slice(0, 800);
-    return safeResult({ link: profile.html_url, title, snippet, position: Number(user.score) || null }, "github");
+    const snippet = [limitedEvidence ? GITHUB_LIMITED_EVIDENCE_NOTE : "", bioSnippet, location, language ? `Lenguaje de repositorios: ${language}` : "", repositories ? `${repositories} repositorios públicos` : ""].filter(Boolean).join(" · ").slice(0, 800);
+    const result = safeResult({ link: profile.html_url, title, snippet, position: Number(user.score) || null }, "github");
+    return result && limitedEvidence ? { ...result, limitedEvidence: true } : result;
   }));
-  const results = details.filter(Boolean);
+  const found = details.filter(Boolean);
+  const results = [...found.filter((item) => !item.limitedEvidence), ...found.filter((item) => item.limitedEvidence).slice(0, MAX_GITHUB_LIMITED)];
   return { results, organicCount: Math.max(0, Number(data.total_count) || data.items.length), profileCount: results.length };
 }
 
