@@ -80,6 +80,14 @@ operativa antes de habilitarse en GitHub Pages.
   el equipo sepa quién usa la herramienta y con qué frecuencia — nunca
   registra qué buscó cada persona, solo el hecho de que entró o generó un
   booleano. Ver `SECURITY.md`.
+- **Radarcito, la guía**: mascota animada (un murciélago, por la ecolocalización)
+  abajo a la derecha. Hace un recorrido corto en la primera visita, te dice qué
+  sigue en cada paso y resalta el control justo, y en «Preguntar sobre la JD»
+  responde en lenguaje de recruiter: explica términos técnicos, qué hace un
+  perfil de IT o de otra área, preguntas de entrevista, títulos equivalentes,
+  señales de alerta y cómo hunterear. Responde desde una base propia
+  (`js/radarcito-knowledge.js`) en el navegador; lo que la base no cubre solo
+  se consulta a la IA del Worker (`/api/ask`) si la persona toca el botón.
 - **Atajo de teclado**: Ctrl/Cmd + Enter arma el booleano desde cualquier campo.
 - **Ayuda integrada**: panel con la explicación del método RADAR.
 - **Reportar bug/sugerencia**: botón al pie que arma un mail precargado a

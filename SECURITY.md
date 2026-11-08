@@ -144,6 +144,21 @@ funciones se muestran como sugerencias, nunca se incorporan sin elección de la
 persona. La búsqueda queda bloqueada mientras la lectura está pendiente. Si la
 IA falla, RADAR informa el fallo y permite completar el análisis local.
 
+## Radarcito: guía y consultas
+
+Radarcito (`js/radarcito*.js`) responde en el navegador con una base de
+conocimiento propia y con lo que el extractor ya entendió de la JD; no hay red
+de por medio. Solo cuando la base no sabe, ofrece un botón «Consultar a la IA
+de RADAR» y únicamente si la persona lo toca se llama a `/api/ask` del Worker.
+Esa llamada envía la pregunta y un resumen mínimo del cargo y los conocimientos
+(nunca el texto completo de la JD), con correos y teléfonos detectables
+retirados. El Worker usa un prompt de sistema fijo que trata ese contexto como
+datos, limita la respuesta a 1.500 caracteres y comparte el límite de uso y la
+verificación de origen de las demás rutas. La interfaz inserta todo con
+`textContent`. En `localStorage` solo se guarda `radarcito-v1`: si ya se hizo el
+recorrido y si se silenciaron los avisos. La respuesta de la IA se rotula como
+tal y puede equivocarse.
+
 ## Excepción: registro de uso por nombre (`js/tracking.js`)
 
 A diferencia de las dos excepciones anteriores, ésta **no es opt-in**: es

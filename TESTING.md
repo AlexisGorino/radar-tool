@@ -37,6 +37,18 @@ node tests/search-quality-benchmark.js # precisión/recall por familia de puesto
 Worker (sin consumir créditos de búsqueda). Corre a diario desde
 `.github/workflows/production-health.yml`.
 
+## Radarcito
+
+`tests/radarcito.js` cubre el cerebro sin navegador: respuestas sobre la JD,
+conocimiento general de IT y no IT sin necesidad de JD, honestidad ante datos
+ausentes, derivación a la IA solo cuando la base no sabe, guía por paso y que
+cada paso del recorrido apunte a un control real. `cypress/e2e/radarcito.cy.js`
+recorre la mascota en un navegador real: saludo de primera visita, recorrido con
+resaltado, Escape y foco, guía a lo largo del flujo, chat y consulta a la IA
+(con la respuesta simulada y con la IA caída). Los tests del Worker cubren
+`/api/ask`: validación, redacción de datos personales, límite de longitud,
+degradación y origen.
+
 ## Cypress E2E
 
 La suite de navegador cubre el relevamiento en pantalla, los bloqueos previos a

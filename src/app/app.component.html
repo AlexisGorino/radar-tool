@@ -494,4 +494,72 @@
   <p class="footer-credit">Hecho con amor para el equipo de Mindata.</p>
   <p class="footer-rights">© <span id="footerYear"></span> Mindata. Todos los derechos reservados.</p>
 </footer>
+
+<aside class="radarcito" id="radarcito" data-state="idle" aria-label="Radarcito, tu guía de RADAR">
+  <section class="radarcito-panel hidden" id="radarcitoPanel" role="dialog" aria-modal="false" aria-labelledby="radarcitoTitle" tabindex="-1">
+    <header class="radarcito-head">
+      <div><p class="radarcito-kicker">TU GUÍA EN RADAR</p><h2 id="radarcitoTitle">Radarcito</h2></div>
+      <button class="btn-close" id="radarcitoCloseBtn" type="button" aria-label="Cerrar a Radarcito">×</button>
+    </header>
+    <div class="radarcito-tabs" role="tablist" aria-label="Qué querés hacer con Radarcito">
+      <button type="button" role="tab" id="radarcitoGuideTab" aria-selected="true" aria-controls="radarcitoGuide">Guía</button>
+      <button type="button" role="tab" id="radarcitoAskTab" aria-selected="false" aria-controls="radarcitoAsk" tabindex="-1">Preguntar sobre la JD</button>
+    </div>
+    <div class="radarcito-body" id="radarcitoGuide" role="tabpanel" aria-labelledby="radarcitoGuideTab">
+      <div class="radarcito-bubble" id="radarcitoMessage" aria-live="polite"></div>
+      <div class="radarcito-actions" id="radarcitoActions"></div>
+      <div class="radarcito-tour hidden" id="radarcitoTour">
+        <div class="radarcito-dots" aria-hidden="true"></div>
+        <p class="radarcito-count" id="radarcitoTourCount"></p>
+        <div class="radarcito-tour-nav">
+          <button class="btn btn-ghost btn-small" id="radarcitoTourPrev" type="button">Atrás</button>
+          <button class="btn btn-primary btn-small" id="radarcitoTourNext" type="button">Siguiente</button>
+          <button class="radarcito-link" id="radarcitoTourSkip" type="button">Saltar recorrido</button>
+        </div>
+      </div>
+      <div class="radarcito-foot">
+        <button class="radarcito-link" id="radarcitoTourBtn" type="button">Ver el recorrido de nuevo</button>
+        <button class="radarcito-link" id="radarcitoMuteBtn" type="button">Silenciar avisos de Radarcito</button>
+      </div>
+    </div>
+    <div class="radarcito-body hidden" id="radarcitoAsk" role="tabpanel" aria-labelledby="radarcitoAskTab">
+      <div class="radarcito-log" id="radarcitoLog" role="log" aria-live="polite" aria-label="Conversación con Radarcito" tabindex="0"></div>
+      <div class="radarcito-chips" id="radarcitoSuggestions" role="group" aria-label="Preguntas sugeridas"></div>
+      <form class="radarcito-form" id="radarcitoForm">
+        <label class="radarcito-sr" for="radarcitoQuestion">Tu pregunta sobre la JD</label>
+        <input id="radarcitoQuestion" type="text" maxlength="200" autocomplete="off" placeholder="Ej.: ¿Qué idiomas piden?">
+        <button class="btn btn-primary btn-small" type="submit">Preguntar</button>
+      </form>
+      <p class="radarcito-privacy">Respondo en tu navegador. Solo si vos lo pedís, consulto a la IA de RADAR.</p>
+    </div>
+  </section>
+  <div class="radarcito-nudge-wrap" role="status" aria-live="polite"><button class="radarcito-nudge hidden" id="radarcitoNudge" type="button"></button></div>
+  <button class="radarcito-launcher" id="radarcitoLauncher" type="button" aria-expanded="false" aria-controls="radarcitoPanel" aria-label="Abrir a Radarcito, tu guía de RADAR">
+    <svg class="radarcito-art" viewBox="0 -10 120 130" aria-hidden="true" focusable="false">
+      <g class="rc-waves" fill="none" stroke="#E71322" stroke-width="3" stroke-linecap="round">
+        <path class="rc-wave rc-wave-1" d="M51 9 Q60 2 69 9"/>
+        <path class="rc-wave rc-wave-2" d="M44 3 Q60 -9 76 3"/>
+      </g>
+      <path d="M60 36 L60 20" stroke="#2B2A29" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="60" cy="17" r="4.5" fill="#fff" stroke="#2B2A29" stroke-width="2.5"/>
+      <path class="rc-wing rc-wing-l" d="M32 64 C16 54 5 60 2 76 C9 72 13 78 17 84 C22 77 27 80 31 86 Z" fill="#B80F1B"/>
+      <path class="rc-wing rc-wing-r" d="M88 64 C104 54 115 60 118 76 C111 72 107 78 103 84 C98 77 93 80 89 86 Z" fill="#B80F1B"/>
+      <g class="rc-ear rc-ear-l"><path d="M37 46 L29 14 L55 36 Z" fill="#E71322"/><path d="M38 40 L34 24 L48 36 Z" fill="#FFB3B9"/></g>
+      <g class="rc-ear rc-ear-r"><path d="M83 46 L91 14 L65 36 Z" fill="#E71322"/><path d="M82 40 L86 24 L72 36 Z" fill="#FFB3B9"/></g>
+      <ellipse cx="50" cy="102" rx="7" ry="4.5" fill="#B80F1B"/>
+      <ellipse cx="70" cy="102" rx="7" ry="4.5" fill="#B80F1B"/>
+      <circle cx="60" cy="68" r="34" fill="#E71322"/>
+      <ellipse cx="60" cy="80" rx="19" ry="14" fill="#FFD9DC"/>
+      <circle cx="38" cy="75" r="5" fill="#FF6B76" opacity=".65"/>
+      <circle cx="82" cy="75" r="5" fill="#FF6B76" opacity=".65"/>
+      <g class="rc-eyes">
+        <ellipse cx="47" cy="62" rx="10" ry="11" fill="#fff"/>
+        <ellipse cx="73" cy="62" rx="10" ry="11" fill="#fff"/>
+        <g class="rc-pupil"><circle cx="47" cy="63" r="5.4" fill="#2B2A29"/><circle cx="49" cy="60.5" r="1.7" fill="#fff"/></g>
+        <g class="rc-pupil"><circle cx="73" cy="63" r="5.4" fill="#2B2A29"/><circle cx="75" cy="60.5" r="1.7" fill="#fff"/></g>
+      </g>
+      <path class="rc-mouth" d="M53 80 Q60 87 67 80" fill="none" stroke="#2B2A29" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  </button>
+</aside>
 </div>

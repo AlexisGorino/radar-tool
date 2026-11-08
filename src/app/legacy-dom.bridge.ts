@@ -15,7 +15,10 @@ const LEGACY_SCRIPTS = [
   'js/tracking.js',
   'js/outcome.js',
   'js/talent-discovery.js',
-  'js/app.js'
+  'js/app.js',
+  'js/radarcito-knowledge.js',
+  'js/radarcito.js',
+  'js/radarcito-ui.js'
 ] as const;
 
 @Injectable({ providedIn: 'root' })

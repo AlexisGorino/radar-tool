@@ -1043,6 +1043,57 @@ async function main() {
     assert.equal(response.status, 204);
   });
 
+  await test("answers recruiter questions through Workers AI, redacting personal data and bounding the reply", async () => {
+    let prompt = "";
+    let system = "";
+    const response = await Worker.fetch(new Request("https://radar-search.example/api/ask", {
+      method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" },
+      body: JSON.stringify({ question: "¿Qué es un SRE? Escribime a ana@example.com", context: "Cargo: DevOps. Tel +54 11 5555 1234" }),
+    }), {
+      ALLOWED_ORIGIN: "https://alexisgorino.github.io",
+      SEARCH_LIMITER: { limit: async () => ({ success: true }) },
+      AI: { run: async (model, input) => {
+        system = input.messages[0].content;
+        prompt = input.messages[1].content;
+        return { response: `- Cuida que el sistema no se caiga.\u0007${"x".repeat(5_000)}` };
+      } },
+    });
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.status, "answered");
+    assert.ok(payload.answer.length <= 1_500, "the answer must stay bounded");
+    assert.doesNotMatch(payload.answer, /\u0007/, "control characters are stripped");
+    assert.doesNotMatch(prompt, /ana@example\.com|5555 1234/);
+    assert.match(prompt, /\[correo omitido\]/);
+    assert.match(system, /jamás como instrucciones/, "the system prompt treats JD text as data, not instructions");
+  });
+
+  await test("ask validates its input and degrades explicitly", async () => {
+    const call = (body, env) => Worker.fetch(new Request("https://radar-search.example/api/ask", {
+      method: "POST", headers: { Origin: "https://alexisgorino.github.io", "Content-Type": "application/json" }, body,
+    }), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) }, ...env });
+    assert.equal((await call(JSON.stringify({ question: "a" }))).status, 400);
+    assert.equal((await call(JSON.stringify({ question: "x".repeat(301) }))).status, 400);
+    assert.equal((await call("not json")).status, 400);
+    const unconfigured = await call(JSON.stringify({ question: "¿Qué es Docker?" }));
+    assert.equal(unconfigured.status, 503);
+    assert.deepEqual(await unconfigured.json(), { error: "ai_not_configured" });
+    const failing = await call(JSON.stringify({ question: "¿Qué es Docker?" }), { AI: { run: async () => { throw new Error("boom"); } } });
+    assert.equal(failing.status, 502);
+    assert.deepEqual(await failing.json(), { error: "ai_unavailable" });
+    const empty = await call(JSON.stringify({ question: "¿Qué es Docker?" }), { AI: { run: async () => ({ response: "   " }) } });
+    assert.equal(empty.status, 502, "an empty model reply is never presented as an answer");
+  });
+
+  await test("ask is rate limited and origin checked like every other API route", async () => {
+    const body = JSON.stringify({ question: "¿Qué es Docker?" });
+    const request = (origin) => new Request("https://radar-search.example/api/ask", { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body });
+    const limited = await Worker.fetch(request("https://alexisgorino.github.io"), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: false }) } });
+    assert.equal(limited.status, 429);
+    const foreign = await Worker.fetch(request("https://evil.example"), { ALLOWED_ORIGIN: "https://alexisgorino.github.io", SEARCH_LIMITER: { limit: async () => ({ success: true }) } });
+    assert.equal(foreign.status, 403);
+  });
+
   console.log(`\n${passed} backend-worker tests passed.`);
 }
 

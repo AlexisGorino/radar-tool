@@ -12,6 +12,15 @@ teléfonos detectables y no registra ni almacena el contenido. No requiere una
 API key de Gemini ni otro secreto. El uso depende de la cuota de Workers AI de
 la cuenta.
 
+`/api/ask` responde consultas de recruiters (qué es una tecnología, qué hace un
+perfil, cómo evaluarlo o hunterearlo, de IT o de otras áreas) cuando la base
+local de Radarcito no alcanza. Recibe `{ question, context? }` (pregunta de hasta
+300 caracteres y un resumen del cargo, nunca el texto completo de la JD), quita
+correos y teléfonos detectables, usa un prompt de sistema fijo que trata el
+contexto como datos y no como instrucciones, prueba la misma cascada de modelos
+que `/api/analyze`, acota la respuesta a 1.500 caracteres y comparte el límite
+de uso y la verificación de origen del resto de las rutas.
+
 ## Configuración segura
 
 1. Crear una cuenta SerpApi y comprobar que el plan activo es el gratuito. El
